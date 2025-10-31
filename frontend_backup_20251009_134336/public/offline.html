@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>오프라인 - FC CG</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #004ea8 0%, #0066cc 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+        
+        .offline-container {
+            text-align: center;
+            padding: 2rem;
+            max-width: 500px;
+        }
+        
+        .offline-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+        }
+        
+        .offline-title {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 1rem;
+        }
+        
+        .offline-message {
+            font-size: 1.1rem;
+            margin-bottom: 2rem;
+            opacity: 0.9;
+            line-height: 1.6;
+        }
+        
+        .retry-button {
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 0 8px;
+        }
+        
+        .retry-button:hover {
+            background: rgba(255, 255, 255, 0.3);
+            border-color: rgba(255, 255, 255, 0.5);
+        }
+        
+        .offline-features {
+            margin-top: 2rem;
+            padding: 1.5rem;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            text-align: left;
+        }
+        
+        .offline-features h3 {
+            margin-bottom: 1rem;
+            font-size: 1.2rem;
+        }
+        
+        .offline-features ul {
+            list-style: none;
+        }
+        
+        .offline-features li {
+            margin-bottom: 0.5rem;
+            padding-left: 1.5rem;
+            position: relative;
+        }
+        
+        .offline-features li::before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #4ade80;
+            font-weight: bold;
+        }
+        
+        .connection-status {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            display: none;
+        }
+        
+        .connection-status.online {
+            background: rgba(34, 197, 94, 0.8);
+        }
+        
+        @media (max-width: 768px) {
+            .offline-container {
+                padding: 1rem;
+            }
+            
+            .offline-title {
+                font-size: 1.5rem;
+            }
+            
+            .offline-message {
+                font-size: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="connection-status" id="connectionStatus">
+        <span id="statusText">오프라인</span>
+    </div>
+    
+    <div class="offline-container">
+        <div class="offline-icon">📶</div>
+        <h1 class="offline-title">인터넷 연결 없음</h1>
+        <p class="offline-message">
+            현재 인터넷에 연결되어 있지 않습니다.<br>
+            일부 기능은 오프라인에서도 사용할 수 있습니다.
+        </p>
+        
+        <div>
+            <button class="retry-button" onclick="retryConnection()">
+                🔄 다시 시도
+            </button>
+            <button class="retry-button" onclick="goHome()">
+                🏠 홈으로
+            </button>
+        </div>
+        
+        <div class="offline-features">
+            <h3>오프라인에서 사용 가능한 기능:</h3>
+            <ul>
+                <li>저장된 일정 확인</li>
+                <li>캐시된 사진/동영상 보기</li>
+                <li>기본 회원 정보 확인</li>
+                <li>로컬에 저장된 설정</li>
+            </ul>
+        </div>
+    </div>
+    
+    <script>
+        // 연결 상태 모니터링
+        function updateConnectionStatus() {
+            const statusElement = document.getElementById('connectionStatus');
+            const statusText = document.getElementById('statusText');
+            
+            if (navigator.onLine) {
+                statusElement.style.display = 'block';
+                statusElement.classList.add('online');
+                statusText.textContent = '온라인';
+                
+                // 3초 후 상태 표시 숨기기
+                setTimeout(() => {
+                    statusElement.style.display = 'none';
+                }, 3000);
+                
+                // 온라인 상태가 되면 페이지 새로고침
+                setTimeout(() => {
+                    window.location.reload();
+                }, 2000);
+            } else {
+                statusElement.style.display = 'block';
+                statusElement.classList.remove('online');
+                statusText.textContent = '오프라인';
+            }
+        }
+        
+        // 연결 상태 변경 이벤트 리스너
+        window.addEventListener('online', updateConnectionStatus);
+        window.addEventListener('offline', updateConnectionStatus);
+        
+        // 다시 시도 버튼
+        function retryConnection() {
+            if (navigator.onLine) {
+                window.location.reload();
+            } else {
+                // 연결 상태 확인
+                fetch('/api/health', { method: 'HEAD' })
+                    .then(() => {
+                        window.location.reload();
+                    })
+                    .catch(() => {
+                        alert('아직 인터넷 연결이 없습니다. 연결을 확인해주세요.');
+                    });
+            }
+        }
+        
+        // 홈으로 버튼
+        function goHome() {
+            window.location.href = '/';
+        }
+        
+        // 페이지 로드 시 연결 상태 확인
+        document.addEventListener('DOMContentLoaded', () => {
+            updateConnectionStatus();
+            
+            // 주기적으로 연결 상태 확인
+            setInterval(() => {
+                if (navigator.onLine) {
+                    updateConnectionStatus();
+                }
+            }, 5000);
+        });
+        
+        // Service Worker 등록 확인
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.ready.then(registration => {
+                console.log('Service Worker 준비됨:', registration);
+            });
+        }
+    </script>
+</body>
+</html>
