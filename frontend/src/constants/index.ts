@@ -1,6 +1,6 @@
 // API 엔드포인트
 export const API_ENDPOINTS = {
-  BASE_URL: 'http://localhost:4000/api/auth',
+  BASE_URL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api/auth',
   MEMBERS: '/members',
   MEMBERS_STATS: '/members/stats',
   GAMES: '/games',
