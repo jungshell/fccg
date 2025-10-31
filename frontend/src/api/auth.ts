@@ -113,5 +113,3 @@ export const startWeeklyVote = () => request('/start-weekly-vote', { method: 'PO
 
 // ===== 기타 유틸 =====
 export const apiGet = request;
-
-르
