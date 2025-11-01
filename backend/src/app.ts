@@ -35,10 +35,39 @@ const authenticateToken = (req: any, res: any, next: any) => {
   });
 };
 
-// 미들웨어
-app.use(cors());
+// 미들웨어 - CORS 설정 개선
+const corsOptions = {
+  origin: function (origin: string | undefined, callback: Function) {
+    // 허용할 도메인 목록
+    const allowedOrigins = [
+      'http://localhost:5173',
+      'http://localhost:3000',
+      'https://fccg-inoi.vercel.app',
+      process.env.FRONTEND_URL
+    ].filter(Boolean);
+    
+    // origin이 없거나 (같은 도메인 요청) 허용 목록에 있으면 허용
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      // 개발 환경에서는 모든 origin 허용
+      if (process.env.NODE_ENV !== 'production') {
+        callback(null, true);
+      } else {
+        callback(new Error('CORS 정책에 의해 차단되었습니다.'));
+      }
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Content-Range', 'X-Content-Range']
+};
+
+app.use(cors(corsOptions));
 // app.use(express.json()); // 기존 코드 주석 처리
-app.use(bodyParser.json()); // body-parser로 대체
+app.use(bodyParser.json({ limit: '50mb' })); // body-parser로 대체, 업로드용 크기 제한 증가
+app.use(bodyParser.urlencoded({ extended: true, limit: '50mb' })); // multipart/form-data 지원
 
 // 정적 파일 서빙 (업로드된 이미지)
 app.use('/uploads', express.static('uploads'));

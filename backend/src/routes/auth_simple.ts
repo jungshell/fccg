@@ -3739,7 +3739,9 @@ router.post('/gallery/upload', authenticateToken, async (req, res) => {
         
         fs.writeFileSync(filepath, imageBuffer);
         
-        const imageUrl = `http://localhost:4000/uploads/${savedFilename}`;
+        // 환경 변수에서 백엔드 URL 가져오기 (배포 환경 대응)
+        const backendUrl = process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 4000}`;
+        const imageUrl = `${backendUrl}/uploads/${savedFilename}`;
         const { title, caption, eventType, eventDate, tags } = fields;
         
         // 이벤트 타입 정규화 (깨진 문자열 처리)

@@ -713,7 +713,14 @@ const NewCalendarV2: React.FC<CalendarProps> = ({
       const gd = value as any;
       const gameISO = gd?.date as string | undefined;
       if (!gameISO) continue;
+      
+      // 날짜 유효성 검증
       const gdDate = new Date(gameISO);
+      if (isNaN(gdDate.getTime())) {
+        console.warn('⚠️ 유효하지 않은 게임 날짜:', gameISO);
+        continue;
+      }
+      
       if (gdDate >= weekStart && gdDate <= weekEnd && gd?.confirmed) {
         weekHasConfirmed = true;
         break;
@@ -840,10 +847,15 @@ const NewCalendarV2: React.FC<CalendarProps> = ({
               
               {/* 경기 정보 표시 (8월 18-22일 더미데이터만 제외) */}
               {dayInfo.hasGame && dayInfo.gameData && 
+               dayInfo.gameData.date && // 날짜가 있는지 확인
                !(dayjs(dayInfo.date).month() === 7 && 
                  (dayjs(dayInfo.date).date() >= 18 && dayjs(dayInfo.date).date() <= 22)) && (
                 <GameInfoBox
-                  onClick={() => onGameClick(dayInfo.gameData!)}
+                  onClick={() => {
+                    if (dayInfo.gameData && dayInfo.gameData.date) {
+                      onGameClick(dayInfo.gameData);
+                    }
+                  }}
                 >
                   {/* 공휴일이 아닌 경우에만 인원수 pill 표시 */}
                   {!isHolidayDate(dayjs(dayInfo.date).format('M월 D일'), holidays) && (

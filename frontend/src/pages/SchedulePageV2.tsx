@@ -468,7 +468,20 @@ export default function SchedulePageV2() {
         
         // 게임 데이터를 달력용으로 변환
         games.forEach((game: any) => {
+          // 날짜 유효성 검증
+          if (!game.date) {
+            console.warn('⚠️ 날짜가 없는 게임 데이터 건너뜀:', game.id);
+            return;
+          }
+          
           const gameDate = new Date(game.date);
+          
+          // 유효한 날짜인지 확인
+          if (isNaN(gameDate.getTime())) {
+            console.warn('⚠️ 유효하지 않은 날짜:', game.date, '게임 ID:', game.id);
+            return;
+          }
+          
           const dateString = gameDate.toISOString().split('T')[0]; // YYYY-MM-DD 형식
           
           // 자동생성일정은 일정확정 전까지 캘린더에 표시하지 않음
