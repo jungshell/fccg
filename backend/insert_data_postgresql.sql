@@ -1,9 +1,10 @@
 -- PostgreSQL 호환 초기 데이터 삽입 스크립트
 -- Neon SQL Editor에서 이 파일 전체를 복사해서 실행하세요
+-- 로그인 비밀번호: password123
 
 -- 사용자 데이터 (이미 있으면 스킵)
 INSERT INTO "User" (id, email, password, name, role, status, "createdAt", "updatedAt") 
-VALUES (1, 'sti60val@gmail.com', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', '정성인', 'SUPER_ADMIN', 'ACTIVE', now(), now())
+VALUES (1, 'sti60val@gmail.com', '$2b$10$o6M2DGOWhkXE/gg2S2lBLO9ST9SHuNhZ053kJeLDhb0UrETuDMMOO', '정성인', 'SUPER_ADMIN', 'ACTIVE', now(), now())
 ON CONFLICT (email) DO NOTHING;
 
 -- 현재 주 투표 세션 (11월 3일-7일)
