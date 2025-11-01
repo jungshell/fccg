@@ -284,15 +284,14 @@ export default function SchedulePageV2() {
         
         // 해당 날짜가 지난주 세션의 어느 요일에 해당하는지 확인
         const weekStartDate = new Date(lastWeekResults.weekStartDate);
-        // 한국시간으로 변환하여 날짜 비교 (UTC와 로컬시간 차이 해결)
-        const weekStartDateKR = new Date(weekStartDate.toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
+        // weekStartDate를 로컬 시간으로 정규화 (UTC 오프셋 무시)
+        const weekStartLocal = new Date(weekStartDate.getFullYear(), weekStartDate.getMonth(), weekStartDate.getDate());
         
         const dayIndex = Object.entries(dayMapping).find(([, index]) => {
-          const currentDate = new Date(weekStartDateKR);
-          currentDate.setDate(weekStartDateKR.getDate() + index);
-          // 한국시간 기준으로 날짜 비교
-          const currentDateKR = new Date(currentDate.toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
-          return currentDateKR.getMonth() + 1 === month && currentDateKR.getDate() === day;
+          const currentDate = new Date(weekStartLocal);
+          currentDate.setDate(weekStartLocal.getDate() + index);
+          // 로컬 시간 기준으로 날짜 비교
+          return currentDate.getMonth() + 1 === month && currentDate.getDate() === day;
         });
         
         console.log('🔍 날짜 매핑 확인:', {
