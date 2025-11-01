@@ -2092,7 +2092,102 @@ router.get('/unified-vote-data', async (req, res) => {
       };
     });
 
-    // 6. 통계 계산
+    // 6. 이번주 월요일 계산 (한국시간 기준)
+    const now = new Date();
+    const koreaTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
+    const currentDay = koreaTime.getDay();
+    
+    let daysUntilMonday;
+    if (currentDay === 0) {
+      daysUntilMonday = -6;
+    } else if (currentDay === 1) {
+      daysUntilMonday = 0;
+    } else {
+      daysUntilMonday = 1 - currentDay;
+    }
+    
+    const thisWeekMonday = new Date(koreaTime);
+    thisWeekMonday.setDate(koreaTime.getDate() + daysUntilMonday);
+    thisWeekMonday.setHours(0, 0, 0, 0);
+    
+    const thisWeekFriday = new Date(thisWeekMonday);
+    thisWeekFriday.setDate(thisWeekMonday.getDate() + 4);
+    thisWeekFriday.setHours(23, 59, 59, 999);
+    
+    // 이번주 주간에 해당하는 완료된 세션 조회
+    const lastCompletedSession = await prisma.voteSession.findFirst({
+      where: { 
+        isCompleted: true,
+        weekStartDate: {
+          gte: thisWeekMonday,
+          lte: thisWeekFriday
+        },
+        votes: {
+          some: {}
+        }
+      },
+      include: {
+        votes: {
+          include: {
+            user: {
+              select: { id: true, name: true }
+            }
+          }
+        }
+      },
+      orderBy: { weekStartDate: 'desc' }
+    });
+    
+    // 7. lastWeekResults 생성
+    let lastWeekResults = null;
+    if (lastCompletedSession) {
+      const dayVotes = {
+        MON: { count: 0, participants: [] },
+        TUE: { count: 0, participants: [] },
+        WED: { count: 0, participants: [] },
+        THU: { count: 0, participants: [] },
+        FRI: { count: 0, participants: [] }
+      };
+      
+      lastCompletedSession.votes.forEach(vote => {
+        let selectedDaysArray = vote.selectedDays;
+        if (typeof selectedDaysArray === 'string') {
+          try {
+            selectedDaysArray = JSON.parse(selectedDaysArray);
+          } catch (e) {
+            console.error('selectedDays 파싱 오류:', e);
+            selectedDaysArray = [];
+          }
+        }
+        
+        if (Array.isArray(selectedDaysArray)) {
+          selectedDaysArray.forEach((day: string) => {
+            const dayKey = day;
+            if (dayKey && dayVotes[dayKey as keyof typeof dayVotes]) {
+              dayVotes[dayKey as keyof typeof dayVotes].count++;
+              dayVotes[dayKey as keyof typeof dayVotes].participants.push({
+                userId: vote.userId,
+                userName: vote.user.name,
+                votedAt: vote.createdAt
+              });
+            }
+          });
+        }
+      });
+      
+      lastWeekResults = {
+        sessionId: lastCompletedSession.id,
+        weekStartDate: lastCompletedSession.weekStartDate,
+        startTime: lastCompletedSession.startTime,
+        endTime: lastCompletedSession.endTime,
+        isActive: lastCompletedSession.isActive,
+        isCompleted: lastCompletedSession.isCompleted,
+        totalParticipants: lastCompletedSession.votes.length,
+        results: dayVotes
+      };
+    }
+    
+    // 8. 통계 계산
     const stats = {
       totalSessions: allSessions.length,
       completedSessions: allSessions.filter(s => s.isCompleted).length,
@@ -2102,6 +2197,7 @@ router.get('/unified-vote-data', async (req, res) => {
 
     const response = {
       activeSession: processedActiveSession,
+      lastWeekResults: lastWeekResults,
       allSessions: processedSessions,
       allMembers,
       stats,
