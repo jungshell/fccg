@@ -38,6 +38,7 @@ import { FiDownload } from 'react-icons/fi';
 import { ViewIcon, AddIcon, AttachmentIcon, ArrowUpIcon } from '@chakra-ui/icons';
 import { EditIcon, DeleteIcon, CheckIcon, CloseIcon } from '@chakra-ui/icons';
 import { useAuthStore } from '../store/auth';
+import { API_ENDPOINTS } from '../constants';
 
 // 타입 정의
 interface InstagramPost {
@@ -215,7 +216,7 @@ export default function PhotoGalleryPage() {
   // 갤러리 데이터 로드 함수
   const loadGalleryData = async () => {
     try {
-      const response = await fetch('http://localhost:4000/api/auth/gallery');
+      const response = await fetch(`${API_ENDPOINTS.BASE_URL}/gallery`);
 
       if (response.ok) {
         const data = await response.json();
@@ -445,7 +446,7 @@ export default function PhotoGalleryPage() {
     if (!editingCommentText.trim()) return;
 
     try {
-      const response = await fetch(`http://localhost:4000/api/auth/gallery/${postId}/comments/${commentId}`, {
+      const response = await fetch(`${API_ENDPOINTS.BASE_URL}/gallery/${postId}/comments/${commentId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -510,7 +511,7 @@ export default function PhotoGalleryPage() {
   // 댓글 삭제
   const deleteComment = async (postId: number, commentId: number) => {
     try {
-      const response = await fetch(`http://localhost:4000/api/auth/gallery/${postId}/comments/${commentId}`, {
+      const response = await fetch(`${API_ENDPOINTS.BASE_URL}/gallery/${postId}/comments/${commentId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -693,7 +694,7 @@ export default function PhotoGalleryPage() {
       uploadData.append('eventDate', formData.eventDate);
       uploadData.append('tags', formData.tags);
 
-      const response = await fetch('http://localhost:4000/api/auth/gallery/upload', {
+      const response = await fetch(`${API_ENDPOINTS.BASE_URL}/gallery/upload`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -770,7 +771,7 @@ export default function PhotoGalleryPage() {
   // 좋아요 토글
   const toggleLike = async (postId: number) => {
     try {
-      const response = await fetch(`http://localhost:4000/api/auth/gallery/${postId}/like`, {
+      const response = await fetch(`${API_ENDPOINTS.BASE_URL}/gallery/${postId}/like`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -844,7 +845,7 @@ export default function PhotoGalleryPage() {
     if (!newComment.trim()) return;
 
     try {
-      const response = await fetch(`http://localhost:4000/api/auth/gallery/${postId}/comments`, {
+      const response = await fetch(`${API_ENDPOINTS.BASE_URL}/gallery/${postId}/comments`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -930,7 +931,7 @@ export default function PhotoGalleryPage() {
     if (!editingPost) return;
 
     try {
-      const response = await fetch(`http://localhost:4000/api/auth/gallery/${editingPost.id}`, {
+      const response = await fetch(`${API_ENDPOINTS.BASE_URL}/gallery/${editingPost.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -987,7 +988,7 @@ export default function PhotoGalleryPage() {
   // 포스트 삭제
   const deletePost = async (postId: number) => {
     try {
-      const response = await fetch(`http://localhost:4000/api/auth/gallery/${postId}`, {
+      const response = await fetch(`${API_ENDPOINTS.BASE_URL}/gallery/${postId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`

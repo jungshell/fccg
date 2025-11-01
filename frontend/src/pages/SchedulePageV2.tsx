@@ -31,6 +31,7 @@ import { useAuthStore } from '../store/auth';
 import { WarningIcon } from '@chakra-ui/icons';
 import { getUnifiedVoteDataNew } from '../api/auth';
 import { eventBus, EVENT_TYPES } from '../utils/eventBus';
+import { API_ENDPOINTS } from '../constants';
 import { EditIcon, DeleteIcon } from '@chakra-ui/icons';
 import { CalendarSkeleton, VoteSectionSkeleton } from '../components/common/SkeletonLoader';
 
@@ -449,7 +450,7 @@ export default function SchedulePageV2() {
       // 3. 게임 데이터 로드
       console.log('⚽ 게임 데이터 로딩 시작...');
       const token = localStorage.getItem('token') || localStorage.getItem('auth_token_backup') || '';
-      const gamesResponse = await fetch('http://localhost:4000/api/auth/members', {
+      const gamesResponse = await fetch(`${API_ENDPOINTS.BASE_URL}/members`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -734,7 +735,7 @@ export default function SchedulePageV2() {
     
     try {
       // API에 투표 데이터 전송
-      const response = await fetch('http://localhost:4000/api/auth/votes', {
+      const response = await fetch(`${API_ENDPOINTS.BASE_URL}/votes`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

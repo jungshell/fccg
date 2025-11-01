@@ -7,6 +7,7 @@ import Signup from '../pages/Signup';
 import Login from '../pages/Login';
 import { useNavigate, useLocation } from 'react-router-dom';
 import eventBus, { EVENT_TYPES } from '../utils/eventBus';
+import { API_ENDPOINTS } from '../constants';
 
 export default function Header() {
   const { isOpen, onOpen, onClose } = useDisclosure();
@@ -40,7 +41,7 @@ export default function Header() {
       console.log('🔄 헤더: 사용자 데이터 새로고침 시작');
       
       // 캐시를 무시하고 강제로 새로고침
-      const response = await fetch('http://localhost:4000/api/auth/profile', {
+      const response = await fetch(`${API_ENDPOINTS.BASE_URL}/profile`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,

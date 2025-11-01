@@ -8,6 +8,7 @@ import type { StatsSummary } from '../api/auth';
 import type { Member } from '../api/auth';
 import { getUnifiedVoteDataNew } from '../api/auth';
 import { eventBus, EVENT_TYPES } from '../utils/eventBus';
+import { API_ENDPOINTS } from '../constants';
 
 import YouTube from 'react-youtube';
 
@@ -227,7 +228,7 @@ export default function MainDashboard() {
     try {
       console.log('🔄 MainDashboard - 회원 데이터 로드 시작');
       
-      const response = await fetch('http://localhost:4000/api/auth/members', {
+      const response = await fetch(`${API_ENDPOINTS.BASE_URL}/members`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -269,7 +270,7 @@ export default function MainDashboard() {
       console.log('🔄 MainDashboard - 통합 투표 데이터 로드 시작');
       
       // 통합 API에서 투표 데이터 가져오기
-      const unifiedData = await fetch('http://localhost:4000/api/auth/votes/unified', {
+      const unifiedData = await fetch(`${API_ENDPOINTS.BASE_URL}/votes/unified`, {
         headers: { 
           'Authorization': `Bearer ${localStorage.getItem('token') || localStorage.getItem('auth_token_backup') || ''}` 
         }
@@ -427,7 +428,7 @@ export default function MainDashboard() {
     try {
       console.log('🔄 MainDashboard - 경기 데이터 로드 시작');
       
-      const response = await fetch('http://localhost:4000/api/auth/members', {
+      const response = await fetch(`${API_ENDPOINTS.BASE_URL}/members`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -566,7 +567,7 @@ export default function MainDashboard() {
     // 통계 데이터, 멤버 데이터, 경기 데이터, 투표 데이터를 모두 fetch
     Promise.all([
       // 통계 API 호출
-      fetch('http://localhost:4000/api/auth/members/stats')
+      fetch(`${API_ENDPOINTS.BASE_URL}/members/stats`)
         .then(res => res.json())
         .catch(() => null),
       // 멤버 데이터 가져오기

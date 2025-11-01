@@ -92,7 +92,7 @@ export const getNextWeekWeekdays = async (startDate?: Date): Promise<string[]> =
   const nextWeekStart = new Date(baseDate);
   
   // 다음 주 월요일 찾기
-  const daysUntilMonday = (8 - baseDate.getDay()) % 7;
+  let daysUntilMonday = (8 - baseDate.getDay()) % 7;
   if (daysUntilMonday === 0) daysUntilMonday = 7; // 오늘이 월요일이면 다음 주 월요일
   nextWeekStart.setDate(baseDate.getDate() + daysUntilMonday);
   

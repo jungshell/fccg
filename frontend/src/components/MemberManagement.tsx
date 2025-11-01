@@ -38,6 +38,7 @@ import {
 import { AddIcon, EditIcon, DeleteIcon, SearchIcon, ViewIcon, RepeatIcon } from '@chakra-ui/icons';
 import { updateMember, deleteMember, resetMemberPassword } from '../api/auth';
 import { useAuthStore } from '../store/auth';
+import { API_ENDPOINTS } from '../constants';
 import { eventBus, EVENT_TYPES, emitMemberAdded, emitDataRefreshNeeded, emitLoadingStart, emitLoadingEnd, emitAlert } from '../utils/eventBus';
 
 interface Member {
@@ -163,7 +164,7 @@ export default function MemberManagement({ userList, onUserListChange }: MemberM
 
         // 백엔드 API 호출
         try {
-          const response = await fetch('http://localhost:4000/api/auth/register', {
+          const response = await fetch(`${API_ENDPOINTS.BASE_URL}/register`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json'
@@ -261,7 +262,7 @@ export default function MemberManagement({ userList, onUserListChange }: MemberM
         
         // 직접 백엔드 API 호출
         try {
-          const response = await fetch(`http://localhost:4000/api/auth/members/${editingMember.id}`, {
+          const response = await fetch(`${API_ENDPOINTS.BASE_URL}/members/${editingMember.id}`, {
             method: 'PUT',
             headers: {
               'Content-Type': 'application/json',
