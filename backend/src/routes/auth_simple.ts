@@ -1104,8 +1104,8 @@ router.get('/admin/vote-sessions/results', async (req, res) => {
     const prisma = new PrismaClient();
     
     // 1. 만료된 세션 자동 비활성화 (일정투표기간이 지난 세션)
-    const now = new Date();
-    const koreaTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
+    const adminCurrentTime = new Date();
+    const adminKoreaTime = new Date(adminCurrentTime.toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
     
     // 모든 활성 세션 조회
     const activeSessions = await prisma.voteSession.findMany({
@@ -1120,7 +1120,7 @@ router.get('/admin/vote-sessions/results', async (req, res) => {
       weekEnd.setHours(23, 59, 59, 999);
       
       // 일정투표기간이 지났으면 비활성화
-      if (weekEnd < koreaTime) {
+      if (weekEnd < adminKoreaTime) {
         await prisma.voteSession.update({
           where: { id: session.id },
           data: { 
@@ -1349,8 +1349,8 @@ router.get('/votes/unified', async (req, res) => {
     });
     
     // 이번주 월요일 계산 (한국시간 기준)
-    const now = new Date();
-    const koreaTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
+    const currentTime = new Date();
+    const koreaTime = new Date(currentTime.toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
     const currentDay = koreaTime.getDay(); // 0: 일요일, 1: 월요일, ..., 6: 토요일
     
     let daysUntilMonday;
@@ -1750,13 +1750,13 @@ router.post('/vote-sessions/:id/close', authenticateToken, async (req, res) => {
     }
 
     // 세션 마감 처리 (현재 시간을 endTime으로 설정 - 순수 UTC로 저장)
-    const now = new Date();
-    const utcTime = new Date(now.getTime() - (9 * 60 * 60 * 1000)); // 한국 시간에서 9시간 빼서 순수 UTC로 저장
+    const currentTime = new Date();
+    const utcTime = new Date(currentTime.getTime() - (9 * 60 * 60 * 1000)); // 한국 시간에서 9시간 빼서 순수 UTC로 저장
     
     console.log('🔍 투표 마감 처리:', {
       sessionId,
-      currentTime: now.toISOString(),
-      currentTimeKST: new Date(now.getTime() + (9 * 60 * 60 * 1000)).toISOString(),
+      currentTime: currentTime.toISOString(),
+      currentTimeKST: new Date(currentTime.getTime() + (9 * 60 * 60 * 1000)).toISOString(),
       utcTime: utcTime.toISOString()
     });
     
@@ -2078,8 +2078,8 @@ router.get('/unified-vote-data', async (req, res) => {
     const prisma = new PrismaClient();
 
     // 만료된 세션 자동 비활성화 및 활성 세션 검증
-    const now = new Date();
-    const koreaTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
+    const unifiedCurrentTime = new Date();
+    const unifiedKoreaTime = new Date(unifiedCurrentTime.toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
     
     // 1. 만료된 세션 비활성화
     const activeSessions = await prisma.voteSession.findMany({
@@ -2092,7 +2092,7 @@ router.get('/unified-vote-data', async (req, res) => {
       weekEnd.setDate(weekStart.getDate() + 4);
       weekEnd.setHours(23, 59, 59, 999);
       
-      if (weekEnd < koreaTime) {
+      if (weekEnd < unifiedKoreaTime) {
         await prisma.voteSession.update({
           where: { id: session.id },
           data: { isActive: false, isCompleted: true }
@@ -2260,8 +2260,8 @@ router.get('/unified-vote-data', async (req, res) => {
     });
 
     // 6. 이번주 월요일 계산 (한국시간 기준)
-    const now = new Date();
-    const koreaTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
+    const currentTime = new Date();
+    const koreaTime = new Date(currentTime.toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
     const currentDay = koreaTime.getDay();
     
     let daysUntilMonday;
@@ -2392,14 +2392,14 @@ router.get('/unified-vote-data', async (req, res) => {
 router.post('/start-weekly-vote', async (req, res) => {
   try {
     // 다음주 월요일 날짜 계산 (동적으로 계산)
-    const now = new Date();
-    const nextMonday = new Date(now);
+    const currentTime = new Date();
+    const nextMonday = new Date(currentTime);
     
     // 현재 요일이 일요일(0)이면 다음 월요일로, 아니면 다음주 월요일로
-    if (now.getDay() === 0) {
-      nextMonday.setDate(now.getDate() + 1); // 일요일이면 다음날(월요일)
+    if (currentTime.getDay() === 0) {
+      nextMonday.setDate(currentTime.getDate() + 1); // 일요일이면 다음날(월요일)
     } else {
-      nextMonday.setDate(now.getDate() + (8 - now.getDay()) % 7); // 다른 요일이면 다음주 월요일
+      nextMonday.setDate(currentTime.getDate() + (8 - currentTime.getDay()) % 7); // 다른 요일이면 다음주 월요일
     }
     nextMonday.setHours(0, 1, 0, 0); // 월요일 00:01
 
@@ -2484,8 +2484,8 @@ router.post('/start-weekly-vote', async (req, res) => {
 
 // 자동 투표 세션 생성 스케줄러 (매주 월요일 00:01) - 수정: 무한 루프 방지
 const scheduleWeeklyVoteSession = () => {
-  const now = new Date();
-  const koreaTime = new Date(now.getTime() + (9 * 60 * 60 * 1000)); // UTC+9 (한국시간)
+  const currentTime = new Date();
+    const koreaTime = new Date(currentTime.getTime() + (9 * 60 * 60 * 1000)); // UTC+9 (한국시간)
   
   // 다음 월요일 00:01 계산
   const nextMonday = new Date(koreaTime);
@@ -2711,8 +2711,8 @@ router.get('/votes/unified', async (req, res) => {
     });
     
     // 이번주 월요일 계산 (한국시간 기준)
-    const now = new Date();
-    const koreaTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
+    const currentTime = new Date();
+    const koreaTime = new Date(currentTime.toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
     const currentDay = koreaTime.getDay(); // 0: 일요일, 1: 월요일, ..., 6: 토요일
     
     let daysUntilMonday;
@@ -4600,9 +4600,9 @@ router.get('/activity-analysis', authenticateToken, async (req, res) => {
     const prisma = new PrismaClient();
 
     // 현재 날짜 기준으로 이번 달 계산
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth() + 1; // 1-12
+    const currentTime = new Date();
+    const currentYear = currentTime.getFullYear();
+    const currentMonth = currentTime.getMonth() + 1; // 1-12
     const monthStart = new Date(currentYear, currentMonth - 1, 1);
     const monthEnd = new Date(currentYear, currentMonth, 0, 23, 59, 59);
 

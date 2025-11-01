@@ -608,9 +608,9 @@ app.get('/api/auth/members/stats', authenticateToken, async (req, res) => {
     });
     
     // 이번 주 경기 수
-    const now = new Date();
-    const startOfWeek = new Date(now);
-    startOfWeek.setDate(now.getDate() - now.getDay() + 1); // 월요일
+    const currentTime = new Date();
+    const startOfWeek = new Date(currentTime);
+    startOfWeek.setDate(currentTime.getDate() - currentTime.getDay() + 1); // 월요일
     const endOfWeek = new Date(startOfWeek);
     endOfWeek.setDate(startOfWeek.getDate() + 6); // 일요일
     
@@ -671,9 +671,9 @@ app.get('/api/auth/admin/member-stats', authenticateToken, async (req, res) => {
     });
     
     // 이번 주 경기 수
-    const now = new Date();
-    const startOfWeek = new Date(now);
-    startOfWeek.setDate(now.getDate() - now.getDay() + 1); // 월요일
+    const currentTime = new Date();
+    const startOfWeek = new Date(currentTime);
+    startOfWeek.setDate(currentTime.getDate() - currentTime.getDay() + 1); // 월요일
     const endOfWeek = new Date(startOfWeek);
     endOfWeek.setDate(startOfWeek.getDate() + 6); // 일요일
     
