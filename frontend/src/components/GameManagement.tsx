@@ -195,7 +195,7 @@ export default function GameManagement({ games, onGamesChange, userList, onGameD
   // 경기 목록 불러오기
   const fetchGames = async () => {
     try {
-      const token = await getValidToken();
+      const token = getValidToken();
       const response = await fetch(`${API_ENDPOINTS.BASE_URL}/members`, {
         headers: {
           'Authorization': `Bearer ${token}`
@@ -305,7 +305,7 @@ export default function GameManagement({ games, onGamesChange, userList, onGameD
   const handleDeleteGame = async (id: number | string) => {
     try {
       // 통일 유틸로 토큰 확보
-      const token = await getValidToken();
+      const token = getValidToken();
 
       // ID 형식 정리 - 최종 강력한 파싱
       let gameId: number;
@@ -602,7 +602,7 @@ export default function GameManagement({ games, onGamesChange, userList, onGameD
           console.log('🎯 자동생성 경기 수정 - 일정확정 기능 수행');
           
           // 통일 유틸로 토큰 확보
-          const token = await getValidToken();
+          const token = getValidToken();
 
           // 필수 정보 확인
           if (!formData.time || !formData.location || !formData.eventType) {
@@ -782,7 +782,7 @@ export default function GameManagement({ games, onGamesChange, userList, onGameD
         };
         
         // 통일 유틸로 토큰 확보
-        const token = await getValidToken();
+        const token = getValidToken();
 
         if (!token) {
           toast({
@@ -890,7 +890,25 @@ export default function GameManagement({ games, onGamesChange, userList, onGameD
         console.log('🔍 API 응답 상태:', response.status, response.statusText);
 
         if (!response.ok) {
-          throw new Error('경기 수정 실패');
+          if (response.status === 401) {
+            // 토큰 만료 또는 인증 실패
+            toast({
+              title: '인증 오류',
+              description: '로그인이 만료되었습니다. 다시 로그인해주세요.',
+              status: 'error',
+              duration: 3000,
+              isClosable: true,
+            });
+            // 로그아웃 처리
+            localStorage.removeItem('token');
+            localStorage.removeItem('auth_token_backup');
+            sessionStorage.removeItem('token');
+            window.location.href = '/login';
+            return;
+          }
+          const errorText = await response.text();
+          console.error('경기 수정 실패:', errorText);
+          throw new Error(`경기 수정 실패: ${response.status} ${errorText}`);
         }
 
         const result = await response.json();
@@ -950,7 +968,7 @@ export default function GameManagement({ games, onGamesChange, userList, onGameD
         };
         
         // 토큰 가져오기 (여러 위치에서 시도)
-        const token = await getValidToken();
+        const token = getValidToken();
         
         if (!token) {
           toast({

@@ -3406,7 +3406,13 @@ export default function SchedulePageV2() {
                 <Flex align="center" gap={2}>
                   <Box as="span" fontSize="md">⚽</Box>
                   <Text fontSize="sm" fontWeight="medium">
-                    유형: {selectedGameData.eventType || '자체'}
+                    유형: {(() => {
+                      const eventType = selectedGameData.eventType || '자체';
+                      // 비규격 값 정규화
+                      if (['풋살', 'FRIENDLY', 'FRIENDLY_MATCH'].includes(eventType)) return '매치';
+                      if (!['매치', '자체', '회식', '기타'].includes(eventType)) return '기타';
+                      return eventType;
+                    })()}
                   </Text>
                 </Flex>
 

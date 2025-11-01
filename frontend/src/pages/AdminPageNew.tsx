@@ -4293,7 +4293,12 @@ export default function AdminPageNew() {
                                 <div key={index} style={{ marginBottom: "15px", padding: "15px", background: "rgba(255, 255, 255, 0.1)", borderRadius: "8px" }}>
                                   {/* 첫번째줄: 경기유형 */}
                                   <div style={{ fontSize: "14px", marginBottom: "5px" }}>
-                                    🏆 {game.eventType || '자체'}
+                                    🏆 {(() => {
+                                      const eventType = game.eventType || '자체';
+                                      if (['풋살', 'FRIENDLY', 'FRIENDLY_MATCH'].includes(eventType)) return '매치';
+                                      if (!['매치', '자체', '회식', '기타'].includes(eventType)) return '기타';
+                                      return eventType;
+                                    })()}
                                   </div>
                                   {/* 두번째줄: 일시 */}
                                   <div style={{ fontSize: "14px", marginBottom: "5px" }}>
