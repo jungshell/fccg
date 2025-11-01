@@ -35,27 +35,26 @@ const authenticateToken = (req: any, res: any, next: any) => {
   });
 };
 
-// 미들웨어 - CORS 설정 개선
+// 미들웨어 - CORS 설정 (로컬 환경 기준)
 const corsOptions = {
   origin: function (origin: string | undefined, callback: Function) {
-    // 허용할 도메인 목록
+    // 로컬 개발 환경: 모든 origin 허용
+    if (process.env.NODE_ENV !== 'production') {
+      callback(null, true);
+      return;
+    }
+    
+    // 프로덕션 환경 (사용하지 않지만 안전을 위해 유지)
     const allowedOrigins = [
       'http://localhost:5173',
       'http://localhost:3000',
-      'https://fccg-inoi.vercel.app',
       process.env.FRONTEND_URL
     ].filter(Boolean);
     
-    // origin이 없거나 (같은 도메인 요청) 허용 목록에 있으면 허용
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      // 개발 환경에서는 모든 origin 허용
-      if (process.env.NODE_ENV !== 'production') {
-        callback(null, true);
-      } else {
-        callback(new Error('CORS 정책에 의해 차단되었습니다.'));
-      }
+      callback(new Error('CORS 정책에 의해 차단되었습니다.'));
     }
   },
   credentials: true,

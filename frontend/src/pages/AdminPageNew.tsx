@@ -830,7 +830,7 @@ export default function AdminPageNew() {
         const token = await getValidToken();
         console.log('🔄 프론트엔드 게임 데이터 백엔드에서 새로고침');
         
-        const gamesResponse = await fetch('http://localhost:4000/api/auth/games', {
+        const gamesResponse = await fetch(`${API_ENDPOINTS.BASE_URL}/games`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -1068,7 +1068,7 @@ export default function AdminPageNew() {
       const token = localStorage.getItem('token');
       if (!token) return null;
 
-      const response = await fetch('http://localhost:4000/api/auth/activity-analysis', {
+      const response = await fetch(`${API_ENDPOINTS.BASE_URL}/activity-analysis`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }

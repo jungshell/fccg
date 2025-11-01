@@ -545,7 +545,7 @@ export default function MainDashboard() {
   // 멤버 데이터 가져오기 함수
   const fetchMembers = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:4000/api/auth/members');
+      const response = await fetch(`${API_ENDPOINTS.BASE_URL}/members`);
       if (response.ok) {
         const data = await response.json();
         if (data.members && Array.isArray(data.members)) {
@@ -767,7 +767,7 @@ export default function MainDashboard() {
     if (isOpen && modalIdx === 0) {
       setMembersLoading(true);
       // 직접 API 호출 (인증 토큰 포함)
-              fetch('http://localhost:4000/api/auth/members', {
+              fetch(`${API_ENDPOINTS.BASE_URL}/members`, {
                 headers: {
                   'Authorization': `Bearer ${localStorage.getItem('token')}`
                 }
