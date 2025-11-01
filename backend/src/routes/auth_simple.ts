@@ -2633,34 +2633,72 @@ router.put('/members/:id', authenticateToken, async (req, res) => {
 
 // 비밀번호 변경 API
 router.put('/change-password', authenticateToken, async (req, res) => {
+  const { PrismaClient } = require('@prisma/client');
+  const prisma = new PrismaClient();
+  
   try {
-    const { PrismaClient } = require('@prisma/client');
-    const prisma = new PrismaClient();
     const bcrypt = require('bcrypt');
     
     const { newPassword } = req.body;
-    const userId = req.user.userId;
+    const userId = req.user?.userId;
+    
+    console.log('🔐 비밀번호 변경 요청:', { userId, newPasswordLength: newPassword?.length });
+    
+    if (!userId) {
+      console.log('❌ 사용자 ID 없음');
+      await prisma.$disconnect();
+      return res.status(401).json({
+        success: false,
+        message: '인증이 필요합니다.'
+      });
+    }
     
     if (!newPassword || newPassword.length < 6) {
+      console.log('❌ 비밀번호 길이 부족:', newPassword?.length);
+      await prisma.$disconnect();
       return res.status(400).json({
         success: false,
         message: '비밀번호는 6자 이상이어야 합니다.'
       });
     }
 
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    // 기존 사용자 정보 확인
+    const currentUser = await prisma.user.findUnique({
+      where: { id: userId }
+    });
     
-    await prisma.user.update({
+    if (!currentUser) {
+      console.log('❌ 사용자 없음:', userId);
+      await prisma.$disconnect();
+      return res.status(404).json({
+        success: false,
+        message: '사용자를 찾을 수 없습니다.'
+      });
+    }
+    
+    console.log('✅ 사용자 발견:', currentUser.email, '기존 비밀번호 해시 존재:', !!currentUser.password);
+
+    // 새 비밀번호 해시 생성
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    console.log('✅ 새 비밀번호 해시 생성 완료:', hashedPassword.substring(0, 30) + '...');
+    
+    // 비밀번호 업데이트
+    const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: { password: hashedPassword }
     });
+    
+    console.log('✅ 비밀번호 변경 완료:', updatedUser.email);
 
     res.json({
       success: true,
       message: '비밀번호가 성공적으로 변경되었습니다.'
     });
+    
+    await prisma.$disconnect();
   } catch (error) {
-    console.error('비밀번호 변경 오류:', error);
+    console.error('❌ 비밀번호 변경 오류:', error);
+    await prisma.$disconnect();
     res.status(500).json({
       success: false,
       message: '비밀번호 변경 중 오류가 발생했습니다.'
