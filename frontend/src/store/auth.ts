@@ -135,9 +135,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
   logout: () => {
+    console.log('🚪 로그아웃 시작 - 모든 저장소에서 토큰 및 사용자 정보 제거');
     set({ user: null, token: null });
+    
+    // 모든 저장소에서 사용자 정보 제거
     localStorage.removeItem('user');
+    
+    // 모든 저장소에서 토큰 완전히 제거
     localStorage.removeItem('token');
+    localStorage.removeItem('auth_token_backup');
+    sessionStorage.removeItem('token');
+    
+    console.log('✅ 로그아웃 완료 - 모든 저장소 정리됨');
   },
   refreshUserData: async () => {
     const { token } = get();
