@@ -183,25 +183,44 @@ router.post('/login', async (req, res) => {
       });
     }
 
+    console.log('🔍 로그인 시도:', { email, passwordLength: password?.length });
+
     const { PrismaClient } = require('@prisma/client');
     const prisma = new PrismaClient();
     
     // 사용자 조회
     const user = await prisma.user.findUnique({
-      where: { email }
+      where: { email: email.toLowerCase().trim() } // 이메일 소문자 변환 및 공백 제거
     });
 
     if (!user) {
+      console.log('❌ 사용자 없음:', email);
+      await prisma.$disconnect();
       return res.status(401).json({ 
         error: '이메일 또는 비밀번호가 올바르지 않습니다.' 
       });
     }
 
+    console.log('✅ 사용자 발견:', user.email, '비밀번호 해시 존재:', !!user.password);
+
     // 비밀번호 확인 (bcrypt로 해시 비교)
     const bcrypt = require('bcrypt');
+    
+    // 비밀번호 해시가 없으면 오류
+    if (!user.password) {
+      console.log('❌ 사용자 비밀번호 해시 없음');
+      await prisma.$disconnect();
+      return res.status(401).json({ 
+        error: '비밀번호가 설정되지 않았습니다. 관리자에게 문의해주세요.' 
+      });
+    }
+    
     const isPasswordValid = await bcrypt.compare(password, user.password);
+    console.log('🔍 비밀번호 검증 결과:', isPasswordValid);
     
     if (!isPasswordValid) {
+      console.log('❌ 비밀번호 불일치');
+      await prisma.$disconnect();
       return res.status(401).json({ 
         error: '이메일 또는 비밀번호가 올바르지 않습니다.' 
       });
