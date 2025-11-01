@@ -64,10 +64,10 @@ export const register = (name: string, email: string, password: string) =>
 export const updateProfile = (data: Partial<Member>) =>
   request('/profile', { method: 'PUT', body: JSON.stringify(data) });
 
-export const changePassword = (currentPassword: string, newPassword: string) =>
+export const changePassword = (newPassword: string) =>
   request('/change-password', {
-    method: 'POST',
-    body: JSON.stringify({ currentPassword, newPassword }),
+    method: 'PUT',
+    body: JSON.stringify({ newPassword }),
   });
 
 export const getProfile = () => request('/profile');
