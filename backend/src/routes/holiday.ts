@@ -31,9 +31,10 @@ router.get('/year/:year', async (req, res) => {
       success: true,
       data: {
         year,
-        holidays,
-        count: holidays.length,
-        message: `${year}년 공휴일 ${holidays.length}개를 조회했습니다.`
+        holidays: Object.keys(holidays), // 날짜 목록
+        holidayMap: holidays, // 날짜와 이름 매핑
+        count: Object.keys(holidays).length,
+        message: `${year}년 공휴일 ${Object.keys(holidays).length}개를 조회했습니다.`
       }
     });
   } catch (error) {
@@ -61,11 +62,18 @@ router.post('/years', async (req, res) => {
     
     const holidays = await getHolidaysByYears(years);
     
+    // 모든 연도의 공휴일을 하나의 맵으로 통합
+    const mergedHolidayMap: { [date: string]: string } = {};
+    Object.values(holidays).forEach(yearMap => {
+      Object.assign(mergedHolidayMap, yearMap);
+    });
+    
     res.json({
       success: true,
       data: {
-        holidays,
-        totalCount: Object.values(holidays).reduce((sum, arr) => sum + arr.length, 0),
+        holidays, // 연도별 공휴일 맵
+        holidayMap: mergedHolidayMap, // 통합된 공휴일 맵
+        totalCount: Object.keys(mergedHolidayMap).length,
         message: `${years.length}개 연도의 공휴일을 조회했습니다.`
       }
     });

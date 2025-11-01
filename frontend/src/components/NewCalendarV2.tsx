@@ -1,17 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import styled, { keyframes, css } from 'styled-components';
 import dayjs from 'dayjs';
 import { Flex, Badge, Tooltip } from '@chakra-ui/react';
 import { useAuthStore } from '../store/auth';
+import { API_ENDPOINTS } from '../constants';
 
-// 공휴일 체크 함수
-const isHolidayDate = (dateString: string): boolean => {
-  // 현재는 하드코딩된 공휴일 체크 (나중에 API 연동으로 변경)
-  const holidays = [
-    '9월 29일', '9월 30일', '10월 3일', '10월 9일' // 추석, 개천절, 한글날
-  ];
-  
-  return holidays.some(holiday => dateString.includes(holiday));
+// 공휴일 체크 함수 (날짜 문자열에서 공휴일 확인)
+const isHolidayDate = (dateString: string, holidayMap: Record<string, string>): boolean => {
+  // YYYY-MM-DD 형식으로 변환하여 확인
+  const date = new Date(dateString);
+  const formattedDate = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  return holidayMap[formattedDate] !== undefined;
 };
 
 // 애니메이션 정의
@@ -394,8 +393,8 @@ const VoteGauge = styled.div<{ percentage: number }>`
   }
 `;
 
-// 공휴일 데이터
-const holidays: Record<string, string> = {
+// 공휴일 데이터 (기본값, API에서 가져온 데이터로 교체됨)
+const defaultHolidays: Record<string, string> = {
   '2025-01-01': '신정',
   '2025-02-09': '설날',
   '2025-02-10': '설날',
@@ -516,7 +515,69 @@ const NewCalendarV2: React.FC<CalendarProps> = ({
   unifiedVoteData
 }) => {
   const [currentDate, setCurrentDate] = useState(dayjs());
+  const [holidays, setHolidays] = useState<Record<string, string>>(defaultHolidays);
   const { user } = useAuthStore();
+  
+  // 공휴일 데이터 가져오기
+  useEffect(() => {
+    const fetchHolidays = async () => {
+      try {
+        const currentYear = currentDate.year();
+        const nextYear = currentYear + 1;
+        
+        // 올해와 내년 공휴일 조회
+        const response = await fetch(`${API_ENDPOINTS.BASE_URL.replace('/api/auth', '')}/api/holiday/years`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ years: [currentYear.toString(), nextYear.toString()] }),
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.data.holidayMap) {
+            // API 응답에서 통합된 공휴일 맵 사용
+            setHolidays(data.data.holidayMap);
+            console.log('✅ 공휴일 데이터 로드 완료:', Object.keys(data.data.holidayMap).length, '개');
+          } else if (data.success && data.data.holidays) {
+            // 연도별 공휴일 맵이 있는 경우 통합
+            const holidayMap: Record<string, string> = {};
+            Object.values(data.data.holidays).forEach((yearMap: any) => {
+              Object.assign(holidayMap, yearMap);
+            });
+            setHolidays(holidayMap);
+            console.log('✅ 공휴일 데이터 로드 완료:', Object.keys(holidayMap).length, '개');
+          }
+        }
+      } catch (error) {
+        console.error('❌ 공휴일 데이터 로드 실패:', error);
+        // 기본 공휴일 사용
+        setHolidays(defaultHolidays);
+      }
+    };
+    
+    fetchHolidays();
+  }, [currentDate.year()]);
+  
+  // 공휴일 이름 가져오기 (날짜 기준)
+  const getHolidayName = (date: string): string => {
+    const month = parseInt(date.split('-')[1]);
+    const day = parseInt(date.split('-')[2]);
+    
+    // 주요 공휴일 매핑
+    if (month === 1 && day === 1) return '신정';
+    if (month === 3 && day === 1) return '삼일절';
+    if (month === 5 && day === 5) return '어린이날';
+    if (month === 6 && day === 6) return '현충일';
+    if (month === 8 && day === 15) return '광복절';
+    if (month === 10 && day === 3) return '개천절';
+    if (month === 10 && day === 9) return '한글날';
+    if (month === 12 && day === 25) return '크리스마스';
+    
+    // 설날, 추석 등은 동적 계산 필요 (간단하게 기본값 반환)
+    return '공휴일';
+  };
   
   // 디버깅: 데이터 확인
   console.log('🔍 NewCalendarV2 - allDates:', allDates?.length || 0, '개, gameDataForCalendar:', Object.keys(gameDataForCalendar || {}).length, '개');
@@ -804,7 +865,7 @@ const NewCalendarV2: React.FC<CalendarProps> = ({
                   onClick={() => onGameClick(dayInfo.gameData!)}
                 >
                   {/* 공휴일이 아닌 경우에만 인원수 pill 표시 */}
-                  {!isHolidayDate(dayjs(dayInfo.date).format('M월 D일')) && (
+                  {!isHolidayDate(dayjs(dayInfo.date).format('M월 D일'), holidays) && (
                     <GameCountBadge>
                       ⚽ {dayInfo.gameData.count}명
                     </GameCountBadge>

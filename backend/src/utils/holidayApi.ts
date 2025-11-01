@@ -1,7 +1,7 @@
 import axios from 'axios';
 
-// 공공데이터포털 API 설정
-const PUBLIC_DATA_API_KEY = process.env.PUBLIC_DATA_API_KEY || 'your_api_key_here';
+// 공공데이터포털 API 설정 (한국천문연구원 API 인증키)
+const PUBLIC_DATA_API_KEY = process.env.PUBLIC_DATA_API_KEY || '4v4qN2Ne+KlpM2iCir09sxyTt8+iXYdBqYEBNblmrS7XZmpcJi/MZRudqjmtdMsJICva6D6vrmckjNTMz1hVgA==';
 const HOLIDAY_API_URL = 'http://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService';
 
 interface HolidayResponse {
@@ -18,8 +18,8 @@ interface HolidayResponse {
   };
 }
 
-// 특정 연도의 공휴일 조회
-export const getHolidaysByYear = async (year: string): Promise<string[]> => {
+// 특정 연도의 공휴일 조회 (날짜와 이름을 함께 반환)
+export const getHolidaysByYear = async (year: string): Promise<{ [date: string]: string }> => {
   try {
     console.log(`🗓️ ${year}년 공휴일 조회 시작`);
     
@@ -28,32 +28,59 @@ export const getHolidaysByYear = async (year: string): Promise<string[]> => {
         serviceKey: PUBLIC_DATA_API_KEY,
         solYear: year,
         _type: 'json',
-        numOfRows: 50
+        numOfRows: 100
       },
       timeout: 10000
     });
 
-    const holidays = response.data.response.body.items.item
-      .filter(item => item.isHoliday === 'Y')
-      .map(item => {
+    const holidayMap: { [date: string]: string } = {};
+    
+    // 단일 항목인 경우 배열로 변환
+    const items = response.data.response.body.items.item;
+    const itemList = Array.isArray(items) ? items : [items];
+    
+    itemList
+      .filter(item => item && item.isHoliday === 'Y')
+      .forEach(item => {
         // YYYYMMDD 형식을 YYYY-MM-DD로 변환
         const dateStr = item.locdate.toString();
-        return `${dateStr.substring(0, 4)}-${dateStr.substring(4, 6)}-${dateStr.substring(6, 8)}`;
+        const formattedDate = `${dateStr.substring(0, 4)}-${dateStr.substring(4, 6)}-${dateStr.substring(6, 8)}`;
+        holidayMap[formattedDate] = item.dateName || '공휴일';
       });
 
-    console.log(`✅ ${year}년 공휴일 ${holidays.length}개 조회 완료:`, holidays);
-    return holidays;
+    console.log(`✅ ${year}년 공휴일 ${Object.keys(holidayMap).length}개 조회 완료`);
+    return holidayMap;
   } catch (error) {
     console.error(`❌ ${year}년 공휴일 조회 실패:`, error);
     
     // API 실패 시 기본 공휴일 반환 (백업)
-    return getDefaultHolidays(year);
+    const defaultDates = getDefaultHolidays(year);
+    const defaultMap: { [date: string]: string } = {};
+    defaultDates.forEach(date => {
+      defaultMap[date] = getHolidayNameByDate(date);
+    });
+    return defaultMap;
   }
 };
 
+// 날짜로 공휴일 이름 가져오기
+const getHolidayNameByDate = (date: string): string => {
+  const [year, month, day] = date.split('-').map(Number);
+  if (month === 1 && day === 1) return '신정';
+  if (month === 3 && day === 1) return '삼일절';
+  if (month === 5 && day === 5) return '어린이날';
+  if (month === 5 && day === 15) return '부처님오신날';
+  if (month === 6 && day === 6) return '현충일';
+  if (month === 8 && day === 15) return '광복절';
+  if (month === 10 && day === 3) return '개천절';
+  if (month === 10 && day === 9) return '한글날';
+  if (month === 12 && day === 25) return '크리스마스';
+  return '공휴일';
+};
+
 // 여러 연도의 공휴일 조회
-export const getHolidaysByYears = async (years: string[]): Promise<{ [year: string]: string[] }> => {
-  const result: { [year: string]: string[] } = {};
+export const getHolidaysByYears = async (years: string[]): Promise<{ [year: string]: { [date: string]: string } }> => {
+  const result: { [year: string]: { [date: string]: string } } = {};
   
   for (const year of years) {
     result[year] = await getHolidaysByYear(year);
@@ -66,7 +93,7 @@ export const getHolidaysByYears = async (years: string[]): Promise<{ [year: stri
 export const isHoliday = async (date: string): Promise<boolean> => {
   const year = date.substring(0, 4);
   const holidays = await getHolidaysByYear(year);
-  return holidays.includes(date);
+  return holidays[date] !== undefined;
 };
 
 // 주어진 날짜 범위에서 공휴일이 아닌 평일만 필터링
