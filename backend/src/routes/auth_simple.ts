@@ -1298,10 +1298,42 @@ router.get('/votes/unified', async (req, res) => {
       orderBy: { weekStartDate: 'desc' }
     });
     
-    // 지난주 완료된 세션 조회 (투표 데이터가 있는 가장 최근 완료된 세션)
+    // 이번주 월요일 계산 (한국시간 기준)
+    const now = new Date();
+    const koreaTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
+    const currentDay = koreaTime.getDay(); // 0: 일요일, 1: 월요일, ..., 6: 토요일
+    
+    let daysUntilMonday;
+    if (currentDay === 0) { // 일요일
+      daysUntilMonday = -6; // 지난 월요일
+    } else if (currentDay === 1) { // 월요일
+      daysUntilMonday = 0; // 오늘
+    } else {
+      daysUntilMonday = 1 - currentDay; // 이번주 월요일
+    }
+    
+    const thisWeekMonday = new Date(koreaTime);
+    thisWeekMonday.setDate(koreaTime.getDate() + daysUntilMonday);
+    thisWeekMonday.setHours(0, 0, 0, 0);
+    
+    // 이번주 금요일 계산
+    const thisWeekFriday = new Date(thisWeekMonday);
+    thisWeekFriday.setDate(thisWeekMonday.getDate() + 4);
+    thisWeekFriday.setHours(23, 59, 59, 999);
+    
+    console.log('🔍 이번주 월요일 주간 범위:', {
+      thisWeekMonday: thisWeekMonday.toISOString(),
+      thisWeekFriday: thisWeekFriday.toISOString()
+    });
+    
+    // 이번주 월요일 주간에 해당하는 완료된 세션 조회
     const lastWeekSession = await prisma.voteSession.findFirst({
       where: { 
         isCompleted: true,
+        weekStartDate: {
+          gte: thisWeekMonday,
+          lte: thisWeekFriday
+        },
         votes: {
           some: {} // 투표 데이터가 있는 세션만
         }
@@ -1316,6 +1348,13 @@ router.get('/votes/unified', async (req, res) => {
         }
       },
       orderBy: { weekStartDate: 'desc' }
+    });
+    
+    console.log('🔍 이번주 주간 완료 세션:', {
+      found: !!lastWeekSession,
+      sessionId: lastWeekSession?.id,
+      weekStartDate: lastWeekSession?.weekStartDate,
+      voteCount: lastWeekSession?.votes.length
     });
     
     // 활성 세션 데이터 가공
@@ -2408,10 +2447,42 @@ router.get('/votes/unified', async (req, res) => {
       orderBy: { createdAt: 'desc' }
     });
     
-    // 지난 주 완료된 세션 조회
+    // 이번주 월요일 계산 (한국시간 기준)
+    const now = new Date();
+    const koreaTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
+    const currentDay = koreaTime.getDay(); // 0: 일요일, 1: 월요일, ..., 6: 토요일
+    
+    let daysUntilMonday;
+    if (currentDay === 0) { // 일요일
+      daysUntilMonday = -6; // 지난 월요일
+    } else if (currentDay === 1) { // 월요일
+      daysUntilMonday = 0; // 오늘
+    } else {
+      daysUntilMonday = 1 - currentDay; // 이번주 월요일
+    }
+    
+    const thisWeekMonday = new Date(koreaTime);
+    thisWeekMonday.setDate(koreaTime.getDate() + daysUntilMonday);
+    thisWeekMonday.setHours(0, 0, 0, 0);
+    
+    // 이번주 금요일 계산
+    const thisWeekFriday = new Date(thisWeekMonday);
+    thisWeekFriday.setDate(thisWeekMonday.getDate() + 4);
+    thisWeekFriday.setHours(23, 59, 59, 999);
+    
+    console.log('🔍 이번주 월요일 주간 범위:', {
+      thisWeekMonday: thisWeekMonday.toISOString(),
+      thisWeekFriday: thisWeekFriday.toISOString()
+    });
+    
+    // 이번주 월요일 주간에 해당하는 완료된 세션 조회
     const lastWeekSession = await prisma.voteSession.findFirst({
       where: { 
         isCompleted: true,
+        weekStartDate: {
+          gte: thisWeekMonday,
+          lte: thisWeekFriday
+        },
         votes: {
           some: {} // 투표 데이터가 있는 세션만
         }
@@ -2419,11 +2490,20 @@ router.get('/votes/unified', async (req, res) => {
       include: {
         votes: {
           include: {
-            voteSession: true
+            user: {
+              select: { id: true, name: true }
+            }
           }
         }
       },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { weekStartDate: 'desc' }
+    });
+    
+    console.log('🔍 이번주 주간 완료 세션:', {
+      found: !!lastWeekSession,
+      sessionId: lastWeekSession?.id,
+      weekStartDate: lastWeekSession?.weekStartDate,
+      voteCount: lastWeekSession?.votes.length
     });
     
     // 모든 세션 조회
