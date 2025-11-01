@@ -398,8 +398,8 @@ app.get('/api/auth/profile', authenticateToken, async (req: any, res) => {
     }
     
     // 주간 투표 창(월 00:01 ~ 목 17:00) 계산 - 매주 동일 규칙
-    const now = new Date();
-    const currentWeekStart = new Date(now);
+    const currentTime = new Date();
+    const currentWeekStart = new Date(currentTime);
     // getDay(): 일0 월1 ... 토6 → 이번주 월요일로 이동
     const dow = currentWeekStart.getDay();
     const deltaToMonday = dow === 0 ? -6 : (1 - dow);
@@ -411,7 +411,7 @@ app.get('/api/auth/profile', authenticateToken, async (req: any, res) => {
     currentWeekEnd.setHours(17, 0, 0, 0); // 목요일 17:00
     
     // 현재 날짜가 목요일 17:00 이후라면 다음 주 투표 창으로 확장
-    if (now > currentWeekEnd) {
+    if (currentTime > currentWeekEnd) {
       // 다음 주 월요일부터 목요일까지로 확장
       currentWeekStart.setDate(currentWeekStart.getDate() + 7);
       currentWeekEnd.setDate(currentWeekEnd.getDate() + 7);
@@ -1087,8 +1087,8 @@ cron.schedule('1 0 * * 1', async () => {
     const prisma = new PrismaClient();
     
     // 현재 시간 (한국시간 기준)
-    const now = new Date();
-    const koreaTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
+    const currentTime = new Date();
+    const koreaTime = new Date(currentTime.toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
     
     // 1. 다음주 월요일 계산 (다음주 투표 세션 생성용)
     const nextWeekMonday = new Date(koreaTime);
@@ -1122,7 +1122,7 @@ cron.schedule('1 0 * * 1', async () => {
     
     if (!existingSession) {
       // 다음주 투표 세션 생성
-      const voteSession = await prisma.voteSession.create({
+      const newVoteSession = await prisma.voteSession.create({
         data: {
           weekStartDate: nextWeekMonday,
           startTime: thisWeekMonday,
@@ -1131,7 +1131,7 @@ cron.schedule('1 0 * * 1', async () => {
           isCompleted: false
         }
       });
-      console.log('✅ 다음주 투표 세션 자동 생성 완료:', voteSession.id, '주간:', nextWeekMonday.toLocaleDateString('ko-KR'));
+          console.log('✅ 다음주 투표 세션 자동 생성 완료:', newVoteSession.id, '주간:', nextWeekMonday.toLocaleDateString('ko-KR'));
     } else {
       console.log('⚠️ 이미 해당 주간의 투표 세션이 존재합니다:', existingSession.id);
     }

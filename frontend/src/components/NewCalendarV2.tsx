@@ -560,25 +560,6 @@ const NewCalendarV2: React.FC<CalendarProps> = ({
     fetchHolidays();
   }, [currentDate.year()]);
   
-  // 공휴일 이름 가져오기 (날짜 기준)
-  const getHolidayName = (date: string): string => {
-    const month = parseInt(date.split('-')[1]);
-    const day = parseInt(date.split('-')[2]);
-    
-    // 주요 공휴일 매핑
-    if (month === 1 && day === 1) return '신정';
-    if (month === 3 && day === 1) return '삼일절';
-    if (month === 5 && day === 5) return '어린이날';
-    if (month === 6 && day === 6) return '현충일';
-    if (month === 8 && day === 15) return '광복절';
-    if (month === 10 && day === 3) return '개천절';
-    if (month === 10 && day === 9) return '한글날';
-    if (month === 12 && day === 25) return '크리스마스';
-    
-    // 설날, 추석 등은 동적 계산 필요 (간단하게 기본값 반환)
-    return '공휴일';
-  };
-  
   // 디버깅: 데이터 확인
   console.log('🔍 NewCalendarV2 - allDates:', allDates?.length || 0, '개, gameDataForCalendar:', Object.keys(gameDataForCalendar || {}).length, '개');
   console.log('🔍 투표 결과:', voteResults);
