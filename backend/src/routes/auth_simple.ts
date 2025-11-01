@@ -2689,6 +2689,20 @@ router.put('/change-password', authenticateToken, async (req, res) => {
     });
     
     console.log('✅ 비밀번호 변경 완료:', updatedUser.email);
+    
+    // 저장 확인: 실제 DB에서 다시 조회하여 검증
+    const verifyUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { password: true }
+    });
+    
+    if (verifyUser && verifyUser.password) {
+      const verifyMatch = await bcrypt.compare(newPassword, verifyUser.password);
+      console.log('🔍 저장된 비밀번호 검증 결과:', verifyMatch ? '✅ 성공' : '❌ 실패');
+      if (!verifyMatch) {
+        console.error('❌ 비밀번호 저장 후 검증 실패! 저장이 제대로 되지 않았습니다.');
+      }
+    }
 
     res.json({
       success: true,
