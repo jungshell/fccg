@@ -711,50 +711,52 @@ export default function VoteResultsPage() {
                             >
                               {session.isActive ? '진행중' : session.isCompleted ? '완료' : '대기'}
                             </Badge>
-                            {(() => {
-                              const now = new Date();
-                              const sessionWeekStart = new Date(session.weekStartDate);
-                              const daysDiff = Math.floor((sessionWeekStart.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-                              
-                              // 다음주 일정투표기간 전주(월-금)인지 확인 (0~6일 전)
-                              const isWithinVotePeriod = daysDiff >= 0 && daysDiff <= 6;
-                              
-                              // 재개버튼 표시 조건: 투표기간이 시작되기 전까지 (daysDiff > 0)
-                              const canResume = daysDiff > 0;
-                              
-                              return isWithinVotePeriod ? (
-                                <HStack spacing={2}>
-                                  {(session.isActive || canResume) && (
-                                    <Button
-                                      size="sm"
-                                      colorScheme={session.isActive ? "red" : "green"}
-                                      variant="solid"
-                                      bg={session.isActive ? "#e53e3e" : "#38a169"}
-                                      _hover={{ bg: session.isActive ? "#c53030" : "#2f855a" }}
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        toggleVoteSessionStatus(session.id);
-                                      }}
-                                    >
-                                      {session.isActive ? '투표 마감' : '투표 재개'}
-                                    </Button>
-                                  )}
-                                  {session.id !== 10 && session.id !== 11 && (
-                                    <Button
-                                      size="sm"
-                                      colorScheme="red"
-                                      variant="outline"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleDeleteVoteSession(session.id);
-                                      }}
-                                    >
-                                      삭제
-                                    </Button>
-                                  )}
-                                </HStack>
-                              ) : null;
-                            })()}
+                            {/* 진행중인 세션에만 마감/재개/삭제 버튼 표시 */}
+                            {session.isActive ? (
+                              <HStack spacing={2}>
+                                <Button
+                                  size="sm"
+                                  colorScheme="red"
+                                  variant="solid"
+                                  bg="#e53e3e"
+                                  _hover={{ bg: "#c53030" }}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    toggleVoteSessionStatus(session.id);
+                                  }}
+                                >
+                                  투표 마감
+                                </Button>
+                                {session.id !== 10 && session.id !== 11 && (
+                                  <Button
+                                    size="sm"
+                                    colorScheme="red"
+                                    variant="outline"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDeleteVoteSession(session.id);
+                                    }}
+                                  >
+                                    삭제
+                                  </Button>
+                                )}
+                              </HStack>
+                            ) : (
+                              // 완료된 세션도 삭제 버튼은 표시 (10, 11번 제외)
+                              session.id !== 10 && session.id !== 11 && (
+                                <Button
+                                  size="sm"
+                                  colorScheme="red"
+                                  variant="outline"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteVoteSession(session.id);
+                                  }}
+                                >
+                                  삭제
+                                </Button>
+                              )
+                            )}
                           </HStack>
                           {isSelected && (
                             <Text fontSize="xs" color="blue.600" fontWeight="bold">
@@ -797,53 +799,22 @@ export default function VoteResultsPage() {
                           >
                             {session.isActive ? '진행중' : session.isCompleted ? '완료' : '대기'}
                           </Badge>
-                          {(() => {
-                            // 마감/재개 버튼 표시 조건: 
-                            // 1. 진행중인 세션(isActive=true)은 항상 마감 버튼 표시
-                            // 2. 완료된 세션(isActive=false)은 재개 버튼 표시
-                            const now = new Date();
-                            const sessionWeekStart = new Date(session.weekStartDate);
-                            const daysDiff = Math.floor((sessionWeekStart.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-                            const canResume = daysDiff > 0;
-                            
-                            // 디버깅: 세션 상태 확인
-                            console.log('🔍 세션 버튼 렌더링:', {
-                              sessionId: session.id,
-                              isActive: session.isActive,
-                              isCompleted: session.isCompleted,
-                              canResume,
-                              weekStartDate: session.weekStartDate,
-                              shouldShowButton: session.isActive || canResume,
-                              buttonText: session.isActive ? '마감' : '재개'
-                            });
-                            
-                            // 진행중인 세션이거나 재개 가능한 세션에만 버튼 표시
-                            const shouldRender = session.isActive || canResume;
-                            
-                            console.log('🔍 버튼 렌더링 결정:', {
-                              sessionId: session.id,
-                              shouldRender,
-                              isActive: session.isActive,
-                              canResume,
-                              buttonText: session.isActive ? '마감' : '재개'
-                            });
-                            
-                            return shouldRender ? (
-                              <Button
-                                size="xs"
-                                colorScheme={session.isActive ? "red" : "green"}
-                                variant="solid"
-                                bg={session.isActive ? "#e53e3e" : "#38a169"}
-                                _hover={{ bg: session.isActive ? "#c53030" : "#2f855a" }}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  toggleVoteSessionStatus(session.id);
-                                }}
-                              >
-                                {session.isActive ? '마감' : '재개'}
-                              </Button>
-                            ) : null;
-                          })()}
+                          {/* 진행중인 세션에만 마감 버튼 표시 */}
+                          {session.isActive ? (
+                            <Button
+                              size="xs"
+                              colorScheme="red"
+                              variant="solid"
+                              bg="#e53e3e"
+                              _hover={{ bg: "#c53030" }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleVoteSessionStatus(session.id);
+                              }}
+                            >
+                              마감
+                            </Button>
+                          ) : null}
                         </HStack>
                         <Text fontSize="xs" color="gray.500">
                           참여자 {participantCount}명

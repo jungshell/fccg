@@ -1103,6 +1103,56 @@ router.get('/admin/vote-sessions/results', async (req, res) => {
     const { PrismaClient } = require('@prisma/client');
     const prisma = new PrismaClient();
     
+    // 1. 만료된 세션 자동 비활성화 (일정투표기간이 지난 세션)
+    const now = new Date();
+    const koreaTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
+    
+    // 모든 활성 세션 조회
+    const activeSessions = await prisma.voteSession.findMany({
+      where: { isActive: true }
+    });
+    
+    // 일정투표기간(weekStartDate+4일)이 지난 세션 비활성화
+    for (const session of activeSessions) {
+      const weekStart = new Date(session.weekStartDate);
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 4); // 금요일
+      weekEnd.setHours(23, 59, 59, 999);
+      
+      // 일정투표기간이 지났으면 비활성화
+      if (weekEnd < koreaTime) {
+        await prisma.voteSession.update({
+          where: { id: session.id },
+          data: { 
+            isActive: false,
+            isCompleted: true
+          }
+        });
+        console.log(`✅ 만료된 세션 비활성화: ${session.id} (주간: ${weekStart.toLocaleDateString('ko-KR')})`);
+      }
+    }
+    
+    // 2. 활성 세션은 무조건 1건만 유지
+    const remainingActiveSessions = await prisma.voteSession.findMany({
+      where: { isActive: true },
+      orderBy: { id: 'desc' }
+    });
+    
+    // 활성 세션이 2개 이상이면 가장 오래된 것만 남기고 나머지 비활성화
+    if (remainingActiveSessions.length > 1) {
+      const sessionsToDeactivate = remainingActiveSessions.slice(1); // 첫 번째 제외한 나머지
+      for (const session of sessionsToDeactivate) {
+        await prisma.voteSession.update({
+          where: { id: session.id },
+          data: { 
+            isActive: false,
+            isCompleted: true
+          }
+        });
+        console.log(`✅ 중복 활성 세션 비활성화: ${session.id}`);
+      }
+    }
+    
     // 전체 회원 목록 조회
     const allUsers = await prisma.user.findMany({
       select: { id: true, name: true }
@@ -2027,7 +2077,48 @@ router.get('/unified-vote-data', async (req, res) => {
     const { PrismaClient } = require('@prisma/client');
     const prisma = new PrismaClient();
 
-    // 1. 현재 세션 조회 (활성/비활성 모두 포함, 최신 세션 우선)
+    // 만료된 세션 자동 비활성화 및 활성 세션 검증
+    const now = new Date();
+    const koreaTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
+    
+    // 1. 만료된 세션 비활성화
+    const activeSessions = await prisma.voteSession.findMany({
+      where: { isActive: true }
+    });
+    
+    for (const session of activeSessions) {
+      const weekStart = new Date(session.weekStartDate);
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 4);
+      weekEnd.setHours(23, 59, 59, 999);
+      
+      if (weekEnd < koreaTime) {
+        await prisma.voteSession.update({
+          where: { id: session.id },
+          data: { isActive: false, isCompleted: true }
+        });
+        console.log(`✅ 만료된 세션 비활성화: ${session.id}`);
+      }
+    }
+    
+    // 2. 활성 세션은 무조건 1건만 유지
+    const remainingActiveSessions = await prisma.voteSession.findMany({
+      where: { isActive: true },
+      orderBy: { id: 'desc' }
+    });
+    
+    if (remainingActiveSessions.length > 1) {
+      const sessionsToDeactivate = remainingActiveSessions.slice(1);
+      for (const session of sessionsToDeactivate) {
+        await prisma.voteSession.update({
+          where: { id: session.id },
+          data: { isActive: false, isCompleted: true }
+        });
+        console.log(`✅ 중복 활성 세션 비활성화: ${session.id}`);
+      }
+    }
+
+    // 3. 현재 세션 조회 (활성/비활성 모두 포함, 최신 세션 우선)
     const activeSession = await prisma.voteSession.findFirst({
       where: { 
         OR: [
