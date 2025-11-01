@@ -1243,12 +1243,18 @@ router.get('/votes/results', async (req, res) => {
       votedAt: vote.createdAt
     }));
     
+    // weekRange 계산
+    const weekStart = new Date(session.weekStartDate);
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekEnd.getDate() + 6);
+    const weekRange = `${formatDateWithDay(weekStart)} ~ ${formatDateWithDay(weekEnd)}`;
+    
     await prisma.$disconnect();
     
     res.json({
       sessionId: session.id,
       weekStartDate: session.weekStartDate,
-      weekRange: `${formatDateWithDay(session.weekStartDate)} ~ ${formatDateWithDay(new Date(session.weekStartDate.getTime() + 6 * 24 * 60 * 60 * 1000))}`,
+      weekRange: weekRange,
       isActive: session.isActive,
       isCompleted: session.isCompleted,
       results: dayVotes,
@@ -4569,5 +4575,126 @@ router.get('/profile', authenticateToken, async (req, res) => {
 
 // 서버 시작 시 스케줄러 시작
 scheduleWeeklyVoteSession();
+
+// 데이터 정규화 API (관리자 전용)
+router.post('/normalize-data', authenticateToken, async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.userId }
+    });
+    
+    if (!user || (user.role !== 'SUPER_ADMIN' && user.role !== 'ADMIN')) {
+      return res.status(403).json({ error: '관리자 권한이 필요합니다.' });
+    }
+    
+    console.log('🔄 데이터 정규화 시작...');
+    
+    // 1. 경기 유형(eventType) 정규화
+    const games = await prisma.game.findMany();
+    let updatedCount = 0;
+    
+    for (const game of games) {
+      let newEventType = game.eventType;
+      let newGameType = game.gameType;
+      let shouldUpdate = false;
+      
+      // 비규격 eventType 정규화
+      if (!game.eventType || game.eventType === '') {
+        newEventType = '자체';
+        shouldUpdate = true;
+      } else if (['풋살', 'FRIENDLY', 'FRIENDLY_MATCH', 'friendly', '풋살장'].includes(game.eventType)) {
+        newEventType = '매치';
+        shouldUpdate = true;
+      } else if (['SELF', 'self', '자체훈련'].includes(game.eventType)) {
+        newEventType = '자체';
+        shouldUpdate = true;
+      } else if (['DINNER', 'dinner', '회식모임'].includes(game.eventType)) {
+        newEventType = '회식';
+        shouldUpdate = true;
+      } else if (!['매치', '자체', '회식', '기타'].includes(game.eventType)) {
+        newEventType = '기타';
+        shouldUpdate = true;
+      }
+      
+      // gameType 정규화
+      if (newEventType === '매치' && game.gameType !== 'MATCH') {
+        newGameType = 'MATCH';
+        shouldUpdate = true;
+      } else if ((newEventType === '회식' || newEventType === '기타') && game.gameType !== 'OTHER') {
+        newGameType = 'OTHER';
+        shouldUpdate = true;
+      } else if (newEventType === '자체' && game.gameType !== 'SELF') {
+        newGameType = 'SELF';
+        shouldUpdate = true;
+      }
+      
+      if (shouldUpdate) {
+        await prisma.game.update({
+          where: { id: game.id },
+          data: {
+            eventType: newEventType,
+            gameType: newGameType
+          }
+        });
+        updatedCount++;
+        console.log(`✅ 경기 #${game.id}: "${game.eventType}" → "${newEventType}"`);
+      }
+    }
+    
+    // 2. 갤러리 eventType 정규화
+    const galleryItems = await prisma.gallery.findMany();
+    let galleryUpdatedCount = 0;
+    
+    for (const item of galleryItems) {
+      let newEventType = item.eventType;
+      
+      if (!item.eventType || item.eventType === '') {
+        newEventType = '기타';
+      } else if (['풋살', 'FRIENDLY'].includes(item.eventType)) {
+        newEventType = '매치';
+      } else if (['SELF', 'self'].includes(item.eventType)) {
+        newEventType = '자체';
+      } else if (['DINNER', 'dinner'].includes(item.eventType)) {
+        newEventType = '회식';
+      } else if (!['매치', '자체', '회식', '기타'].includes(item.eventType)) {
+        newEventType = '기타';
+      }
+      
+      if (item.eventType !== newEventType) {
+        await prisma.gallery.update({
+          where: { id: item.id },
+          data: { eventType: newEventType }
+        });
+        galleryUpdatedCount++;
+      }
+    }
+    
+    // 통계
+    const eventTypeStats = await prisma.game.groupBy({
+      by: ['eventType'],
+      _count: true
+    });
+    
+    console.log('✅ 데이터 정규화 완료');
+    
+    res.json({
+      success: true,
+      message: '데이터 정규화가 완료되었습니다.',
+      stats: {
+        gamesUpdated: updatedCount,
+        galleryUpdated: galleryUpdatedCount,
+        eventTypeDistribution: eventTypeStats
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ 데이터 정규화 오류:', error);
+    res.status(500).json({
+      success: false,
+      error: '데이터 정규화 중 오류가 발생했습니다.',
+      message: error instanceof Error ? error.message : String(error)
+    });
+  }
+});
 
 export default router;

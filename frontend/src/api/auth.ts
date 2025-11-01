@@ -89,7 +89,8 @@ export const getUnifiedVoteDataNew = () => request('/unified-vote-data');
 
 export const getAdminVoteSessionsSummary = () => request('/votes/sessions/summary');
 
-export const getSavedVoteResults = () => request('/admin/vote-sessions/results');
+export const getSavedVoteResults = (sessionId: number) => 
+  request(`/votes/results?sessionId=${sessionId}`);
 
 export const aggregateAndSaveVoteResults = (payload: any) =>
   request('/votes/aggregate/save', { method: 'POST', body: JSON.stringify(payload) });
