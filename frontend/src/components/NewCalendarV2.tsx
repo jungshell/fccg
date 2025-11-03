@@ -393,24 +393,8 @@ const VoteGauge = styled.div<{ percentage: number }>`
   }
 `;
 
-// 공휴일 데이터 (기본값, API에서 가져온 데이터로 교체됨)
-const defaultHolidays: Record<string, string> = {
-  '2025-01-01': '신정',
-  '2025-02-09': '설날',
-  '2025-02-10': '설날',
-  '2025-02-11': '설날',
-  '2025-03-01': '삼일절',
-  '2025-05-05': '어린이날',
-  '2025-05-15': '부처님오신날',
-  '2025-06-06': '현충일',
-  '2025-08-15': '광복절',
-  '2025-09-28': '추석',
-  '2025-09-29': '추석',
-  '2025-09-30': '추석',
-  '2025-10-03': '개천절',
-  '2025-10-09': '한글날',
-  '2025-12-25': '크리스마스'
-};
+// 하드코딩된 공휴일 데이터 제거 - API에서만 데이터를 가져옵니다
+// API 실패 시 빈 객체 사용
 
 interface GameData {
   id: string;
@@ -515,7 +499,7 @@ const NewCalendarV2: React.FC<CalendarProps> = ({
   unifiedVoteData
 }) => {
   const [currentDate, setCurrentDate] = useState(dayjs());
-  const [holidays, setHolidays] = useState<Record<string, string>>(defaultHolidays);
+  const [holidays, setHolidays] = useState<Record<string, string>>({}); // 빈 객체로 시작 (API에서 로드)
   const { user } = useAuthStore();
   
   // 공휴일 데이터 가져오기
@@ -552,8 +536,8 @@ const NewCalendarV2: React.FC<CalendarProps> = ({
         }
       } catch (error) {
         console.error('❌ 공휴일 데이터 로드 실패:', error);
-        // 기본 공휴일 사용
-        setHolidays(defaultHolidays);
+        // API 실패 시 빈 객체 유지 (하드코딩된 데이터 사용 안 함)
+        setHolidays({});
       }
     };
     

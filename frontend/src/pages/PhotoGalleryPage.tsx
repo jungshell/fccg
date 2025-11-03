@@ -78,99 +78,7 @@ interface Comment {
   replies?: Comment[];
 }
 
-// 초기 데이터 (임의 5개 업로드)
-const initialInstagramPosts: InstagramPost[] = [
-  {
-    id: 1001,
-    type: 'photo',
-    src: 'https://images.unsplash.com/photo-1517927033932-b3d18e61fb3a?auto=format&fit=crop&w=1200&q=80',
-    caption: '주말 매치에서 멋진 순간! ⚽️',
-    author: { id: 6, name: '정성인', avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=100&q=80' },
-    createdAt: new Date().toISOString(),
-    eventDate: new Date().toISOString().slice(0,10),
-    eventType: '매치',
-    likes: 0,
-    likedBy: [],
-    isLiked: false,
-    comments: [],
-    tags: ['매치','팀워크'],
-    location: '구장',
-    views: 0
-  },
-  {
-    id: 1002,
-    type: 'photo',
-    src: 'https://images.unsplash.com/photo-1461896836934-ffe607ba8211?auto=format&fit=crop&w=1200&q=80',
-    multiplePhotos: [
-      'https://images.unsplash.com/photo-1461896836934-ffe607ba8211?auto=format&fit=crop&w=1200&q=80',
-      'https://images.unsplash.com/photo-1502877338535-766e1452684a?auto=format&fit=crop&w=1200&q=80',
-      'https://images.unsplash.com/photo-1521417531630-0a3f1e3356d4?auto=format&fit=crop&w=1200&q=80'
-    ],
-    caption: '자체 훈련 하이라이트 🏃‍♂️',
-    author: { id: 6, name: '정성인', avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=100&q=80' },
-    createdAt: new Date(Date.now() - 86400000).toISOString(),
-    eventDate: new Date(Date.now() - 86400000).toISOString().slice(0,10),
-    eventType: '자체',
-    likes: 0,
-    likedBy: [],
-    isLiked: false,
-    comments: [],
-    tags: ['자체','훈련'],
-    location: '운동장',
-    views: 0
-  },
-  {
-    id: 1003,
-    type: 'photo',
-    src: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80',
-    caption: '회식 자리에서 한 컷 🍻',
-    author: { id: 6, name: '정성인', avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=100&q=80' },
-    createdAt: new Date(Date.now() - 2*86400000).toISOString(),
-    eventDate: new Date(Date.now() - 2*86400000).toISOString().slice(0,10),
-    eventType: '회식',
-    likes: 0,
-    likedBy: [],
-    isLiked: false,
-    comments: [],
-    tags: ['회식'],
-    location: '식당',
-    views: 0
-  },
-  {
-    id: 1004,
-    type: 'photo',
-    src: 'https://images.unsplash.com/photo-1519999482648-25049ddd37b1?auto=format&fit=crop&w=1200&q=80',
-    caption: '전술 미팅 중 📋',
-    author: { id: 6, name: '정성인', avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=100&q=80' },
-    createdAt: new Date(Date.now() - 3*86400000).toISOString(),
-    eventDate: new Date(Date.now() - 3*86400000).toISOString().slice(0,10),
-    eventType: '기타',
-    likes: 0,
-    likedBy: [],
-    isLiked: false,
-    comments: [],
-    tags: ['회의'],
-    location: '클럽하우스',
-    views: 0
-  },
-  {
-    id: 1005,
-    type: 'photo',
-    src: 'https://images.unsplash.com/photo-1460353581641-37baddab0fa2?auto=format&fit=crop&w=1200&q=80',
-    caption: '매치데이 준비 완료! 🔵',
-    author: { id: 6, name: '정성인', avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=100&q=80' },
-    createdAt: new Date(Date.now() - 4*86400000).toISOString(),
-    eventDate: new Date(Date.now() - 4*86400000).toISOString().slice(0,10),
-    eventType: '매치',
-    likes: 0,
-    likedBy: [],
-    isLiked: false,
-    comments: [],
-    tags: ['매치'],
-    location: '구장',
-    views: 0
-  }
-];
+// 하드코딩된 더미 데이터 제거 - 실제 API에서만 데이터를 가져옵니다
 
 export default function PhotoGalleryPage() {
   const { user } = useAuthStore();
@@ -309,29 +217,42 @@ export default function PhotoGalleryPage() {
         // 백그라운드에서 데이터 로드
         setTimeout(async () => {
           try {
-            // 1차: 백엔드에서 실제 데이터 로드
+            // 백엔드에서 실제 데이터 로드 (우선순위 1)
             await loadGalleryData();
             
-            // 2차: localStorage 확인 (백엔드 데이터가 없을 경우)
+            // 백엔드 데이터가 없고 localStorage에 저장된 데이터가 있는 경우에만 사용 (우선순위 2)
+            // 주의: localStorage는 백엔드와 동기화되지 않을 수 있으므로, 백엔드 데이터가 있으면 항상 우선
             const stored = localStorage.getItem('instagramPosts');
-            if (stored) {
-              const parsed = JSON.parse(stored);
-              if (Array.isArray(parsed) && parsed.length > 0) {
-                setInstagramPosts(parsed);
-                console.log('✅ localStorage에서 포스트 로드:', parsed.length, '개');
-                return;
+            if (instagramPosts.length === 0 && stored) {
+              try {
+                const parsed = JSON.parse(stored);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                  setInstagramPosts(parsed);
+                  setIsInitialLoad(false);
+                  console.log('✅ localStorage에서 포스트 로드:', parsed.length, '개 (백엔드 데이터 없음)');
+                  return;
+                }
+              } catch (e) {
+                console.warn('⚠️ localStorage 데이터 파싱 실패:', e);
               }
             }
 
-            // 3차: 백업에서 로드
-            const backup = localStorage.getItem('instagramPosts_backup');
-            if (backup) {
-              const parsed = JSON.parse(backup);
-              if (Array.isArray(parsed) && parsed.length > 0) {
-                setInstagramPosts(parsed);
-                localStorage.setItem('instagramPosts', backup);
-                console.log('✅ 백업에서 포스트 복원:', parsed.length, '개');
-                return;
+            // 백업에서 로드 (우선순위 3)
+            if (instagramPosts.length === 0) {
+              const backup = localStorage.getItem('instagramPosts_backup');
+              if (backup) {
+                try {
+                  const parsed = JSON.parse(backup);
+                  if (Array.isArray(parsed) && parsed.length > 0) {
+                    setInstagramPosts(parsed);
+                    setIsInitialLoad(false);
+                    localStorage.setItem('instagramPosts', backup);
+                    console.log('✅ 백업에서 포스트 복원:', parsed.length, '개 (백엔드 데이터 없음)');
+                    return;
+                  }
+                } catch (e) {
+                  console.warn('⚠️ 백업 데이터 파싱 실패:', e);
+                }
               }
             }
           } catch (error) {
@@ -563,14 +484,13 @@ export default function PhotoGalleryPage() {
   };
 
   
-
-  // 포스트 변경 시 즉시 저장 (초기 로드 제외)
+  // 포스트 변경 시 즉시 저장 (실제 데이터가 로드된 후에만 저장)
   useEffect(() => {
-    // 초기 로드가 아닌 경우에만 저장
-    if (instagramPosts.length > 0 && instagramPosts !== initialInstagramPosts) {
+    // 초기 로드가 완료된 후 변경사항만 저장
+    if (!isInitialLoad && instagramPosts.length >= 0) {
       savePostsToStorage(instagramPosts);
     }
-  }, [instagramPosts, savePostsToStorage]);
+  }, [instagramPosts, savePostsToStorage, isInitialLoad]);
 
   // 이미지 압축 함수
   const compressImage = (file: File, maxWidth: number = 800, quality: number = 0.8): Promise<string> => {
