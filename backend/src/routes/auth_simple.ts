@@ -3781,12 +3781,22 @@ router.get('/gallery', async (req, res) => {
     // 좋아요 수와 댓글 수 추가
     // 인증된 사용자가 있으면 좋아요 여부 확인, 없으면 false
     const currentUserId = req.user?.userId || null;
-    const itemsWithCounts = galleryItems.map(item => ({
-      ...item,
-      likesCount: item.likes.length,
-      commentsCount: item.comments.length,
-      isLiked: currentUserId ? item.likes.some(like => like.userId === currentUserId) : false
-    }));
+    const itemsWithCounts = galleryItems.map(item => {
+      // imageUrl 경로 수정: /uploads/를 /uploads/gallery/로 변경
+      let fixedImageUrl = item.imageUrl;
+      if (fixedImageUrl && fixedImageUrl.includes('/uploads/') && !fixedImageUrl.includes('/uploads/gallery/')) {
+        // /uploads/파일명 형식을 /uploads/gallery/파일명으로 변경
+        fixedImageUrl = fixedImageUrl.replace('/uploads/', '/uploads/gallery/');
+      }
+      
+      return {
+        ...item,
+        imageUrl: fixedImageUrl,
+        likesCount: item.likes.length,
+        commentsCount: item.comments.length,
+        isLiked: currentUserId ? item.likes.some(like => like.userId === currentUserId) : false
+      };
+    });
 
     res.json({
       success: true,

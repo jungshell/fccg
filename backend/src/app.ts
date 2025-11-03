@@ -62,7 +62,7 @@ const corsOptions = {
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'cache-control', 'Cache-Control'],
   exposedHeaders: ['Content-Range', 'X-Content-Range']
 };
 
@@ -73,6 +73,8 @@ app.use(bodyParser.urlencoded({ extended: true, limit: '50mb' })); // multipart/
 
 // 정적 파일 서빙 (업로드된 이미지)
 app.use('/uploads', express.static('uploads'));
+// 갤러리 이미지를 위한 별도 경로
+app.use('/uploads/gallery', express.static('uploads/gallery'));
 
 // 라우트 - authRoutes 사용 (직접 구현한 API보다 먼저 등록)
 console.log('authRoutes 등록 시작');

@@ -581,7 +581,22 @@ const NewCalendarV2: React.FC<CalendarProps> = ({
   while (day.isBefore(endOfCalendar) || day.isSame(endOfCalendar, 'day')) {
     const isCurrentMonth = day.month() === currentDate.month();
     const isToday = day.isSame(dayjs(), 'day');
+    
+    // 날짜 유효성 검증
+    if (!day.isValid()) {
+      console.warn('⚠️ 유효하지 않은 날짜 객체:', day);
+      day = day.add(1, 'day');
+      continue;
+    }
+    
     const dateString = day.format('YYYY-MM-DD');
+    
+    // dateString 유효성 검증 (NaN 포함 여부 확인)
+    if (!dateString || dateString.includes('NaN') || !/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+      console.warn('⚠️ 유효하지 않은 날짜 문자열:', dateString);
+      day = day.add(1, 'day');
+      continue;
+    }
     
     // 공휴일 확인
     const isHoliday = holidays[dateString] !== undefined;
@@ -597,47 +612,45 @@ const NewCalendarV2: React.FC<CalendarProps> = ({
     let gameData = null;
     
     // gameDataForCalendar에서 경기 데이터 찾기
-    console.log(`🔍 ${dateString} 날짜에 대한 게임 데이터 검색 중...`);
-    console.log(`🔍 현재 gameDataForCalendar 키들:`, Object.keys(gameDataForCalendar || {}));
-    
     // gameDataForCalendar가 유효한지 확인
-    if (!gameDataForCalendar || typeof gameDataForCalendar !== 'object') {
-      console.warn('⚠️ gameDataForCalendar가 유효하지 않음:', gameDataForCalendar);
-    } else {
-      for (const [key, value] of Object.entries(gameDataForCalendar)) {
-        // 유효하지 않은 키(NaN 포함)는 건너뛰기
-        if (!key || typeof key !== 'string' || key.includes('NaN') || !/^\d{4}-\d{2}-\d{2}/.test(key.split('T')[0])) {
-          console.warn('⚠️ 유효하지 않은 gameDataForCalendar 키 건너뜀:', key);
-          continue;
+    if (gameDataForCalendar && typeof gameDataForCalendar === 'object' && Object.keys(gameDataForCalendar).length > 0) {
+      try {
+        for (const [key, value] of Object.entries(gameDataForCalendar)) {
+          // 키 유효성 검증
+          if (!key || typeof key !== 'string') {
+            continue;
+          }
+          
+          // NaN 포함 여부 확인
+          if (key.includes('NaN') || key === 'undefined' || key === 'null') {
+            continue;
+          }
+          
+          // 날짜 형식 검증
+          let keyDate = key;
+          if (key.includes('T')) {
+            keyDate = key.split('T')[0];
+          }
+          
+          // 날짜 형식이 유효한지 확인
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(keyDate)) {
+            continue;
+          }
+          
+          // value 유효성 검증
+          if (!value || typeof value !== 'object') {
+            continue;
+          }
+          
+          // 날짜 매칭
+          if (keyDate === dateString) {
+            hasGame = true;
+            gameData = value as GameData;
+            break;
+          }
         }
-        
-        // value가 유효한지 확인
-        if (!value || typeof value !== 'object') {
-          console.warn('⚠️ gameDataForCalendar의 값이 유효하지 않음:', key, value);
-          continue;
-        }
-      
-      let keyDate = key;
-      
-      // ISO 형식인 경우 YYYY-MM-DD로 변환
-      if (key.includes('T')) {
-        keyDate = key.split('T')[0];
-      }
-      
-      // 날짜 형식 검증
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(keyDate)) {
-        console.warn('⚠️ 유효하지 않은 날짜 형식 키 건너뜀:', keyDate);
-        continue;
-      }
-      
-      console.log(`🔍 키 비교: ${keyDate} === ${dateString} ?`, keyDate === dateString);
-      
-      if (keyDate === dateString) {
-        hasGame = true;
-        gameData = value;
-        console.log(`🔍 경기 데이터 매칭 성공: ${dateString} ↔ ${key} → ${value?.eventType || '알 수 없음'}`);
-        break;
-      }
+      } catch (error) {
+        console.warn('⚠️ gameDataForCalendar 처리 중 오류:', error);
       }
     }
     
@@ -716,37 +729,49 @@ const NewCalendarV2: React.FC<CalendarProps> = ({
 
     // 해당 주에 확정된 게임이 하나라도 있는지 검사
     let weekHasConfirmed = false;
-    if (gameDataForCalendar && typeof gameDataForCalendar === 'object') {
-      for (const [key, value] of Object.entries(gameDataForCalendar)) {
-        // 유효하지 않은 키(NaN 포함)는 건너뛰기
-        if (!key || typeof key !== 'string' || key.includes('NaN') || !/^\d{4}-\d{2}-\d{2}/.test(key.split('T')[0])) {
-          continue;
-        }
-        
-        const gd = value as any;
-        if (!gd || typeof gd !== 'object' || !gd.date) continue;
-        
-        const gameISO = gd.date as string | undefined;
-        if (!gameISO || typeof gameISO !== 'string' || gameISO.includes('NaN')) {
-          continue;
-        }
-        
-        // 날짜 유효성 검증
-        try {
-          const gdDate = new Date(gameISO);
-          if (isNaN(gdDate.getTime())) {
-            console.warn('⚠️ 유효하지 않은 게임 날짜:', gameISO);
+    if (gameDataForCalendar && typeof gameDataForCalendar === 'object' && Object.keys(gameDataForCalendar).length > 0) {
+      try {
+        for (const [key, value] of Object.entries(gameDataForCalendar)) {
+          // 키 유효성 검증
+          if (!key || typeof key !== 'string' || key.includes('NaN')) {
             continue;
           }
           
-          if (gdDate >= weekStart && gdDate <= weekEnd && gd?.confirmed) {
-            weekHasConfirmed = true;
-            break;
+          // 날짜 형식 검증
+          let keyDate = key;
+          if (key.includes('T')) {
+            keyDate = key.split('T')[0];
           }
-        } catch (error) {
-          console.warn('⚠️ 날짜 파싱 오류:', error, '게임 데이터:', gd);
-          continue;
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(keyDate)) {
+            continue;
+          }
+          
+          const gd = value as any;
+          if (!gd || typeof gd !== 'object' || !gd.date) continue;
+          
+          const gameISO = gd.date as string | undefined;
+          if (!gameISO || typeof gameISO !== 'string' || gameISO.includes('NaN')) {
+            continue;
+          }
+          
+          // 날짜 유효성 검증
+          try {
+            const gdDate = new Date(gameISO);
+            if (isNaN(gdDate.getTime())) {
+              continue;
+            }
+            
+            if (gdDate >= weekStart && gdDate <= weekEnd && gd?.confirmed) {
+              weekHasConfirmed = true;
+              break;
+            }
+          } catch (error) {
+            console.warn('⚠️ 날짜 파싱 오류:', error, '게임 데이터:', gd);
+            continue;
+          }
         }
+      } catch (error) {
+        console.warn('⚠️ weekHasConfirmed 검사 중 오류:', error);
       }
     }
 

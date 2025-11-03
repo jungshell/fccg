@@ -129,21 +129,48 @@ export default function PhotoGalleryPage() {
 
       if (response.ok) {
         const data = await response.json();
-        if (data.success) {
+        console.log('📸 갤러리 API 응답:', data);
+        
+        if (data.success && data.data && data.data.items) {
           // API 데이터를 InstagramPost 형식으로 변환
           const convertedPosts = data.data.items.map((item: any) => {
+            console.log('📸 아이템 처리:', item.id, item.imageUrl);
+            
             // imageUrl이 상대 경로인 경우 전체 URL로 변환
             let imageUrl = item.imageUrl;
-            if (imageUrl && !imageUrl.startsWith('http') && !imageUrl.startsWith('//')) {
-              // 상대 경로인 경우 백엔드 URL과 결합
-              const backendUrl = API_ENDPOINTS.BASE_URL.replace('/api/auth', '');
+            
+            // imageUrl이 없거나 유효하지 않은 경우 건너뛰기
+            if (!imageUrl || typeof imageUrl !== 'string') {
+              console.warn('⚠️ 유효하지 않은 이미지 URL:', item.id, imageUrl);
+              return null;
+            }
+            
+            // 백엔드 URL 추출
+            const baseApiUrl = API_ENDPOINTS.BASE_URL;
+            let backendUrl = '';
+            
+            // 프로덕션 환경 확인
+            if (baseApiUrl.includes('onrender.com')) {
+              backendUrl = 'https://fccgfirst.onrender.com';
+            } else if (baseApiUrl.includes('localhost') || baseApiUrl.includes('127.0.0.1')) {
+              backendUrl = baseApiUrl.replace('/api/auth', '');
+            } else {
+              // 일반적인 경우: /api/auth를 제거
+              backendUrl = baseApiUrl.replace('/api/auth', '');
+            }
+            
+            console.log('🔗 백엔드 URL:', backendUrl, '원본 imageUrl:', imageUrl);
+            
+            // 상대 경로인 경우 전체 URL로 변환
+            if (!imageUrl.startsWith('http') && !imageUrl.startsWith('//') && !imageUrl.startsWith('data:')) {
               imageUrl = imageUrl.startsWith('/') ? `${backendUrl}${imageUrl}` : `${backendUrl}/${imageUrl}`;
+              console.log('✅ 변환된 imageUrl:', imageUrl);
             }
             
             return {
             id: item.id,
             type: 'photo',
-            src: imageUrl,
+            src: imageUrl || 'https://via.placeholder.com/400x400?text=No+Image',
             caption: item.title,
             author: {
               id: item.uploader.id,
@@ -169,7 +196,7 @@ export default function PhotoGalleryPage() {
             location: '구장',
             views: 0
           };
-          });
+          }).filter((post: any) => post !== null); // null인 항목 제거
           
           setInstagramPosts(convertedPosts);
           setIsInitialLoad(false);
@@ -1097,6 +1124,14 @@ export default function PhotoGalleryPage() {
                           setSelectedPost(post);
                           setIsModalOpen(true);
                         }}
+                        onError={(e: any) => {
+                          console.error('❌ 이미지 로드 실패:', currentImage, e);
+                          e.target.style.display = 'none';
+                        }}
+                        onLoad={() => {
+                          console.log('✅ 이미지 로드 성공:', currentImage);
+                        }}
+                        fallbackSrc="https://via.placeholder.com/400x400?text=이미지를+불러올+수+없습니다"
                       />
                     </Box>
                     
@@ -1422,6 +1457,13 @@ export default function PhotoGalleryPage() {
                             [selectedPost.id]: Math.min(index, selectedPost.multiplePhotos!.length - 1)
                           }));
                         }}
+                        onError={(e: any) => {
+                          console.error('❌ 다중 이미지 로드 실패:', selectedPost.multiplePhotos?.[hoveredImageIndex[selectedPost.id] || 0], e);
+                        }}
+                        onLoad={() => {
+                          console.log('✅ 다중 이미지 로드 성공:', selectedPost.multiplePhotos?.[hoveredImageIndex[selectedPost.id] || 0]);
+                        }}
+                        fallbackSrc="https://via.placeholder.com/800x600?text=이미지를+불러올+수+없습니다"
                       />
                       
                       {/* 이미지 인디케이터 */}
@@ -1453,6 +1495,13 @@ export default function PhotoGalleryPage() {
                       bg="black"
                       cursor="zoom-in"
                       onClick={() => openPreview(selectedPost.src)}
+                      onError={(e: any) => {
+                        console.error('❌ 상세 이미지 로드 실패:', selectedPost.src, e);
+                      }}
+                      onLoad={() => {
+                        console.log('✅ 상세 이미지 로드 성공:', selectedPost.src);
+                      }}
+                      fallbackSrc="https://via.placeholder.com/800x600?text=이미지를+불러올+수+없습니다"
                     />
                   )}
                 </Box>
