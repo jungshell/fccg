@@ -616,12 +616,22 @@ const NewCalendarV2: React.FC<CalendarProps> = ({
     console.log(`🔍 ${dateString} 날짜에 대한 게임 데이터 검색 중...`);
     console.log(`🔍 현재 gameDataForCalendar 키들:`, Object.keys(gameDataForCalendar || {}));
     
-    for (const [key, value] of Object.entries(gameDataForCalendar || {})) {
-      // 유효하지 않은 키(NaN 포함)는 건너뛰기
-      if (!key || key.includes('NaN') || !/^\d{4}-\d{2}-\d{2}/.test(key.split('T')[0])) {
-        console.warn('⚠️ 유효하지 않은 gameDataForCalendar 키 건너뜀:', key);
-        continue;
-      }
+    // gameDataForCalendar가 유효한지 확인
+    if (!gameDataForCalendar || typeof gameDataForCalendar !== 'object') {
+      console.warn('⚠️ gameDataForCalendar가 유효하지 않음:', gameDataForCalendar);
+    } else {
+      for (const [key, value] of Object.entries(gameDataForCalendar)) {
+        // 유효하지 않은 키(NaN 포함)는 건너뛰기
+        if (!key || typeof key !== 'string' || key.includes('NaN') || !/^\d{4}-\d{2}-\d{2}/.test(key.split('T')[0])) {
+          console.warn('⚠️ 유효하지 않은 gameDataForCalendar 키 건너뜀:', key);
+          continue;
+        }
+        
+        // value가 유효한지 확인
+        if (!value || typeof value !== 'object') {
+          console.warn('⚠️ gameDataForCalendar의 값이 유효하지 않음:', key, value);
+          continue;
+        }
       
       let keyDate = key;
       
@@ -643,6 +653,7 @@ const NewCalendarV2: React.FC<CalendarProps> = ({
         gameData = value;
         console.log(`🔍 경기 데이터 매칭 성공: ${dateString} ↔ ${key} → ${value?.eventType || '알 수 없음'}`);
         break;
+      }
       }
     }
     
@@ -721,35 +732,37 @@ const NewCalendarV2: React.FC<CalendarProps> = ({
 
     // 해당 주에 확정된 게임이 하나라도 있는지 검사
     let weekHasConfirmed = false;
-    for (const [key, value] of Object.entries(gameDataForCalendar || {})) {
-      // 유효하지 않은 키(NaN 포함)는 건너뛰기
-      if (!key || key.includes('NaN')) {
-        continue;
-      }
-      
-      const gd = value as any;
-      if (!gd || !gd.date) continue;
-      
-      const gameISO = gd.date as string | undefined;
-      if (!gameISO || gameISO.includes('NaN')) {
-        continue;
-      }
-      
-      // 날짜 유효성 검증
-      try {
-        const gdDate = new Date(gameISO);
-        if (isNaN(gdDate.getTime())) {
-          console.warn('⚠️ 유효하지 않은 게임 날짜:', gameISO);
+    if (gameDataForCalendar && typeof gameDataForCalendar === 'object') {
+      for (const [key, value] of Object.entries(gameDataForCalendar)) {
+        // 유효하지 않은 키(NaN 포함)는 건너뛰기
+        if (!key || typeof key !== 'string' || key.includes('NaN') || !/^\d{4}-\d{2}-\d{2}/.test(key.split('T')[0])) {
           continue;
         }
         
-        if (gdDate >= weekStart && gdDate <= weekEnd && gd?.confirmed) {
-          weekHasConfirmed = true;
-          break;
+        const gd = value as any;
+        if (!gd || typeof gd !== 'object' || !gd.date) continue;
+        
+        const gameISO = gd.date as string | undefined;
+        if (!gameISO || typeof gameISO !== 'string' || gameISO.includes('NaN')) {
+          continue;
         }
-      } catch (error) {
-        console.warn('⚠️ 날짜 파싱 오류:', error, '게임 데이터:', gd);
-        continue;
+        
+        // 날짜 유효성 검증
+        try {
+          const gdDate = new Date(gameISO);
+          if (isNaN(gdDate.getTime())) {
+            console.warn('⚠️ 유효하지 않은 게임 날짜:', gameISO);
+            continue;
+          }
+          
+          if (gdDate >= weekStart && gdDate <= weekEnd && gd?.confirmed) {
+            weekHasConfirmed = true;
+            break;
+          }
+        } catch (error) {
+          console.warn('⚠️ 날짜 파싱 오류:', error, '게임 데이터:', gd);
+          continue;
+        }
       }
     }
 
