@@ -2407,6 +2407,7 @@ export default function SchedulePageV2() {
                       const voteCount = results[dayKey]?.count || 0;
                       const maxVoteCount = Math.max(...Object.values(results).map((r: any) => r.count || 0), 0);
                       const isMaxVote = voteCount === maxVoteCount && voteCount > 0;
+                      const isHoliday = isHolidayDate(dateString);
                     
                       return (
                         <Flex 
@@ -2417,13 +2418,15 @@ export default function SchedulePageV2() {
                           borderRadius="lg"
                           border={selectedDays.includes(dateString) ? "1px solid" : "none"}
                           borderColor={selectedDays.includes(dateString) ? "purple.400" : "transparent"}
-                          bg={selectedDays.includes(dateString) ? "purple.50" : "transparent"}
+                          bg={selectedDays.includes(dateString) ? "purple.50" : isHoliday ? "red.50" : "transparent"}
+                          opacity={isHoliday ? 0.7 : 1}
+                          cursor={isHoliday ? "not-allowed" : "pointer"}
                             onClick={() => {
                               // 투표 마감된 경우 선택 불가
                               if (isVoteClosed) return;
                               
                               // 공휴일 선택 불가
-                              if (isHolidayDate(dateString)) {
+                              if (isHoliday) {
                                 toast({
                                   title: '선택 불가',
                                   description: '공휴일은 선택할 수 없습니다.',
@@ -2459,31 +2462,32 @@ export default function SchedulePageV2() {
                               }
                             }}
                           _hover={{
-                            bg: selectedDays.includes(dateString) ? "purple.100" : "gray.50",
-                            transform: "translateY(-1px)",
-                            boxShadow: "sm"
+                            bg: isHoliday ? "red.50" : (selectedDays.includes(dateString) ? "purple.100" : "gray.50"),
+                            transform: isHoliday ? "none" : "translateY(-1px)",
+                            boxShadow: isHoliday ? "none" : "sm"
                           }}
                           transition="all 0.2s ease-in-out"
                           _active={{
-                            transform: "translateY(0px)",
+                            transform: isHoliday ? "none" : "translateY(0px)",
                             boxShadow: "none"
                           }}
                           _focus={{
-                            outline: "2px solid",
+                            outline: isHoliday ? "none" : "2px solid",
                             outlineColor: "purple.400",
                             outlineOffset: "2px"
                           }}
-                          tabIndex={0}
+                          tabIndex={isHoliday ? -1 : 0}
                           role="button"
                           aria-pressed={selectedDays.includes(dateString)}
-                          aria-label={`${dateString} 투표 선택`}
+                          aria-disabled={isHoliday}
+                          aria-label={isHoliday ? `${dateString} 공휴일 (선택 불가)` : `${dateString} 투표 선택`}
                         >
                           <Flex align="center" gap={{ base: 1, md: 2 }} flex="1" minW="0">
                             <Text 
                               fontSize={{ base: "xs", md: "sm" }} 
-                              fontWeight={isMaxVote ? "bold" : "normal"} 
+                              fontWeight={isMaxVote ? "bold" : (isHoliday ? "semibold" : "normal")} 
                               noOfLines={1}
-                              color={isHolidayDate(dateString) ? "red.500" : "gray.700"}
+                              color={isHoliday ? "red.500" : "gray.700"}
                             >
                               {dateString}
                             </Text>
