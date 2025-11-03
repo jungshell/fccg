@@ -1117,10 +1117,8 @@ console.log('✅ 테스트 API 등록 완료: /api/test');
 
 console.log('✅ 회원 상태 자동 체크 스케줄러 설정 완료: 매일 오전 9시');
 
-// 매주 월요일 00:01 자동 작업 스케줄러
-// 1. 다음주 투표 세션 생성
-// 2. 지난주 투표결과를 이번주 일정에 반영
-cron.schedule('1 0 * * 1', async () => {
+// 매주 월요일 00:01 자동 작업 함수 (재사용 가능)
+async function runWeeklyScheduler() {
   try {
     console.log('🔄 매주 월요일 00:01 자동 작업 시작...');
     const { PrismaClient } = require('@prisma/client');
@@ -1170,9 +1168,11 @@ cron.schedule('1 0 * * 1', async () => {
       }
     });
     
+    let newVoteSession = null;
+    
     if (!existingSession) {
       // 다음주 투표 세션 생성
-      const newVoteSession = await prisma.voteSession.create({
+      newVoteSession = await prisma.voteSession.create({
         data: {
           weekStartDate: nextWeekMonday,
           startTime: thisWeekMonday,
@@ -1184,7 +1184,8 @@ cron.schedule('1 0 * * 1', async () => {
       console.log('✅ 다음주 투표 세션 자동 생성 완료:', {
         세션ID: newVoteSession.id,
         투표기간: `${nextWeekMonday.toLocaleDateString('ko-KR')} ~ ${nextWeekFriday.toLocaleDateString('ko-KR')}`,
-        의견수렴기간: `${thisWeekMonday.toLocaleDateString('ko-KR')} 00:01 ~ ${nextWeekFriday.toLocaleDateString('ko-KR')} 17:00`
+        의견수렴기간시작: `${thisWeekMonday.toLocaleDateString('ko-KR')} 00:01`,
+        의견수렴기간마감: '관리자 투표마감 버튼 클릭 시'
       });
     } else {
       console.log('⚠️ 이미 해당 주간의 투표 세션이 존재합니다:', {
@@ -1218,6 +1219,8 @@ cron.schedule('1 0 * * 1', async () => {
       },
       orderBy: { weekStartDate: 'desc' }
     });
+    
+    let gamesCreatedCount = 0;
     
     if (lastWeekSession && lastWeekSession.votes.length > 0) {
       const weekStart = new Date(lastWeekSession.weekStartDate);
@@ -1260,6 +1263,7 @@ cron.schedule('1 0 * * 1', async () => {
       
       if (max > 0) {
         const topDays = (Object.keys(counts) as DayKey[]).filter((k) => counts[k] === max);
+        gamesCreatedCount = topDays.length;
         const dayOffset: Record<DayKey, number> = { MON: 0, TUE: 1, WED: 2, THU: 3, FRI: 4, SAT: 5, SUN: 6 };
         const creatorId = lastWeekSession.votes[0]?.userId ?? 1;
         
@@ -1290,16 +1294,70 @@ cron.schedule('1 0 * * 1', async () => {
       console.log('ℹ️ 지난주 완료된 투표 세션이 없습니다.');
     }
     
+    const result = {
+      success: true,
+      message: '자동 작업이 성공적으로 완료되었습니다.',
+      sessionCreated: !existingSession,
+      sessionId: existingSession ? existingSession.id : (newVoteSession ? newVoteSession.id : null),
+      gamesCreated: gamesCreatedCount
+    };
+    
     await prisma.$disconnect();
     console.log('✅ 매주 월요일 00:01 자동 작업 완료');
+    
+    return result;
   } catch (error) {
     console.error('❌ 매주 월요일 자동 작업 오류:', error);
+    await prisma.$disconnect().catch(() => {});
+    return {
+      success: false,
+      message: '자동 작업 중 오류가 발생했습니다.',
+      error: error instanceof Error ? error.message : String(error)
+    };
   }
+}
+
+// 매주 월요일 00:01 자동 작업 스케줄러
+cron.schedule('1 0 * * 1', async () => {
+  await runWeeklyScheduler();
 }, {
   timezone: 'Asia/Seoul'
 });
 
 console.log('✅ 매주 월요일 00:01 자동 작업 스케줄러 설정 완료');
+
+// 수동 실행 API (테스트용)
+app.post('/api/admin/run-weekly-scheduler', authenticateToken, async (req: any, res) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ error: '인증이 필요합니다.' });
+    }
+    
+    // 관리자 권한 확인
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user || (user.role !== 'ADMIN' && user.role !== 'SUPER_ADMIN')) {
+      return res.status(403).json({ error: '관리자 권한이 필요합니다.' });
+    }
+    
+    console.log('🔧 수동 실행 요청됨 - 매주 월요일 자동 작업');
+    const result = await runWeeklyScheduler();
+    
+    res.json({
+      success: result.success,
+      message: result.message,
+      timestamp: new Date().toISOString(),
+      details: result
+    });
+  } catch (error) {
+    console.error('❌ 수동 실행 오류:', error);
+    res.status(500).json({
+      success: false,
+      error: '수동 실행 중 오류가 발생했습니다.',
+      message: error instanceof Error ? error.message : String(error)
+    });
+  }
+});
 
 // 중복된 경기 수정/삭제 API 제거됨 (auth_simple 사용)
 

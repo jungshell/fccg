@@ -881,24 +881,24 @@ const NewCalendarV2: React.FC<CalendarProps> = ({
               isVoteGroupStart={isVoteGroupStart}
               isVoteGroupEnd={isVoteGroupEnd}
             >
-              <Flex justifyContent="flex-end" alignItems="center" width="100%" mb="8px" position="relative">
-                {dayInfo.hasGame && dayInfo.gameData && (
-                  <GameTypeBadge eventType={dayInfo.gameData.eventType} style={{ position: 'absolute', left: '8px', top: '8px' }}>{dayInfo.gameData.eventType}</GameTypeBadge>
-                )}
+              <Flex justifyContent="space-between" alignItems="center" width="100%" mb="8px">
                 <Flex alignItems="center" gap="4px">
+                  {dayInfo.hasGame && dayInfo.gameData && (
+                    <GameTypeBadge eventType={dayInfo.gameData.eventType}>{dayInfo.gameData.eventType}</GameTypeBadge>
+                  )}
                   {dayInfo.isHoliday && dayInfo.holidayName && (
                     <HolidayName>{dayInfo.holidayName}</HolidayName>
                   )}
-                  <DateNumber 
-                    isSunday={dayInfo.date && !isNaN(dayInfo.date.getTime()) ? dayjs(dayInfo.date).day() === 0 : false}
-                    isSaturday={dayInfo.date && !isNaN(dayInfo.date.getTime()) ? dayjs(dayInfo.date).day() === 6 : false}
-                    isHoliday={dayInfo.isHoliday}
-                    isToday={dayInfo.isToday}
-                    isCurrentMonth={dayInfo.isCurrentMonth}
-                  >
-                    {dayInfo.day}
-                  </DateNumber>
                 </Flex>
+                <DateNumber 
+                  isSunday={dayInfo.date && !isNaN(dayInfo.date.getTime()) ? dayjs(dayInfo.date).day() === 0 : false}
+                  isSaturday={dayInfo.date && !isNaN(dayInfo.date.getTime()) ? dayjs(dayInfo.date).day() === 6 : false}
+                  isHoliday={dayInfo.isHoliday}
+                  isToday={dayInfo.isToday}
+                  isCurrentMonth={dayInfo.isCurrentMonth}
+                >
+                  {dayInfo.day}
+                </DateNumber>
               </Flex>
               
               {/* 경기 정보 표시 (8월 18-22일 더미데이터만 제외) */}
