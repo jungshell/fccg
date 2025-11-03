@@ -1317,14 +1317,14 @@ async function runWeeklyScheduler() {
   }
 }
 
-// 매주 월요일 00:01 자동 작업 스케줄러
-cron.schedule('1 0 * * 1', async () => {
+// 매주 월요일 14:00 자동 작업 스케줄러 (임시로 14시로 변경)
+cron.schedule('0 14 * * 1', async () => {
   await runWeeklyScheduler();
 }, {
   timezone: 'Asia/Seoul'
 });
 
-console.log('✅ 매주 월요일 00:01 자동 작업 스케줄러 설정 완료');
+console.log('✅ 매주 월요일 14:00 자동 작업 스케줄러 설정 완료');
 
 // 수동 실행 API (테스트용)
 app.post('/api/admin/run-weekly-scheduler', authenticateToken, async (req: any, res) => {
