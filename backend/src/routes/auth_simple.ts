@@ -3930,11 +3930,11 @@ router.post('/gallery/upload', authenticateToken, async (req, res) => {
         
         fs.writeFileSync(filepath, imageBuffer);
         
-        // 로컬 환경 기준: localhost 사용
+        // 프로덕션 환경에서는 BACKEND_URL 사용, 로컬에서는 localhost
         const backendUrl = process.env.NODE_ENV === 'production' 
-          ? (process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 4000}`)
+          ? (process.env.BACKEND_URL || `https://fccgfirst.onrender.com`)
           : `http://localhost:${process.env.PORT || 4000}`;
-        const imageUrl = `${backendUrl}/uploads/${savedFilename}`;
+        const imageUrl = `${backendUrl}/uploads/gallery/${savedFilename}`;
         const { title, caption, eventType, eventDate, tags } = fields;
         
         // 이벤트 타입 정규화 (깨진 문자열 처리)

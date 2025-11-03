@@ -131,10 +131,19 @@ export default function PhotoGalleryPage() {
         const data = await response.json();
         if (data.success) {
           // API 데이터를 InstagramPost 형식으로 변환
-          const convertedPosts = data.data.items.map((item: any) => ({
+          const convertedPosts = data.data.items.map((item: any) => {
+            // imageUrl이 상대 경로인 경우 전체 URL로 변환
+            let imageUrl = item.imageUrl;
+            if (imageUrl && !imageUrl.startsWith('http') && !imageUrl.startsWith('//')) {
+              // 상대 경로인 경우 백엔드 URL과 결합
+              const backendUrl = API_ENDPOINTS.BASE_URL.replace('/api/auth', '');
+              imageUrl = imageUrl.startsWith('/') ? `${backendUrl}${imageUrl}` : `${backendUrl}/${imageUrl}`;
+            }
+            
+            return {
             id: item.id,
             type: 'photo',
-            src: item.imageUrl,
+            src: imageUrl,
             caption: item.title,
             author: {
               id: item.uploader.id,
@@ -159,7 +168,8 @@ export default function PhotoGalleryPage() {
             tags: item.tags ? item.tags.map((tag: any) => tag.name) : [],
             location: '구장',
             views: 0
-          }));
+          };
+          });
           
           setInstagramPosts(convertedPosts);
           setIsInitialLoad(false);
