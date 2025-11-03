@@ -609,14 +609,6 @@ export default function VoteResultsPage() {
         <HStack justify="space-between" mb={4}>
           <Heading size="md" color="gray.800">투표 세션 목록</Heading>
           <HStack spacing={2}>
-            <Button 
-              size="sm" 
-              colorScheme="red" 
-              variant="outline"
-              onClick={handleCleanupDuplicateSessions}
-            >
-              중복 세션 정리
-            </Button>
           </HStack>
         </HStack>
         {allVoteSessions.length === 0 ? (

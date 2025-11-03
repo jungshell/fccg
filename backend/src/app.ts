@@ -1420,6 +1420,155 @@ app.get('/health', (req, res) => {
   });
 });
 
+// 중복 세션 자동 정리 함수 (서버 시작 시 실행)
+async function cleanupDuplicateSessionsOnStartup() {
+  try {
+    console.log('🔄 서버 시작 시 중복 세션 정리 시작...');
+    
+    // 같은 주간을 대상으로 하는 세션들을 찾기
+    const sessions = await prisma.voteSession.findMany({
+      orderBy: { id: 'desc' }
+    });
+    
+    if (sessions.length === 0) {
+      console.log('✅ 정리할 세션이 없습니다.');
+      return;
+    }
+    
+    // 주간별로 그룹화 (weekStartDate 기준으로 같은 날짜의 세션들을 그룹화)
+    const sessionsByWeek = new Map<string, any[]>();
+    
+    for (const session of sessions) {
+      const weekStart = new Date(session.weekStartDate);
+      // 날짜만 사용하여 키 생성 (시간 제외)
+      const weekKey = `${weekStart.getFullYear()}-${weekStart.getMonth()}-${weekStart.getDate()}`;
+      
+      if (!sessionsByWeek.has(weekKey)) {
+        sessionsByWeek.set(weekKey, []);
+      }
+      sessionsByWeek.get(weekKey)!.push(session);
+    }
+    
+    let deletedCount = 0;
+    let keptSessions: any[] = [];
+    
+    // 각 주간별로 가장 최신 세션만 남기고 나머지 삭제
+    for (const [weekKey, weekSessions] of sessionsByWeek) {
+      if (weekSessions.length > 1) {
+        // ID 기준으로 정렬하여 가장 최신 세션 찾기 (ID가 큰 것이 최신)
+        weekSessions.sort((a, b) => b.id - a.id);
+        const keepSession = weekSessions[0];
+        const deleteSessions = weekSessions.slice(1);
+        
+        console.log(`📋 주간 ${weekKey}: ${weekSessions.length}개 세션 발견, ${deleteSessions.length}개 삭제 예정`);
+        
+        // 삭제할 세션들의 관련 투표 데이터도 함께 삭제
+        for (const session of deleteSessions) {
+          await prisma.vote.deleteMany({
+            where: { voteSessionId: session.id }
+          });
+          
+          await prisma.voteSession.delete({
+            where: { id: session.id }
+          });
+          
+          deletedCount++;
+        }
+        
+        keptSessions.push(keepSession);
+      } else {
+        keptSessions.push(weekSessions[0]);
+      }
+    }
+    
+    if (deletedCount > 0) {
+      console.log(`✅ 중복 세션 ${deletedCount}개 삭제 완료, ${keptSessions.length}개 세션 유지`);
+      
+      // 세션 번호 재정렬 (가장 오래된 세션이 1번)
+      const allSessions = await prisma.voteSession.findMany({
+        orderBy: { weekStartDate: 'asc' }
+      });
+
+      if (allSessions.length > 0) {
+        console.log('🔄 세션 번호 재정렬 시작:', allSessions.length, '개 세션');
+
+        const sessionData = await Promise.all(
+          allSessions.map(async (session: any) => {
+            const votes = await prisma.vote.findMany({
+              where: { voteSessionId: session.id }
+            });
+            return {
+              weekStartDate: session.weekStartDate,
+              startTime: session.startTime,
+              endTime: session.endTime,
+              isActive: session.isActive,
+              isCompleted: session.isCompleted,
+              createdAt: session.createdAt,
+              updatedAt: session.updatedAt,
+              votes: votes.map((v: any) => ({
+                userId: v.userId,
+                selectedDays: v.selectedDays,
+                createdAt: v.createdAt,
+                updatedAt: v.updatedAt
+              }))
+            };
+          })
+        );
+
+        // 모든 투표 데이터 삭제
+        await prisma.vote.deleteMany({});
+        
+        // 모든 세션 삭제
+        await prisma.voteSession.deleteMany({});
+
+        // 시퀀스 리셋 (PostgreSQL)
+        await prisma.$executeRaw`ALTER SEQUENCE "VoteSession_id_seq" RESTART WITH 1`;
+
+        // 세션을 순서대로 재생성 (가장 오래된 것이 1번)
+        for (let i = 0; i < sessionData.length; i++) {
+          const data = sessionData[i];
+          const newSession = await prisma.voteSession.create({
+            data: {
+              weekStartDate: data.weekStartDate,
+              startTime: data.startTime,
+              endTime: data.endTime,
+              isActive: data.isActive,
+              isCompleted: data.isCompleted,
+              createdAt: data.createdAt,
+              updatedAt: data.updatedAt
+            }
+          });
+
+          // 관련 투표 데이터 재생성
+          for (const vote of data.votes) {
+            await prisma.vote.create({
+              data: {
+                userId: vote.userId,
+                voteSessionId: newSession.id,
+                selectedDays: vote.selectedDays,
+                createdAt: vote.createdAt,
+                updatedAt: vote.updatedAt
+              }
+            });
+          }
+        }
+
+        console.log('✅ 세션 번호 재정렬 완료: 가장 오래된 세션이 1번으로 설정됨');
+      }
+    } else {
+      console.log('✅ 중복 세션이 없습니다.');
+    }
+  } catch (error) {
+    console.error('❌ 중복 세션 정리 중 오류:', error);
+    // 오류가 발생해도 서버는 계속 실행되도록 함
+  }
+}
+
+// 서버 시작 시 중복 세션 정리 실행
+cleanupDuplicateSessionsOnStartup().catch(err => {
+  console.error('❌ 서버 시작 시 중복 세션 정리 오류:', err);
+});
+
 app.listen(PORT, () => {
   console.log(`서버가 ${PORT}번 포트에서 실행 중`);
 });
