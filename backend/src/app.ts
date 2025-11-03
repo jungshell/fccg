@@ -1317,14 +1317,47 @@ async function runWeeklyScheduler() {
   }
 }
 
-// 매주 월요일 14:00 자동 작업 스케줄러 (임시로 14시로 변경)
-cron.schedule('0 14 * * 1', async () => {
+// 매주 월요일 00:01 자동 작업 스케줄러
+cron.schedule('1 0 * * 1', async () => {
   await runWeeklyScheduler();
 }, {
   timezone: 'Asia/Seoul'
 });
 
-console.log('✅ 매주 월요일 14:00 자동 작업 스케줄러 설정 완료');
+console.log('✅ 매주 월요일 00:01 자동 작업 스케줄러 설정 완료');
+
+// 이번만 월요일 14:00 일회성 실행 (확인용)
+const scheduleOneTimeExecution = () => {
+  const now = new Date();
+  const koreaTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
+  
+  // 오늘이 월요일인지 확인
+  const dayOfWeek = koreaTime.getDay(); // 0=일요일, 1=월요일
+  const currentHour = koreaTime.getHours();
+  
+  if (dayOfWeek === 1 && currentHour < 14) {
+    // 오늘이 월요일이고 14시 이전이면, 14시까지 남은 시간 계산
+    const targetTime = new Date(koreaTime);
+    targetTime.setHours(14, 0, 0, 0);
+    
+    const delayMs = targetTime.getTime() - koreaTime.getTime();
+    
+    console.log(`⏰ 이번만 월요일 14:00 실행 예약: ${delayMs / 1000 / 60}분 후 실행`);
+    
+    setTimeout(async () => {
+      console.log('🔄 이번만 월요일 14:00 자동 작업 시작 (확인용)...');
+      await runWeeklyScheduler();
+    }, delayMs);
+  } else if (dayOfWeek === 1 && currentHour >= 14) {
+    // 이미 14시가 지났으면 바로 실행
+    console.log('🔄 이번만 월요일 14:00 자동 작업 즉시 실행 (확인용)...');
+    runWeeklyScheduler().catch(err => console.error('❌ 즉시 실행 오류:', err));
+  }
+};
+
+// 서버 시작 시 실행
+scheduleOneTimeExecution();
+console.log('✅ 이번만 월요일 14:00 일회성 실행 예약 완료 (확인용)');
 
 // 수동 실행 API (테스트용)
 app.post('/api/admin/run-weekly-scheduler', authenticateToken, async (req: any, res) => {
