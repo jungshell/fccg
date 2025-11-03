@@ -131,7 +131,7 @@ export default function PhotoGalleryPage() {
         const data = await response.json();
         console.log('📸 갤러리 API 응답:', data);
         
-        if (data.success && data.data && data.data.items) {
+        if (data.success && data.data && data.data.items && data.data.items.length > 0) {
           // API 데이터를 InstagramPost 형식으로 변환
           const convertedPosts = data.data.items.map((item: any) => {
             console.log('📸 아이템 처리:', item.id, item.imageUrl);
@@ -200,25 +200,27 @@ export default function PhotoGalleryPage() {
           
           setInstagramPosts(convertedPosts);
           setIsInitialLoad(false);
+          console.log('✅ 백엔드에서 데이터 로드 성공:', convertedPosts.length, '개');
+          return true; // 성공적으로 로드됨을 반환
+        } else {
+          console.warn('⚠️ 백엔드 응답에 데이터 없음:', data);
+          setInstagramPosts([]);
+          setIsInitialLoad(false);
+          return false;
         }
       } else {
-        console.error('갤러리 데이터 로드 실패:', response.status);
-        // API 로드 실패 시 빈 배열로 설정 (하드코딩된 데이터 사용 안 함)
+        console.error('❌ 갤러리 데이터 로드 실패:', response.status);
         setInstagramPosts([]);
         setIsInitialLoad(false);
+        return false;
       }
     } catch (error) {
-      console.error('갤러리 데이터 로드 오류:', error);
-      // 에러 발생 시 빈 배열로 설정 (하드코딩된 데이터 사용 안 함)
+      console.error('❌ 갤러리 데이터 로드 오류:', error);
       setInstagramPosts([]);
       setIsInitialLoad(false);
+      return false;
     }
   };
-
-  // 컴포넌트 마운트 시 데이터 로드
-  useEffect(() => {
-    loadGalleryData();
-  }, []);
 
   // 폼 데이터 상태
   const [formData, setFormData] = useState({
@@ -257,55 +259,58 @@ export default function PhotoGalleryPage() {
 
   // 데이터 로드 (최적화된 버전)
   useEffect(() => {
-    const loadPostsFromStorage = () => {
+    const loadPostsFromStorage = async () => {
       try {
-        // 백그라운드에서 데이터 로드
-        setTimeout(async () => {
+        // 백엔드에서 실제 데이터 로드 (우선순위 1)
+        const backendLoadSuccess = await loadGalleryData();
+        
+        // 백엔드에서 데이터를 성공적으로 가져왔으면 localStorage 사용 안 함
+        if (backendLoadSuccess) {
+          console.log('✅ 백엔드 데이터 사용 중, localStorage 건너뜀');
+          return;
+        }
+        
+        // 백엔드 데이터가 없고 localStorage에 저장된 데이터가 있는 경우에만 사용 (우선순위 2)
+        const stored = localStorage.getItem('instagramPosts');
+        if (stored) {
           try {
-            // 백엔드에서 실제 데이터 로드 (우선순위 1)
-            await loadGalleryData();
-            
-            // 백엔드 데이터가 없고 localStorage에 저장된 데이터가 있는 경우에만 사용 (우선순위 2)
-            // 주의: localStorage는 백엔드와 동기화되지 않을 수 있으므로, 백엔드 데이터가 있으면 항상 우선
-            const stored = localStorage.getItem('instagramPosts');
-            if (instagramPosts.length === 0 && stored) {
-              try {
-                const parsed = JSON.parse(stored);
-                if (Array.isArray(parsed) && parsed.length > 0) {
-                  setInstagramPosts(parsed);
-                  setIsInitialLoad(false);
-                  console.log('✅ localStorage에서 포스트 로드:', parsed.length, '개 (백엔드 데이터 없음)');
-                  return;
-                }
-              } catch (e) {
-                console.warn('⚠️ localStorage 데이터 파싱 실패:', e);
-              }
+            const parsed = JSON.parse(stored);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setInstagramPosts(parsed);
+              setIsInitialLoad(false);
+              console.log('⚠️ localStorage에서 포스트 로드:', parsed.length, '개 (백엔드 데이터 없음)');
+              return;
             }
-
-            // 백업에서 로드 (우선순위 3)
-            if (instagramPosts.length === 0) {
-              const backup = localStorage.getItem('instagramPosts_backup');
-              if (backup) {
-                try {
-                  const parsed = JSON.parse(backup);
-                  if (Array.isArray(parsed) && parsed.length > 0) {
-                    setInstagramPosts(parsed);
-                    setIsInitialLoad(false);
-                    localStorage.setItem('instagramPosts', backup);
-                    console.log('✅ 백업에서 포스트 복원:', parsed.length, '개 (백엔드 데이터 없음)');
-                    return;
-                  }
-                } catch (e) {
-                  console.warn('⚠️ 백업 데이터 파싱 실패:', e);
-                }
-              }
-            }
-          } catch (error) {
-            console.error('❌ 백그라운드 로드 실패:', error);
+          } catch (e) {
+            console.warn('⚠️ localStorage 데이터 파싱 실패:', e);
           }
-        }, 0);
+        }
+
+        // 백업에서 로드 (우선순위 3)
+        const backup = localStorage.getItem('instagramPosts_backup');
+        if (backup) {
+          try {
+            const parsed = JSON.parse(backup);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setInstagramPosts(parsed);
+              setIsInitialLoad(false);
+              localStorage.setItem('instagramPosts', backup);
+              console.log('⚠️ 백업에서 포스트 복원:', parsed.length, '개 (백엔드 데이터 없음)');
+              return;
+            }
+          } catch (e) {
+            console.warn('⚠️ 백업 데이터 파싱 실패:', e);
+          }
+        }
+        
+        // 모든 데이터 소스에서 실패한 경우
+        if (instagramPosts.length === 0) {
+          setIsInitialLoad(false);
+          console.log('⚠️ 사용 가능한 데이터 없음');
+        }
       } catch (error) {
         console.error('❌ 포스트 로드 실패:', error);
+        setIsInitialLoad(false);
       }
     };
 
