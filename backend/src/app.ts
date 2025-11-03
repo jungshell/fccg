@@ -1158,12 +1158,20 @@ async function runWeeklyScheduler() {
     }
     thisWeekMonday.setHours(0, 1, 0, 0);
     
-    // 중복 체크 - 정확한 날짜로 확인
+    // 중복 체크 - 정확한 주간(월요일) 비교
+    // 같은 주의 월요일인지 확인 (주간을 고유하게 식별)
+    const nextWeekMondayDateOnly = new Date(
+      nextWeekMonday.getFullYear(),
+      nextWeekMonday.getMonth(),
+      nextWeekMonday.getDate()
+    );
+    nextWeekMondayDateOnly.setHours(0, 0, 0, 0);
+    
     const existingSession = await prisma.voteSession.findFirst({
       where: {
         weekStartDate: {
-          gte: new Date(nextWeekMonday.getFullYear(), nextWeekMonday.getMonth(), nextWeekMonday.getDate()),
-          lt: new Date(nextWeekMonday.getFullYear(), nextWeekMonday.getMonth(), nextWeekMonday.getDate() + 1)
+          gte: nextWeekMondayDateOnly,
+          lt: new Date(nextWeekMondayDateOnly.getTime() + 24 * 60 * 60 * 1000) // 다음날 00:00 이전
         }
       }
     });

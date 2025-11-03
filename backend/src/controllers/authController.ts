@@ -1100,6 +1100,27 @@ export const createVoteSession = async (req: Request, res: Response) => {
     endTime.setDate(startTime.getDate() + 3); // 목요일
     endTime.setHours(17, 0, 0, 0); // 17:00
 
+    // 중복 체크 - 정확한 주간(월요일) 비교
+    const weekStartDateObj = new Date(weekStartDate);
+    weekStartDateObj.setHours(0, 0, 0, 0);
+    
+    const existingSession = await prisma.voteSession.findFirst({
+      where: {
+        weekStartDate: {
+          gte: weekStartDateObj,
+          lt: new Date(weekStartDateObj.getTime() + 24 * 60 * 60 * 1000) // 다음날 00:00 이전
+        }
+      }
+    });
+
+    if (existingSession) {
+      return res.status(400).json({
+        error: '이미 해당 주간을 대상으로 하는 투표 세션이 존재합니다.',
+        existingSessionId: existingSession.id,
+        existingWeekStartDate: existingSession.weekStartDate
+      });
+    }
+
     const voteSession = await prisma.voteSession.create({
       data: {
         weekStartDate: new Date(weekStartDate),
