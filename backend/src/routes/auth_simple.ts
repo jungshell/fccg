@@ -3717,6 +3717,10 @@ if (!fs.existsSync(uploadDir)) {
 
 // 갤러리 아이템 조회 API (공개 접근 가능)
 router.get('/gallery', async (req, res) => {
+  // CORS 헤더 명시적 설정
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  
   try {
     const { PrismaClient } = require('@prisma/client');
     const prisma = new PrismaClient();
@@ -3781,11 +3785,28 @@ router.get('/gallery', async (req, res) => {
     // 좋아요 수와 댓글 수 추가
     // 인증된 사용자가 있으면 좋아요 여부 확인, 없으면 false
     const currentUserId = req.user?.userId || null;
+    
+    // 백엔드 URL 추출 (절대 URL 생성용)
+    const backendUrl = process.env.NODE_ENV === 'production' 
+      ? (process.env.BACKEND_URL || 'https://fccgfirst.onrender.com')
+      : `http://localhost:${process.env.PORT || 4000}`;
+    
     const itemsWithCounts = galleryItems.map(item => {
-      // imageUrl 경로 수정: /uploads/를 /uploads/gallery/로 변경
+      // imageUrl 경로 수정 및 절대 URL 변환
       let fixedImageUrl = item.imageUrl;
+      
+      // 상대 경로인 경우 절대 URL로 변환
+      if (fixedImageUrl && !fixedImageUrl.startsWith('http') && !fixedImageUrl.startsWith('//') && !fixedImageUrl.startsWith('data:')) {
+        // uploads/gallery/ 또는 /uploads/gallery/ 형식 처리
+        if (fixedImageUrl.startsWith('/')) {
+          fixedImageUrl = `${backendUrl}${fixedImageUrl}`;
+        } else {
+          fixedImageUrl = `${backendUrl}/${fixedImageUrl}`;
+        }
+      }
+      
+      // /uploads/를 /uploads/gallery/로 변경 (절대 URL인 경우)
       if (fixedImageUrl && fixedImageUrl.includes('/uploads/') && !fixedImageUrl.includes('/uploads/gallery/')) {
-        // /uploads/파일명 형식을 /uploads/gallery/파일명으로 변경
         fixedImageUrl = fixedImageUrl.replace('/uploads/', '/uploads/gallery/');
       }
       
