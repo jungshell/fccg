@@ -1131,11 +1131,21 @@ cron.schedule('1 0 * * 1', async () => {
     const koreaTime = new Date(currentTime.toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
     
     // 1. 다음주 월요일 계산 (다음주 투표 세션 생성용)
-    const nextWeekMonday = new Date(koreaTime);
-    nextWeekMonday.setDate(koreaTime.getDate() + 7);
-    const daysUntilMonday = (8 - nextWeekMonday.getDay()) % 7;
-    nextWeekMonday.setDate(nextWeekMonday.getDate() + daysUntilMonday);
+    // 오늘이 월요일이면 7일 후가 다음 주 월요일, 다른 요일이면 다음 월요일까지의 일수를 계산
+    const today = new Date(koreaTime);
+    const dayOfWeek = today.getDay(); // 0=일요일, 1=월요일, ..., 6=토요일
+    const daysUntilNextMonday = dayOfWeek === 1 ? 7 : dayOfWeek === 0 ? 1 : (8 - dayOfWeek);
+    
+    const nextWeekMonday = new Date(today);
+    nextWeekMonday.setDate(today.getDate() + daysUntilNextMonday);
     nextWeekMonday.setHours(0, 1, 0, 0);
+    
+    console.log('📅 다음주 월요일 계산:', {
+      오늘: today.toLocaleDateString('ko-KR'),
+      오늘요일: ['일', '월', '화', '수', '목', '금', '토'][dayOfWeek],
+      다음주월요일: nextWeekMonday.toLocaleDateString('ko-KR'),
+      일수차이: daysUntilNextMonday
+    });
     
     // 다음주 금요일 계산 (투표 마감일)
     const nextWeekFriday = new Date(nextWeekMonday);
@@ -1150,12 +1160,12 @@ cron.schedule('1 0 * * 1', async () => {
     }
     thisWeekMonday.setHours(0, 1, 0, 0);
     
-    // 중복 체크
+    // 중복 체크 - 정확한 날짜로 확인
     const existingSession = await prisma.voteSession.findFirst({
       where: {
         weekStartDate: {
-          gte: new Date(nextWeekMonday.getTime() - 7 * 24 * 60 * 60 * 1000),
-          lte: new Date(nextWeekMonday.getTime() + 7 * 24 * 60 * 60 * 1000)
+          gte: new Date(nextWeekMonday.getFullYear(), nextWeekMonday.getMonth(), nextWeekMonday.getDate()),
+          lt: new Date(nextWeekMonday.getFullYear(), nextWeekMonday.getMonth(), nextWeekMonday.getDate() + 1)
         }
       }
     });
@@ -1171,9 +1181,17 @@ cron.schedule('1 0 * * 1', async () => {
           isCompleted: false
         }
       });
-          console.log('✅ 다음주 투표 세션 자동 생성 완료:', newVoteSession.id, '주간:', nextWeekMonday.toLocaleDateString('ko-KR'));
+      console.log('✅ 다음주 투표 세션 자동 생성 완료:', {
+        세션ID: newVoteSession.id,
+        투표기간: `${nextWeekMonday.toLocaleDateString('ko-KR')} ~ ${nextWeekFriday.toLocaleDateString('ko-KR')}`,
+        의견수렴기간: `${thisWeekMonday.toLocaleDateString('ko-KR')} 00:01 ~ ${nextWeekFriday.toLocaleDateString('ko-KR')} 17:00`
+      });
     } else {
-      console.log('⚠️ 이미 해당 주간의 투표 세션이 존재합니다:', existingSession.id);
+      console.log('⚠️ 이미 해당 주간의 투표 세션이 존재합니다:', {
+        기존세션ID: existingSession.id,
+        기존세션투표기간: existingSession.weekStartDate.toLocaleDateString('ko-KR'),
+        생성하려던세션투표기간: nextWeekMonday.toLocaleDateString('ko-KR')
+      });
     }
     
     // 2. 지난주 투표결과를 이번주 일정에 반영 (자동생성 경기 생성)

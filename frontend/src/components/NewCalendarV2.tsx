@@ -228,9 +228,7 @@ const HolidayName = styled.span`
   font-size: 10px;
   color: #e53e3e;
   font-weight: bold;
-  position: absolute;
-  top: 8px;
-  left: 8px;
+  margin-right: 4px;
   max-width: 60px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -883,22 +881,24 @@ const NewCalendarV2: React.FC<CalendarProps> = ({
               isVoteGroupStart={isVoteGroupStart}
               isVoteGroupEnd={isVoteGroupEnd}
             >
-              <Flex justifyContent="space-between" alignItems="center" width="100%" mb="8px">
-                {dayInfo.isHoliday && dayInfo.holidayName && (
-                  <HolidayName>{dayInfo.holidayName}</HolidayName>
-                )}
+              <Flex justifyContent="flex-end" alignItems="center" width="100%" mb="8px" position="relative">
                 {dayInfo.hasGame && dayInfo.gameData && (
-                  <GameTypeBadge eventType={dayInfo.gameData.eventType}>{dayInfo.gameData.eventType}</GameTypeBadge>
+                  <GameTypeBadge eventType={dayInfo.gameData.eventType} style={{ position: 'absolute', left: '8px', top: '8px' }}>{dayInfo.gameData.eventType}</GameTypeBadge>
                 )}
-                <DateNumber 
-                  isSunday={dayInfo.date && !isNaN(dayInfo.date.getTime()) ? dayjs(dayInfo.date).day() === 0 : false}
-                  isSaturday={dayInfo.date && !isNaN(dayInfo.date.getTime()) ? dayjs(dayInfo.date).day() === 6 : false}
-                  isHoliday={dayInfo.isHoliday}
-                  isToday={dayInfo.isToday}
-                  isCurrentMonth={dayInfo.isCurrentMonth}
-                >
-                  {dayInfo.day}
-                </DateNumber>
+                <Flex alignItems="center" gap="4px">
+                  {dayInfo.isHoliday && dayInfo.holidayName && (
+                    <HolidayName>{dayInfo.holidayName}</HolidayName>
+                  )}
+                  <DateNumber 
+                    isSunday={dayInfo.date && !isNaN(dayInfo.date.getTime()) ? dayjs(dayInfo.date).day() === 0 : false}
+                    isSaturday={dayInfo.date && !isNaN(dayInfo.date.getTime()) ? dayjs(dayInfo.date).day() === 6 : false}
+                    isHoliday={dayInfo.isHoliday}
+                    isToday={dayInfo.isToday}
+                    isCurrentMonth={dayInfo.isCurrentMonth}
+                  >
+                    {dayInfo.day}
+                  </DateNumber>
+                </Flex>
               </Flex>
               
               {/* 경기 정보 표시 (8월 18-22일 더미데이터만 제외) */}
