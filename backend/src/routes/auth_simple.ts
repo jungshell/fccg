@@ -3838,7 +3838,7 @@ router.post('/gallery/upload', authenticateToken, async (req, res) => {
     }
 
     // 실제 파일 업로드 처리 (Node.js 내장 모듈 사용)
-    const uploadDir = path.join(__dirname, '../../uploads');
+    const uploadDir = path.join(__dirname, '../../uploads/gallery');
     
     // 업로드 디렉토리가 없으면 생성
     if (!fs.existsSync(uploadDir)) {
