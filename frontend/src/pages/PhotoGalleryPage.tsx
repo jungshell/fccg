@@ -1136,7 +1136,7 @@ export default function PhotoGalleryPage() {
                         onLoad={() => {
                           console.log('✅ 이미지 로드 성공:', currentImage);
                         }}
-                        fallbackSrc="https://via.placeholder.com/400x400?text=이미지를+불러올+수+없습니다"
+                        fallbackSrc="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Crect width='400' height='400' fill='%23f0f0f0'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='16' fill='%23999'%3E이미지를 불러올 수 없습니다%3C/text%3E%3C/svg%3E"
                       />
                     </Box>
                     
@@ -1468,7 +1468,7 @@ export default function PhotoGalleryPage() {
                         onLoad={() => {
                           console.log('✅ 다중 이미지 로드 성공:', selectedPost.multiplePhotos?.[hoveredImageIndex[selectedPost.id] || 0]);
                         }}
-                        fallbackSrc="https://via.placeholder.com/800x600?text=이미지를+불러올+수+없습니다"
+                        fallbackSrc="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='600'%3E%3Crect width='800' height='600' fill='%23f0f0f0'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='18' fill='%23999'%3E이미지를 불러올 수 없습니다%3C/text%3E%3C/svg%3E"
                       />
                       
                       {/* 이미지 인디케이터 */}
@@ -1506,7 +1506,7 @@ export default function PhotoGalleryPage() {
                       onLoad={() => {
                         console.log('✅ 상세 이미지 로드 성공:', selectedPost.src);
                       }}
-                      fallbackSrc="https://via.placeholder.com/800x600?text=이미지를+불러올+수+없습니다"
+                      fallbackSrc="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='600'%3E%3Crect width='800' height='600' fill='%23f0f0f0'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='18' fill='%23999'%3E이미지를 불러올 수 없습니다%3C/text%3E%3C/svg%3E"
                     />
                   )}
                 </Box>

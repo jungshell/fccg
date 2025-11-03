@@ -780,8 +780,16 @@ const NewCalendarV2: React.FC<CalendarProps> = ({
       voteCount = 0;
     }
     
+    // 날짜 객체 유효성 최종 검증
+    const dateObj = day.toDate();
+    if (isNaN(dateObj.getTime())) {
+      console.warn('⚠️ 유효하지 않은 날짜 객체로 인해 건너뜀:', dateString);
+      day = day.add(1, 'day');
+      continue;
+    }
+    
     days.push({
-      date: day.toDate(),
+      date: dateObj,
       day: day.date(),
       isCurrentMonth,
       isToday,
@@ -883,8 +891,8 @@ const NewCalendarV2: React.FC<CalendarProps> = ({
                   <GameTypeBadge eventType={dayInfo.gameData.eventType}>{dayInfo.gameData.eventType}</GameTypeBadge>
                 )}
                 <DateNumber 
-                  isSunday={dayjs(dayInfo.date).day() === 0}
-                  isSaturday={dayjs(dayInfo.date).day() === 6}
+                  isSunday={dayInfo.date && !isNaN(dayInfo.date.getTime()) ? dayjs(dayInfo.date).day() === 0 : false}
+                  isSaturday={dayInfo.date && !isNaN(dayInfo.date.getTime()) ? dayjs(dayInfo.date).day() === 6 : false}
                   isHoliday={dayInfo.isHoliday}
                   isToday={dayInfo.isToday}
                   isCurrentMonth={dayInfo.isCurrentMonth}
@@ -895,6 +903,7 @@ const NewCalendarV2: React.FC<CalendarProps> = ({
               
               {/* 경기 정보 표시 (8월 18-22일 더미데이터만 제외) */}
               {dayInfo.hasGame && dayInfo.gameData && 
+               dayInfo.date && !isNaN(dayInfo.date.getTime()) &&
                dayInfo.gameData.date && // 날짜가 있는지 확인
                !(dayjs(dayInfo.date).month() === 7 && 
                  (dayjs(dayInfo.date).date() >= 18 && dayjs(dayInfo.date).date() <= 22)) && (
@@ -906,7 +915,7 @@ const NewCalendarV2: React.FC<CalendarProps> = ({
                   }}
                 >
                   {/* 공휴일이 아닌 경우에만 인원수 pill 표시 */}
-                  {!isHolidayDate(dayjs(dayInfo.date).format('M월 D일'), holidays) && (
+                  {dayInfo.date && !isNaN(dayInfo.date.getTime()) && !isHolidayDate(dayjs(dayInfo.date).format('M월 D일'), holidays) && (
                     <GameCountBadge>
                       ⚽ {dayInfo.gameData.count}명
                     </GameCountBadge>
@@ -921,24 +930,28 @@ const NewCalendarV2: React.FC<CalendarProps> = ({
               )}
               
               {/* 투표 게이지 표시 - 다음주 일정투표(동적) (월 경계 무시하고 표시) */}
-              {dayInfo.hasVote && !isHolidayDate(dayjs(dayInfo.date).format('M월 D일')) && (
+              {dayInfo.hasVote && dayInfo.date && !isNaN(dayInfo.date.getTime()) && !isHolidayDate(dayjs(dayInfo.date).format('M월 D일'), holidays) && (
                 <Tooltip 
                   label={(() => {
                     // 통합 API 데이터에서 직접 투표자 이름 찾기
                     let memberNames: string[] = [];
                     
                     // voteResults가 있고 통합 API 데이터 구조를 사용하는 경우
-                    if (voteResults && voteResults.voteSession && voteResults.voteSession.votes) {
+                    if (voteResults && voteResults.voteSession && voteResults.voteSession.votes && dayInfo.date && !isNaN(dayInfo.date.getTime())) {
                       const dateString = dayjs(dayInfo.date).format('YYYY-MM-DD');
-                      memberNames = getVoteMemberNames(dateString, unifiedVoteData, user, allMembers);
+                      if (dateString && !dateString.includes('NaN')) {
+                        memberNames = getVoteMemberNames(dateString, unifiedVoteData, user, allMembers);
+                      }
                     }
                     
-                    console.log('🔍 캘린더 툴팁:', {
-                      date: dayjs(dayInfo.date).format('YYYY-MM-DD'),
-                      voteCount: dayInfo.voteCount,
-                      memberNames,
-                      allMembers: allMembers?.length || 0
-                    });
+                    if (dayInfo.date && !isNaN(dayInfo.date.getTime())) {
+                      console.log('🔍 캘린더 툴팁:', {
+                        date: dayjs(dayInfo.date).format('YYYY-MM-DD'),
+                        voteCount: dayInfo.voteCount,
+                        memberNames,
+                        allMembers: allMembers?.length || 0
+                      });
+                    }
                     
                     // 강제표시 로직 제거 - 실제 데이터에서만 가져오기
                     
