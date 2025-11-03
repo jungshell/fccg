@@ -29,7 +29,8 @@ import {
   bulkDeleteVoteSessions,
   renumberVoteSessions,
   startWeeklyVote,
-  getAdminVoteSessionsSummary
+  getAdminVoteSessionsSummary,
+  cleanupDuplicateSessions
 } from '../api/auth';
 import VoteCharts from '../components/VoteCharts';
 
@@ -418,6 +419,37 @@ export default function VoteResultsPage() {
     }
   };
 
+  // 중복 세션 정리 핸들러
+  const handleCleanupDuplicateSessions = async () => {
+    if (!confirm('중복된 투표 세션을 정리하시겠습니까? 같은 주간의 세션 중 하나만 남기고 나머지는 삭제됩니다.')) {
+      return;
+    }
+
+    try {
+      const result = await cleanupDuplicateSessions();
+      toast({
+        title: '중복 세션 정리 완료',
+        description: `${result.deletedCount || 0}개의 중복 세션이 삭제되었고, 세션 번호가 재정렬되었습니다.`,
+        status: 'success',
+        duration: 5000,
+        isClosable: true,
+      });
+      
+      // 데이터 새로고침
+      await loadVoteSessionsData();
+      window.dispatchEvent(new CustomEvent('voteDataChanged'));
+    } catch (error) {
+      console.error('중복 세션 정리 실패:', error);
+      toast({
+        title: '중복 세션 정리 실패',
+        description: error instanceof Error ? error.message : '중복 세션 정리 중 오류가 발생했습니다.',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    }
+  };
+
 
   // 세션 선택 핸들러
   const handleSessionSelect = async (session: VoteSession) => {
@@ -577,6 +609,14 @@ export default function VoteResultsPage() {
         <HStack justify="space-between" mb={4}>
           <Heading size="md" color="gray.800">투표 세션 목록</Heading>
           <HStack spacing={2}>
+            <Button 
+              size="sm" 
+              colorScheme="red" 
+              variant="outline"
+              onClick={handleCleanupDuplicateSessions}
+            >
+              중복 세션 정리
+            </Button>
           </HStack>
         </HStack>
         {allVoteSessions.length === 0 ? (

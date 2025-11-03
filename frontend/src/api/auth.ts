@@ -110,6 +110,9 @@ export const bulkDeleteVoteSessions = (ids: number[]) =>
 export const renumberVoteSessions = () =>
   request('/cleanup-duplicate-sessions', { method: 'POST' });
 
+export const cleanupDuplicateSessions = () =>
+  request('/cleanup-duplicate-sessions', { method: 'POST' });
+
 export const startWeeklyVote = () => request('/start-weekly-vote', { method: 'POST' });
 
 // ===== 기타 유틸 =====

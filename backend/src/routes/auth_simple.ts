@@ -2061,23 +2061,13 @@ router.post('/cleanup-duplicate-sessions', authenticateToken, async (req, res) =
       }
     }
     
-    // 세션 ID를 연속적으로 재정렬
-    keptSessions.sort((a, b) => new Date(a.weekStartDate).getTime() - new Date(b.weekStartDate).getTime());
-    
-    for (let i = 0; i < keptSessions.length; i++) {
-      const newId = i + 1;
-      if (keptSessions[i].id !== newId) {
-        await prisma.voteSession.update({
-          where: { id: keptSessions[i].id },
-          data: { id: newId }
-        });
-      }
-    }
+    // 세션 번호 재정렬 (가장 오래된 세션이 1번)
+    await reorderSessionNumbers(prisma);
     
     await prisma.$disconnect();
     
     res.status(200).json({
-      message: '중복 세션 정리가 완료되었습니다.',
+      message: '중복 세션 정리 및 번호 재정렬이 완료되었습니다.',
       deletedCount,
       keptSessions: keptSessions.length
     });
