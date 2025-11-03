@@ -101,6 +101,7 @@ export default function PhotoGalleryPage() {
   const [editingCommentText, setEditingCommentText] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
+  const [isInitialLoad, setIsInitialLoad] = useState(true); // 초기 로드 상태 추적
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const toast = useToast();
@@ -161,12 +162,19 @@ export default function PhotoGalleryPage() {
           }));
           
           setInstagramPosts(convertedPosts);
+          setIsInitialLoad(false);
         }
       } else {
         console.error('갤러리 데이터 로드 실패:', response.status);
+        // API 로드 실패 시 빈 배열로 설정 (하드코딩된 데이터 사용 안 함)
+        setInstagramPosts([]);
+        setIsInitialLoad(false);
       }
     } catch (error) {
       console.error('갤러리 데이터 로드 오류:', error);
+      // 에러 발생 시 빈 배열로 설정 (하드코딩된 데이터 사용 안 함)
+      setInstagramPosts([]);
+      setIsInitialLoad(false);
     }
   };
 
