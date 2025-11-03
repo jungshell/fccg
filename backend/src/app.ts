@@ -35,30 +35,33 @@ const authenticateToken = (req: any, res: any, next: any) => {
   });
 };
 
-// 미들웨어 - CORS 설정 (로컬 환경 기준)
+// 미들웨어 - CORS 설정 (프로덕션 환경 포함)
 const corsOptions = {
   origin: function (origin: string | undefined, callback: Function) {
-    // 로컬 개발 환경: 모든 origin 허용
-    if (process.env.NODE_ENV !== 'production') {
-      callback(null, true);
-      return;
-    }
-    
-    // 프로덕션 환경 (사용하지 않지만 안전을 위해 유지)
+    // 허용할 도메인 목록
     const allowedOrigins = [
       'http://localhost:5173',
       'http://localhost:3000',
-      process.env.FRONTEND_URL
+      'https://fccg-inoi.vercel.app',
+      process.env.FRONTEND_URL,
+      process.env.CORS_ORIGIN
     ].filter(Boolean);
     
+    // origin이 없거나 (같은 도메인 요청) 허용 목록에 있으면 허용
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      callback(new Error('CORS 정책에 의해 차단되었습니다.'));
+      // 개발 환경에서는 모든 origin 허용
+      if (process.env.NODE_ENV !== 'production') {
+        callback(null, true);
+      } else {
+        console.log('⚠️ CORS 차단:', origin, '허용 목록:', allowedOrigins);
+        callback(new Error('CORS 정책에 의해 차단되었습니다.'));
+      }
     }
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   exposedHeaders: ['Content-Range', 'X-Content-Range']
 };

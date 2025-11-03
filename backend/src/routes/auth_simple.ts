@@ -3715,8 +3715,8 @@ if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-// 갤러리 아이템 조회 API
-router.get('/gallery', authenticateToken, async (req, res) => {
+// 갤러리 아이템 조회 API (공개 접근 가능)
+router.get('/gallery', async (req, res) => {
   try {
     const { PrismaClient } = require('@prisma/client');
     const prisma = new PrismaClient();
@@ -3779,11 +3779,13 @@ router.get('/gallery', authenticateToken, async (req, res) => {
     const totalCount = await prisma.gallery.count({ where });
 
     // 좋아요 수와 댓글 수 추가
+    // 인증된 사용자가 있으면 좋아요 여부 확인, 없으면 false
+    const currentUserId = req.user?.userId || null;
     const itemsWithCounts = galleryItems.map(item => ({
       ...item,
       likesCount: item.likes.length,
       commentsCount: item.comments.length,
-      isLiked: item.likes.some(like => like.userId === req.user.userId)
+      isLiked: currentUserId ? item.likes.some(like => like.userId === currentUserId) : false
     }));
 
     res.json({
