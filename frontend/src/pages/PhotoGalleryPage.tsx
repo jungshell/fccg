@@ -1026,7 +1026,13 @@ export default function PhotoGalleryPage() {
       </Box>
 
       {/* 포스트 그리드 */}
-      {sortedPosts.length === 0 ? (
+      {isInitialLoad ? (
+        <Center py={20}>
+          <VStack spacing={4}>
+            <Text fontSize="lg" color="gray.500">사진을 불러오는 중...</Text>
+          </VStack>
+        </Center>
+      ) : sortedPosts.length === 0 ? (
         <Center py={20}>
           <VStack spacing={4}>
             <Text fontSize="lg" color="gray.500">아직 업로드된 사진이 없습니다</Text>

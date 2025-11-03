@@ -554,7 +554,7 @@ export default function SchedulePageV2() {
       setNextWeekVoteData(localNextWeekVoteData);
       setAppData({
         games,
-        gameDataForCalendar: calendarGameData,
+        gameDataForCalendar: validCalendarGameData, // validCalendarGameData 사용 (NaN 제거된 데이터)
         voteResults,
         nextWeekVoteData: localNextWeekVoteData,
         allMembers,
