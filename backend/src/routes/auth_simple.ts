@@ -1,6 +1,7 @@
 import express from 'express';
 import { authenticateToken } from '../middlewares/authMiddleware';
 import { PrismaClient } from '@prisma/client';
+import { v2 as cloudinary } from 'cloudinary';
 
 const prisma = new PrismaClient();
 
@@ -35,6 +36,13 @@ const handleError = (error: any, res: any, operation: string) => {
 };
 
 const router = express.Router();
+
+// Cloudinary 설정
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
 
 // 날짜 형식 변환 함수
 const formatDateWithDay = (date: Date) => {
@@ -3858,14 +3866,6 @@ router.post('/gallery/upload', authenticateToken, async (req, res) => {
       });
     }
 
-    // 실제 파일 업로드 처리 (Node.js 내장 모듈 사용)
-    const uploadDir = path.join(__dirname, '../../uploads/gallery');
-    
-    // 업로드 디렉토리가 없으면 생성
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-
     // multipart/form-data 파싱 (Node.js 내장 모듈 사용)
     const contentType = req.headers['content-type'];
     if (!contentType || !contentType.includes('multipart/form-data')) {
@@ -3954,18 +3954,32 @@ router.post('/gallery/upload', authenticateToken, async (req, res) => {
           });
         }
 
-        // 파일 저장
+        // Cloudinary에 이미지 업로드
         const timestamp = Date.now();
-        const savedFilename = `${timestamp}-${filename}`;
-        const filepath = path.join(uploadDir, savedFilename);
+        const savedFilename = `${timestamp}-${path.parse(filename).name}`;
         
-        fs.writeFileSync(filepath, imageBuffer);
+        let imageUrl: string;
         
-        // 프로덕션 환경에서는 BACKEND_URL 사용, 로컬에서는 localhost
-        const backendUrl = process.env.NODE_ENV === 'production' 
-          ? (process.env.BACKEND_URL || `https://fccgfirst.onrender.com`)
-          : `http://localhost:${process.env.PORT || 4000}`;
-        const imageUrl = `${backendUrl}/uploads/gallery/${savedFilename}`;
+        try {
+          // Base64로 변환하여 Cloudinary에 업로드
+          const base64Image = `data:image/${fileExtension.replace('.', '')};base64,${imageBuffer.toString('base64')}`;
+          
+          const uploadResult = await cloudinary.uploader.upload(base64Image, {
+            folder: 'fccg/gallery',
+            public_id: savedFilename,
+            overwrite: false,
+            resource_type: 'image'
+          });
+          
+          imageUrl = uploadResult.secure_url;
+          console.log('✅ Cloudinary 업로드 성공:', imageUrl);
+        } catch (cloudinaryError: any) {
+          console.error('❌ Cloudinary 업로드 실패:', cloudinaryError);
+          return res.status(500).json({
+            success: false,
+            error: '이미지 업로드에 실패했습니다. 잠시 후 다시 시도해주세요.'
+          });
+        }
         const { title, caption, eventType, eventDate, tags } = fields;
         
         // 이벤트 타입 정규화 (깨진 문자열 처리)
