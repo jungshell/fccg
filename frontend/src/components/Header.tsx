@@ -400,8 +400,8 @@ export default function Header() {
           ) : (
             <>
               <HStack align="center" spacing={3}>
-                {/* 투표율과 참여율 표시 (user가 있고 데이터가 있으면 표시) */}
-                {user && (attendance !== null || voteAttendance !== null || user?.gameDetails || user?.voteDetails) && (
+                {/* 투표율과 참여율 표시 (user가 있으면 항상 표시) */}
+                {user && (
                   <>
                     <Tooltip 
                       label={isLoading ? '로딩 중...' : `${user?.voteDetails?.participated || 0}/${user?.voteDetails?.total || 0} 투표참여`}
