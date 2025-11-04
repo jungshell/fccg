@@ -5009,7 +5009,15 @@ router.get('/activity-analysis', authenticateToken, async (req, res) => {
         selectedMembers: true,
         memberNames: true,
         mercenaryCount: true,
-        gameType: true
+        gameType: true,
+        attendances: {
+          select: {
+            userId: true,
+            isMercenary: true,
+            manualName: true,
+            user: { select: { id: true, name: true } }
+          }
+        }
       }
     });
 
@@ -5053,8 +5061,20 @@ router.get('/activity-analysis', authenticateToken, async (req, res) => {
             try {
               const selectedMembers = JSON.parse(game.selectedMembers || '[]');
               const memberNames = JSON.parse(game.memberNames || '[]');
-              
-              if (selectedMembers.includes(member.name) || memberNames.includes(member.name)) {
+              // 1) 출석(attendance) 기반 참여 우선
+              const attendedByAttendance = Array.isArray(game.attendances)
+                ? game.attendances.some((a: any) => {
+                    if (a?.userId && a.userId === member.id) return true;
+                    const byUserName = a?.user?.name && a.user.name === member.name;
+                    const byManual = a?.manualName && a.manualName === member.name;
+                    return !!(byUserName || byManual);
+                  })
+                : false;
+
+              // 2) 과거 데이터 호환: selectedMembers/memberNames 기반
+              const attendedByLegacy = selectedMembers.includes(member.name) || memberNames.includes(member.name);
+
+              if (attendedByAttendance || attendedByLegacy) {
                 gameParticipationCount++;
               }
             } catch (e) {

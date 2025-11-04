@@ -2361,26 +2361,26 @@ export default function AdminPageNew() {
     }
   };
 
-  // 투표 마감일 계산 (매주 수요일 17시)
+  // 투표 마감일 계산 (매주 목요일 17시)
   const getVoteDeadline = () => {
     const now = new Date();
-    const currentDay = now.getDay(); // 0: 일요일, 1: 월요일, ..., 3: 수요일
+    const currentDay = now.getDay(); // 0: 일요일, 1: 월요일, ..., 4: 목요일
 
-    let daysUntilWednesday;
-    if (currentDay <= 3) { // If today is Sun, Mon, Tue, Wed
-      daysUntilWednesday = 3 - currentDay;
-    } else { // If today is Thu, Fri, Sat
-      daysUntilWednesday = 10 - currentDay; // Next Wednesday
+    let daysUntilThursday;
+    if (currentDay <= 4) { // Sun~Thu
+      daysUntilThursday = 4 - currentDay;
+    } else { // Fri, Sat → 다음주 목요일
+      daysUntilThursday = 11 - currentDay;
     }
 
-    const nextWednesday = new Date(now);
-    nextWednesday.setDate(now.getDate() + daysUntilWednesday);
-    nextWednesday.setHours(17, 0, 0, 0);
+    const nextThursday = new Date(now);
+    nextThursday.setDate(now.getDate() + daysUntilThursday);
+    nextThursday.setHours(17, 0, 0, 0);
 
     return {
-      text: `${nextWednesday.getMonth() + 1}월 ${nextWednesday.getDate()}일(수) 17시까지`,
-      deadline: nextWednesday,
-      remainingHours: Math.max(0, (nextWednesday.getTime() - now.getTime()) / (1000 * 60 * 60))
+      text: `${nextThursday.getMonth() + 1}월 ${nextThursday.getDate()}일(목) 17시까지`,
+      deadline: nextThursday,
+      remainingHours: Math.max(0, (nextThursday.getTime() - now.getTime()) / (1000 * 60 * 60))
     };
   };
 
@@ -4446,9 +4446,18 @@ export default function AdminPageNew() {
                             const startMonday = new Date(start);
                             startMonday.setDate(startMonday.getDate() - ((startMonday.getDay() + 6) % 7));
                             startMonday.setHours(0, 1, 0, 0);
-                            const end = new Date(session.endTime || session.voteEndDate || (startMonday.getTime() + 4 * 24 * 60 * 60 * 1000));
-                            // 역전 방지
-                            const endSafe = end < startMonday ? new Date(startMonday.getTime() + 4 * 24 * 60 * 60 * 1000) : end;
+                            // 종료 시각: 세션 endTime 우선, 없으면 목요일 17:00으로 보정
+                            // 월요일 기준 +3일 = 목요일
+                            let end = new Date(session.endTime || session.voteEndDate || (startMonday.getTime() + 3 * 24 * 60 * 60 * 1000));
+                            if (!session.endTime && !session.voteEndDate) {
+                              // 목요일 17:00
+                              end.setHours(17, 0, 0, 0);
+                            }
+                            // 역전 방지 + 시간 보정(보정이 없던 데이터인 경우도 17:00로 보정)
+                            let endSafe = end < startMonday ? new Date(startMonday.getTime() + 4 * 24 * 60 * 60 * 1000) : end;
+                            if ((endSafe.getHours() === 0 && endSafe.getMinutes() === 0) && session.endTime == null) {
+                              endSafe.setHours(17, 0, 0, 0);
+                            }
                             // 요일 표기 (같은 해면 두 번째 연도 생략)
                             const days = ['일','월','화','수','목','금','토'];
                             const startStr = `${startMonday.getFullYear()}. ${String(startMonday.getMonth()+1).padStart(2,'0')}. ${String(startMonday.getDate()).padStart(2,'0')}.(${days[startMonday.getDay()]})`;
