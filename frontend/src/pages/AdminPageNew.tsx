@@ -4453,25 +4453,30 @@ export default function AdminPageNew() {
                             const startMonday = new Date(start);
                             startMonday.setDate(startMonday.getDate() - ((startMonday.getDay() + 6) % 7));
                             startMonday.setHours(0, 1, 0, 0);
-                            // 종료 시각: 세션 endTime이 있으면 확인, 없거나 잘못된 경우 목요일 17:00으로 보정
-                            // 월요일 기준 +3일 = 목요일
-                            let end = session.endTime ? new Date(session.endTime) : (session.voteEndDate ? new Date(session.voteEndDate) : new Date(startMonday.getTime() + 3 * 24 * 60 * 60 * 1000));
+                            // 투표 기간 표시용: 월-금 (금요일 23:59:59까지)
+                            // 월요일 기준 +4일 = 금요일
+                            const endFriday = new Date(startMonday.getTime() + 4 * 24 * 60 * 60 * 1000);
+                            endFriday.setHours(23, 59, 59, 0);
                             
-                            // endTime이 없거나, 토요일/일요일 이후이면 목요일 17:00로 강제 보정
-                            if (!session.endTime || end.getDay() > 4) { // 4=목요일, 5=금요일, 6=토요일
-                              end = new Date(startMonday.getTime() + 3 * 24 * 60 * 60 * 1000); // 목요일
-                              end.setHours(17, 0, 0, 0);
-                            } else if (end.getHours() === 0 && end.getMinutes() === 0) {
-                              // 시간이 설정되지 않았으면 17:00로 보정
-                              end.setHours(17, 0, 0, 0);
+                            // 마감 계산용: 매주 목요일 17:00
+                            // 현재 시점에서 다음 목요일 17:00 계산
+                            const now = new Date();
+                            const currentDay = now.getDay(); // 0=일, 1=월, ..., 4=목, 5=금, 6=토
+                            let daysUntilThursday = 0;
+                            
+                            if (currentDay <= 4) { // 일~목
+                              daysUntilThursday = 4 - currentDay;
+                            } else { // 금~토
+                              daysUntilThursday = 11 - currentDay; // 다음주 목요일
                             }
                             
-                            // 역전 방지: end가 startMonday보다 이전이면 목요일 17:00로 설정
-                            let endSafe = end < startMonday ? new Date(startMonday.getTime() + 3 * 24 * 60 * 60 * 1000) : end;
-                            if (endSafe < startMonday) {
-                              endSafe = new Date(startMonday.getTime() + 3 * 24 * 60 * 60 * 1000);
-                              endSafe.setHours(17, 0, 0, 0);
-                            }
+                            const nextThursday = new Date(now);
+                            nextThursday.setDate(now.getDate() + daysUntilThursday);
+                            nextThursday.setHours(17, 0, 0, 0);
+                            
+                            // 표시용 종료일은 금요일, 마감 계산은 목요일 17:00
+                            const endSafe = endFriday; // 표시는 금요일까지
+                            const deadlineForCalculation = nextThursday; // 마감은 목요일 17:00
                             // 요일 표기 (같은 해면 두 번째 연도 생략)
                             const days = ['일','월','화','수','목','금','토'];
                             const startStr = `${startMonday.getFullYear()}. ${String(startMonday.getMonth()+1).padStart(2,'0')}. ${String(startMonday.getDate()).padStart(2,'0')}.(${days[startMonday.getDay()]})`;
@@ -4540,7 +4545,7 @@ export default function AdminPageNew() {
                                   </div>
                                 )}
                                 <div style={{ fontSize: "14px" }}>
-                                  ⏰ 마감까지: {Math.max(0, Math.ceil((endSafe.getTime() - new Date().getTime()) / (1000 * 60 * 60)))}시간
+                                  ⏰ 마감까지: {Math.max(0, Math.ceil((deadlineForCalculation.getTime() - new Date().getTime()) / (1000 * 60 * 60)))}시간
                                 </div>
                               </div>
                             </div>
