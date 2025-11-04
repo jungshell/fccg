@@ -596,20 +596,24 @@ export default function AdminPageNew() {
           const analysisData = await response.json();
           console.log('✅ 활동 분석 데이터 응답 성공:', analysisData);
           
-          if (analysisData.success && analysisData.data) {
-            setActivityAnalysisData(analysisData.data);
-            console.log('📊 활동 분석 데이터 설정 완료:', analysisData.data.summary);
+          // 응답 구조 확인: success와 data가 있거나, 직접 data 구조인 경우
+          const data = analysisData.success ? analysisData.data : analysisData;
+          
+          if (data && (data.summary || data.memberStats)) {
+            setActivityAnalysisData(data);
+            console.log('📊 활동 분석 데이터 설정 완료:', data.summary || 'summary 없음');
           } else {
-            console.log('⚠️ 활동 분석 데이터가 올바르지 않음');
-            setActivityAnalysisData(null);
+            console.warn('⚠️ 활동 분석 데이터가 올바르지 않음:', data);
+            setActivityAnalysisData({ summary: {}, memberStats: [], monthlyGameStats: [], gameTypeDistribution: {} });
           }
         } else {
-          console.log('❌ 활동 분석 API 응답 실패:', response.status);
-          setActivityAnalysisData(null);
+          const errorText = await response.text();
+          console.error('❌ 활동 분석 API 응답 실패:', response.status, errorText);
+          setActivityAnalysisData({ summary: {}, memberStats: [], monthlyGameStats: [], gameTypeDistribution: {} });
         }
       } catch (error) {
         console.error('❌ 활동 분석 데이터 로드 실패:', error);
-        setActivityAnalysisData(null);
+        setActivityAnalysisData({ summary: {}, memberStats: [], monthlyGameStats: [], gameTypeDistribution: {} });
       }
       
       // 4. 통합 투표 데이터 로드
@@ -1076,15 +1080,18 @@ export default function AdminPageNew() {
 
       if (response.ok) {
         const result = await response.json();
-        console.log('✅ 활동 분석 데이터 로드 성공:', result.data);
-        return result.data;
+        // 응답 구조 확인: success와 data가 있거나, 직접 data 구조인 경우
+        const data = result.success ? result.data : result;
+        console.log('✅ 활동 분석 데이터 로드 성공:', data);
+        return data || { summary: {}, memberStats: [], monthlyGameStats: [], gameTypeDistribution: {} };
       } else {
-        console.error('❌ 활동 분석 데이터 로드 실패:', response.status);
-        return null;
+        const errorText = await response.text();
+        console.error('❌ 활동 분석 데이터 로드 실패:', response.status, errorText);
+        return { summary: {}, memberStats: [], monthlyGameStats: [], gameTypeDistribution: {} };
       }
     } catch (error) {
       console.error('❌ 활동 분석 데이터 로드 오류:', error);
-      return null;
+      return { summary: {}, memberStats: [], monthlyGameStats: [], gameTypeDistribution: {} };
     }
   }, []);
 
@@ -4446,16 +4453,23 @@ export default function AdminPageNew() {
                             const startMonday = new Date(start);
                             startMonday.setDate(startMonday.getDate() - ((startMonday.getDay() + 6) % 7));
                             startMonday.setHours(0, 1, 0, 0);
-                            // 종료 시각: 세션 endTime 우선, 없으면 목요일 17:00으로 보정
+                            // 종료 시각: 세션 endTime이 있으면 확인, 없거나 잘못된 경우 목요일 17:00으로 보정
                             // 월요일 기준 +3일 = 목요일
-                            let end = new Date(session.endTime || session.voteEndDate || (startMonday.getTime() + 3 * 24 * 60 * 60 * 1000));
-                            if (!session.endTime && !session.voteEndDate) {
-                              // 목요일 17:00
+                            let end = session.endTime ? new Date(session.endTime) : (session.voteEndDate ? new Date(session.voteEndDate) : new Date(startMonday.getTime() + 3 * 24 * 60 * 60 * 1000));
+                            
+                            // endTime이 없거나, 토요일/일요일 이후이면 목요일 17:00로 강제 보정
+                            if (!session.endTime || end.getDay() > 4) { // 4=목요일, 5=금요일, 6=토요일
+                              end = new Date(startMonday.getTime() + 3 * 24 * 60 * 60 * 1000); // 목요일
+                              end.setHours(17, 0, 0, 0);
+                            } else if (end.getHours() === 0 && end.getMinutes() === 0) {
+                              // 시간이 설정되지 않았으면 17:00로 보정
                               end.setHours(17, 0, 0, 0);
                             }
-                            // 역전 방지 + 시간 보정(보정이 없던 데이터인 경우도 17:00로 보정)
-                            let endSafe = end < startMonday ? new Date(startMonday.getTime() + 4 * 24 * 60 * 60 * 1000) : end;
-                            if ((endSafe.getHours() === 0 && endSafe.getMinutes() === 0) && session.endTime == null) {
+                            
+                            // 역전 방지: end가 startMonday보다 이전이면 목요일 17:00로 설정
+                            let endSafe = end < startMonday ? new Date(startMonday.getTime() + 3 * 24 * 60 * 60 * 1000) : end;
+                            if (endSafe < startMonday) {
+                              endSafe = new Date(startMonday.getTime() + 3 * 24 * 60 * 60 * 1000);
                               endSafe.setHours(17, 0, 0, 0);
                             }
                             // 요일 표기 (같은 해면 두 번째 연도 생략)
