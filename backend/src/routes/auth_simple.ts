@@ -592,38 +592,66 @@ router.get('/members', async (req, res) => {
     });
     
     // 3. 경기 데이터 가공
-    const processedGames = games.map(game => {
-      let memberNames: string[] = [];
-      let selectedMembers: string[] = [];
-      
-      try {
-        if (typeof game.memberNames === 'string') {
-          memberNames = JSON.parse(game.memberNames);
-        } else if (Array.isArray(game.memberNames)) {
-          memberNames = game.memberNames;
-        }
-      } catch (e) {
-        console.error('memberNames 파싱 오류:', e);
-      }
-      
-      try {
-        if (typeof game.selectedMembers === 'string') {
-          selectedMembers = JSON.parse(game.selectedMembers);
-        } else if (Array.isArray(game.selectedMembers)) {
-          selectedMembers = game.selectedMembers;
-        }
-      } catch (e) {
-        console.error('selectedMembers 파싱 오류:', e);
-      }
-      
-      return {
-        ...game,
-        memberNames: memberNames,
-        selectedMembers: selectedMembers,
-        allParticipantNames: [...new Set([...memberNames, ...selectedMembers])],
-        totalParticipantCount: [...new Set([...memberNames, ...selectedMembers])].length
-      };
-    });
+const processedGames = games.map(game => {
+  // 총원 계산용 변수
+  let totalCount = 0;
+  let allParticipantNames: string[] = [];
+
+  // 1) selectedMembers 파싱
+  let selectedMembers: string[] = [];
+  try {
+    if (typeof game.selectedMembers === 'string') {
+      selectedMembers = JSON.parse(game.selectedMembers);
+    } else if (Array.isArray(game.selectedMembers)) {
+      selectedMembers = game.selectedMembers;
+    }
+  } catch (e) {
+    console.error('selectedMembers 파싱 오류:', e);
+  }
+
+  // 실제 회원명만 남기고 중복 제거
+  const actualMemberNames = members.map(m => m.name);
+  const uniqueSelected = [...new Set(
+    selectedMembers.filter(n => typeof n === 'string' && actualMemberNames.includes(n))
+  )];
+  totalCount += uniqueSelected.length;
+  allParticipantNames.push(...uniqueSelected);
+
+  // 2) memberNames 파싱
+  let memberNames: string[] = [];
+  try {
+    if (typeof game.memberNames === 'string') {
+      memberNames = JSON.parse(game.memberNames);
+    } else if (Array.isArray(game.memberNames)) {
+      memberNames = game.memberNames;
+    }
+  } catch (e) {
+    console.error('memberNames 파싱 오류:', e);
+  }
+
+  // 공백/용병/중복 제외
+  const uniqueManual = memberNames.filter(n => {
+    if (typeof n !== 'string') return false;
+    const t = n.trim();
+    if (!t) return false;
+    if (t.startsWith('용병')) return false; // 용병은 별도 카운트
+    if (allParticipantNames.includes(t)) return false; // 회원과 중복 금지
+    return true;
+  });
+  totalCount += uniqueManual.length;
+  allParticipantNames.push(...uniqueManual);
+
+  // 3) 용병 수
+  totalCount += (game.mercenaryCount || 0);
+
+  return {
+    ...game,
+    memberNames,
+    selectedMembers,
+    allParticipantNames,
+    totalParticipantCount: totalCount
+  };
+});
     
     // 4. 통계 계산
     const totalMembers = members.length;
