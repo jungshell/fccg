@@ -1,0 +1,24 @@
+name: Deploy (Render + Vercel)
+on:
+  push:
+    branches: [ main ]
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Render deploy
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$RENDER_DEPLOY_HOOK_URL" ]; then
+            echo "RENDER_DEPLOY_HOOK_URL is not set" && exit 1;
+          fi
+          curl -s -X POST "$RENDER_DEPLOY_HOOK_URL" || exit 1
+      - name: Trigger Vercel deploy (optional)
+        env:
+          VERCEL_DEPLOY_HOOK_URL: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$VERCEL_DEPLOY_HOOK_URL" ]; then
+            echo "VERCEL_DEPLOY_HOOK_URL not set - skipping"; exit 0;
+          fi
+          curl -s -X POST "$VERCEL_DEPLOY_HOOK_URL" || exit 1
