@@ -324,9 +324,14 @@ app.get('/api/auth/members', async (req, res) => {
               : game.memberNames || [];
             
             // selectedMembers에 없는 이름만 추가
-            uniqueMemberNames = memberNames.filter(name => 
-              !allParticipantNames.includes(name)
-            );
+            // 빈 문자열 제거 및 "용병"으로 시작하는 이름 제외 (용병은 mercenaryCount로 계산)
+            uniqueMemberNames = memberNames.filter(name => {
+              if (!name || typeof name !== 'string') return false;
+              const trimmedName = name.trim();
+              if (trimmedName === '') return false;
+              if (trimmedName.startsWith('용병')) return false; // 용병은 mercenaryCount로 계산
+              return !allParticipantNames.includes(trimmedName);
+            });
             totalCount += uniqueMemberNames.length;
             allParticipantNames = [...allParticipantNames, ...uniqueMemberNames];
           } catch (error) {
