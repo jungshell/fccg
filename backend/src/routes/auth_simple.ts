@@ -5013,7 +5013,6 @@ router.get('/activity-analysis', authenticateToken, async (req, res) => {
         attendances: {
           select: {
             userId: true,
-            isMercenary: true,
             manualName: true,
             user: { select: { id: true, name: true } }
           }
