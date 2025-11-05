@@ -736,8 +736,17 @@ export default function SchedulePageV2() {
       return;
     }
 
-    // 선택된 날짜가 없으면 '불참'으로 간주하여 제출 허용
-    // 사용자가 아무 것도 선택하지 않고 제출해도 불참 투표가 가능해야 함
+    // 선택된 날짜가 없으면 경고
+    if (selectedDays.length === 0) {
+      toast({
+        title: '날짜 선택 필요',
+        description: '요일 또는 불참을 선택해 주세요.',
+        status: 'warning',
+        duration: 2500,
+        isClosable: true,
+      });
+      return;
+    }
     
     console.log('✅ 인증 성공 - 투표 진행');
 
@@ -824,7 +833,7 @@ export default function SchedulePageV2() {
     console.log('🔍 사용자 투표 여부 확인:', { hasUserVoted, userId: user?.id });
     
     try {
-      // API에 투표 데이터 전송 (선택이 없으면 '불참'으로 처리)
+      // API에 투표 데이터 전송
       const response = await fetch(`${API_ENDPOINTS.BASE_URL}/votes`, {
         method: 'POST',
         headers: {
@@ -833,7 +842,7 @@ export default function SchedulePageV2() {
         },
         body: JSON.stringify({
           voteSessionId: voteSessionId,
-          selectedDays: selectedDays.length > 0 ? selectedDays : ['불참'],
+          selectedDays: selectedDays,
           timestamp: new Date().toISOString()
         })
       });
@@ -843,7 +852,7 @@ export default function SchedulePageV2() {
         console.log('✅ 투표 API 성공:', result);
         
         // 성공 메시지
-        const isAbsentVote = selectedDays.length === 0 || (selectedDays.length === 1 && selectedDays[0] === '불참');
+        const isAbsentVote = (selectedDays.length === 1 && selectedDays[0] === '불참');
         toast({
           title: hasUserVoted ? '재투표 완료' : '투표 완료',
           description: isAbsentVote
@@ -872,7 +881,7 @@ export default function SchedulePageV2() {
         const newVote = {
           id: Date.now(),
           userId: user?.id,
-          selectedDays: (selectedDays.length > 0 ? selectedDays : ['불참']),
+          selectedDays: selectedDays,
           createdAt: new Date().toISOString()
         };
         
@@ -931,7 +940,7 @@ export default function SchedulePageV2() {
               ['불참']:
                 // 기존에 본인이 불참으로 투표했다면 -1, 이번 투표가 불참이면 +1
                 (prev.voteResults?.['불참'] || 0)
-                - (existingVotes.some((v: any) => v.userId === user?.id && v.selectedDays.includes && v.selectedDays.includes('불참')) ? 1 : 0)
+                - (prev.voteSession.votes.some((v: any) => v.userId === user?.id && Array.isArray(v.selectedDays) && v.selectedDays.includes('불참')) ? 1 : 0)
                 + (newVote.selectedDays.includes('불참') ? 1 : 0)
             },
             voteSession: {
