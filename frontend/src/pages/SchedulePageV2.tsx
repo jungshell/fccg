@@ -876,7 +876,9 @@ export default function SchedulePageV2() {
           if (!prev) {
             // voteResults가 null인 경우 기본 구조 생성
             return {
-              voteResults: {},
+              voteResults: {
+                ['불참']: newVote.selectedDays.includes('불참') ? 1 : 0
+              },
               voteSession: {
                 id: voteSessionId,
                 weekStartDate: new Date().toISOString().split('T')[0],
@@ -895,6 +897,11 @@ export default function SchedulePageV2() {
             // voteSession이 없는 경우 기본 구조 생성
             return {
               ...prev,
+              voteResults: {
+                ...prev.voteResults,
+                ['불참']:
+                  (prev.voteResults?.['불참'] || 0) + (newVote.selectedDays.includes('불참') ? 1 : 0)
+              },
               voteSession: {
                 id: voteSessionId,
                 weekStartDate: new Date().toISOString().split('T')[0],
@@ -915,6 +922,14 @@ export default function SchedulePageV2() {
           
           return {
             ...prev,
+            voteResults: {
+              ...prev.voteResults,
+              ['불참']:
+                // 기존에 본인이 불참으로 투표했다면 -1, 이번 투표가 불참이면 +1
+                (prev.voteResults?.['불참'] || 0)
+                - (existingVotes.some((v: any) => v.userId === user?.id && v.selectedDays.includes && v.selectedDays.includes('불참')) ? 1 : 0)
+                + (newVote.selectedDays.includes('불참') ? 1 : 0)
+            },
             voteSession: {
               ...prev.voteSession,
               votes: updatedVotes
