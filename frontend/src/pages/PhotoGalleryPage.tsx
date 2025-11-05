@@ -653,76 +653,117 @@ export default function PhotoGalleryPage() {
     setIsUploading(true);
     
     try {
-      // FormData로 실제 파일 업로드
-      const uploadData = new FormData();
-      
-      // 첫 번째 이미지 파일 업로드
-      uploadData.append('image', formData.images[0]);
-      uploadData.append('title', formData.caption);
-      uploadData.append('caption', formData.caption);
-      uploadData.append('eventType', formData.eventType);
-      uploadData.append('eventDate', formData.eventDate);
-      uploadData.append('tags', formData.tags);
+      const uploadedPosts: InstagramPost[] = [];
+      let successCount = 0;
+      let failCount = 0;
 
-      const response = await fetch(`${API_ENDPOINTS.BASE_URL}/gallery/upload`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-          // Content-Type은 FormData가 자동으로 설정
-        },
-        body: uploadData
-      });
+      // 모든 이미지 파일을 순회하면서 업로드
+      for (let i = 0; i < formData.images.length; i++) {
+        const imageFile = formData.images[i];
+        
+        try {
+          // FormData로 실제 파일 업로드
+          const uploadData = new FormData();
+          
+          // 각 이미지 파일 업로드
+          uploadData.append('image', imageFile);
+          uploadData.append('title', formData.caption || '');
+          uploadData.append('caption', formData.caption || '');
+          uploadData.append('eventType', formData.eventType);
+          uploadData.append('eventDate', formData.eventDate);
+          uploadData.append('tags', formData.tags);
 
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success) {
-          // 업로드된 데이터를 InstagramPost 형식으로 변환
-          const uploadedPost: InstagramPost = {
-            id: data.data[0].id,
-            type: 'photo',
-            src: data.data[0].imageUrl,
-            caption: data.data[0].title,
-            author: {
-              id: data.data[0].uploader.id,
-              name: data.data[0].uploader.name,
-              avatar: data.data[0].uploader.avatarUrl || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=100&q=80'
+          const response = await fetch(`${API_ENDPOINTS.BASE_URL}/gallery/upload`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
+              // Content-Type은 FormData가 자동으로 설정
             },
-            createdAt: data.data[0].createdAt,
-            eventDate: data.data[0].eventDate ? data.data[0].eventDate.split('T')[0] : data.data[0].createdAt.split('T')[0],
-            eventType: data.data[0].eventType || '기타',
-            likes: 0,
-            likedBy: [],
-            isLiked: false,
-            comments: [],
-            tags: data.data[0].tags.map((tag: any) => tag.name),
-            location: '장소 미정',
-            views: 0
-          };
-
-          // 업로드 후 전체 데이터 다시 로드
-          await loadGalleryData();
-          
-          // 폼 초기화
-          setFormData({
-            images: [],
-            caption: '',
-            eventDate: '',
-            eventType: '기타',
-            tags: ''
+            body: uploadData
           });
-          
-          setIsUploadModalOpen(false);
-          
+
+          if (response.ok) {
+            const data = await response.json();
+            if (data.success && data.data && data.data.length > 0) {
+              // 업로드된 데이터를 InstagramPost 형식으로 변환
+              const uploadedPost: InstagramPost = {
+                id: data.data[0].id,
+                type: 'photo',
+                src: data.data[0].imageUrl,
+                caption: data.data[0].title,
+                author: {
+                  id: data.data[0].uploader.id,
+                  name: data.data[0].uploader.name,
+                  avatar: data.data[0].uploader.avatarUrl || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=100&q=80'
+                },
+                createdAt: data.data[0].createdAt,
+                eventDate: data.data[0].eventDate ? data.data[0].eventDate.split('T')[0] : data.data[0].createdAt.split('T')[0],
+                eventType: data.data[0].eventType || '기타',
+                likes: 0,
+                likedBy: [],
+                isLiked: false,
+                comments: [],
+                tags: data.data[0].tags.map((tag: any) => tag.name),
+                location: '장소 미정',
+                views: 0
+              };
+              
+              uploadedPosts.push(uploadedPost);
+              successCount++;
+            }
+          } else {
+            const errorText = await response.text();
+            console.error(`이미지 ${i + 1} 업로드 실패:`, errorText);
+            failCount++;
+          }
+        } catch (error) {
+          console.error(`이미지 ${i + 1} 업로드 오류:`, error);
+          failCount++;
+        }
+      }
+
+      // 업로드 후 전체 데이터 다시 로드
+      if (successCount > 0) {
+        await loadGalleryData();
+        
+        // 폼 초기화
+        setFormData({
+          images: [],
+          caption: '',
+          eventDate: '',
+          eventType: '기타',
+          tags: ''
+        });
+        
+        setIsUploadModalOpen(false);
+        
+        // 성공 메시지 표시
+        if (failCount === 0) {
           toast({
             title: '업로드 완료',
-            description: '사진이 성공적으로 업로드되었습니다.',
+            description: `${successCount}장의 사진이 성공적으로 업로드되었습니다.`,
             status: 'success',
-            duration: 2000,
+            duration: 3000,
+            isClosable: true,
+          });
+        } else {
+          toast({
+            title: '일부 업로드 완료',
+            description: `${successCount}장 업로드 성공, ${failCount}장 업로드 실패`,
+            status: 'warning',
+            duration: 3000,
             isClosable: true,
           });
         }
       } else {
-        throw new Error('업로드 실패');
+        // 모든 업로드 실패
+        toast({
+          title: '업로드 실패',
+          description: '모든 사진 업로드에 실패했습니다. 다시 시도해주세요.',
+          status: 'error',
+          duration: 3000,
+          isClosable: true,
+        });
       }
     } catch (error) {
       console.error('업로드 오류:', error);
