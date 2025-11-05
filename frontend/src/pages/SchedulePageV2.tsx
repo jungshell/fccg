@@ -736,8 +736,15 @@ export default function SchedulePageV2() {
       return;
     }
 
+    // 선택값 정규화: '불참'이 포함되면 단독 선택으로 강제, 중복/공백 제거
+    const normalizedSelectedDays = (() => {
+      if (selectedDays.includes('불참')) return ['불참'];
+      const unique = Array.from(new Set(selectedDays.map(d => (typeof d === 'string' ? d.trim() : d))));
+      return unique.filter(Boolean);
+    })();
+
     // 선택된 날짜가 없으면 경고
-    if (selectedDays.length === 0) {
+    if (normalizedSelectedDays.length === 0) {
       toast({
         title: '날짜 선택 필요',
         description: '요일 또는 불참을 선택해 주세요.',
@@ -842,7 +849,7 @@ export default function SchedulePageV2() {
         },
         body: JSON.stringify({
           voteSessionId: voteSessionId,
-          selectedDays: selectedDays,
+          selectedDays: normalizedSelectedDays,
           timestamp: new Date().toISOString()
         })
       });
@@ -852,7 +859,7 @@ export default function SchedulePageV2() {
         console.log('✅ 투표 API 성공:', result);
         
         // 성공 메시지
-        const isAbsentVote = (selectedDays.length === 1 && selectedDays[0] === '불참');
+        const isAbsentVote = (normalizedSelectedDays.length === 1 && normalizedSelectedDays[0] === '불참');
         toast({
           title: hasUserVoted ? '재투표 완료' : '투표 완료',
           description: isAbsentVote
@@ -881,7 +888,7 @@ export default function SchedulePageV2() {
         const newVote = {
           id: Date.now(),
           userId: user?.id,
-          selectedDays: selectedDays,
+          selectedDays: normalizedSelectedDays,
           createdAt: new Date().toISOString()
         };
         
