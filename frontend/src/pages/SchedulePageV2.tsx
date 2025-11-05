@@ -738,8 +738,9 @@ export default function SchedulePageV2() {
 
     // 선택값 정규화: '불참'이 포함되면 단독 선택으로 강제, 중복/공백 제거
     const normalizedSelectedDays = (() => {
-      if (selectedDays.includes('불참')) return ['불참'];
-      const unique = Array.from(new Set(selectedDays.map(d => (typeof d === 'string' ? d.trim() : d))));
+      const trimmed = selectedDays.map(d => (typeof d === 'string' ? d.trim() : d));
+      if (trimmed.includes('불참')) return ['불참'];
+      const unique = Array.from(new Set(trimmed));
       return unique.filter(Boolean);
     })();
 
@@ -2631,7 +2632,7 @@ export default function SchedulePageV2() {
                   <Flex 
                     justify="space-between" 
                     align="center"
-                    p={{ base: 1, md: 1 }}
+                    p={{ base: 2, md: 2 }}
                     borderRadius="lg"
                     border={selectedDays.includes('불참') ? "1px solid" : "none"}
                     borderColor={selectedDays.includes('불참') ? "purple.400" : "transparent"}
