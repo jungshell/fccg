@@ -239,7 +239,15 @@ export default function Header() {
       }
     };
 
+    const handleVoteDataChanged = () => {
+      console.log('🔍 헤더: 투표 데이터 변경 이벤트 수신, 사용자 데이터 새로고침');
+      if (token) {
+        refreshUserData();
+      }
+    };
+
     window.addEventListener('voteSubmitted', handleVoteSubmitted);
+    window.addEventListener('voteDataChanged', handleVoteDataChanged);
     // 경기 변경 이벤트에도 즉시 새로고침
     const handleGamesChanged = () => {
       console.log('🔔 헤더: 경기 변경 이벤트 수신, 사용자 데이터 새로고침');
@@ -257,6 +265,7 @@ export default function Header() {
     
     return () => {
       window.removeEventListener('voteSubmitted', handleVoteSubmitted);
+      window.removeEventListener('voteDataChanged', handleVoteDataChanged);
       window.removeEventListener('gamesChanged', handleGamesChanged);
       eventBus.off(EVENT_TYPES.GAME_CREATED, busHandler);
       eventBus.off(EVENT_TYPES.GAME_UPDATED, busHandler);

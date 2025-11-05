@@ -4967,7 +4967,8 @@ router.get('/activity-analysis', authenticateToken, async (req, res) => {
     const currentYear = currentTime.getFullYear();
     const currentMonth = currentTime.getMonth() + 1; // 1-12
     const monthStart = new Date(currentYear, currentMonth - 1, 1);
-    const monthEnd = new Date(currentYear, currentMonth, 0, 23, 59, 59);
+    // 이번 달의 마지막 날 계산: 다음 달 1일에서 1일 빼기
+    const monthEnd = new Date(currentYear, currentMonth, 0, 23, 59, 59, 999);
 
     console.log('📊 활동 분석 데이터 계산:', {
       currentYear,
@@ -5013,7 +5014,6 @@ router.get('/activity-analysis', authenticateToken, async (req, res) => {
         attendances: {
           select: {
             userId: true,
-            manualName: true,
             user: { select: { id: true, name: true } }
           }
         }
@@ -5065,8 +5065,7 @@ router.get('/activity-analysis', authenticateToken, async (req, res) => {
                 ? game.attendances.some((a: any) => {
                     if (a?.userId && a.userId === member.id) return true;
                     const byUserName = a?.user?.name && a.user.name === member.name;
-                    const byManual = a?.manualName && a.manualName === member.name;
-                    return !!(byUserName || byManual);
+                    return !!byUserName;
                   })
                 : false;
 
@@ -5146,7 +5145,7 @@ router.get('/activity-analysis', authenticateToken, async (req, res) => {
     for (let i = 5; i >= 0; i--) {
       const targetDate = new Date(currentYear, currentMonth - 1 - i, 1);
       const targetMonthStart = new Date(targetDate.getFullYear(), targetDate.getMonth(), 1);
-      const targetMonthEnd = new Date(targetDate.getFullYear(), targetDate.getMonth() + 1, 0, 23, 59, 59);
+      const targetMonthEnd = new Date(targetDate.getFullYear(), targetDate.getMonth() + 1, 0, 23, 59, 59, 999);
       
       const monthGames = await prisma.game.count({
         where: {
@@ -5199,7 +5198,15 @@ router.get('/activity-analysis', authenticateToken, async (req, res) => {
       }
     };
 
-    console.log('✅ 활동 분석 데이터 생성 완료:', response.data.summary);
+    console.log('✅ 활동 분석 데이터 생성 완료:', {
+      summary: response.data.summary,
+      memberStatsCount: memberStats.length,
+      monthlyGameStatsCount: monthlyGameStats.length,
+      gameTypeDistribution: response.data.gameTypeDistribution,
+      totalMembers,
+      thisMonthGames,
+      firstMemberSample: memberStats.length > 0 ? memberStats[0] : null
+    });
     res.json(response);
     await prisma.$disconnect();
   } catch (error) {

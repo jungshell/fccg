@@ -599,9 +599,21 @@ export default function AdminPageNew() {
           // 응답 구조 확인: success와 data가 있거나, 직접 data 구조인 경우
           const data = analysisData.success ? analysisData.data : analysisData;
           
+          console.log('📊 파싱된 데이터:', {
+            hasSummary: !!data?.summary,
+            hasMemberStats: !!data?.memberStats,
+            memberStatsLength: data?.memberStats?.length || 0,
+            summaryData: data?.summary,
+            memberStatsSample: data?.memberStats?.[0] || null
+          });
+          
           if (data && (data.summary || data.memberStats)) {
             setActivityAnalysisData(data);
-            console.log('📊 활동 분석 데이터 설정 완료:', data.summary || 'summary 없음');
+            console.log('📊 활동 분석 데이터 설정 완료:', {
+              summary: data.summary,
+              memberStatsCount: data.memberStats?.length || 0,
+              monthlyGameStatsCount: data.monthlyGameStats?.length || 0
+            });
           } else {
             console.warn('⚠️ 활동 분석 데이터가 올바르지 않음:', data);
             setActivityAnalysisData({ summary: {}, memberStats: [], monthlyGameStats: [], gameTypeDistribution: {} });
@@ -4048,7 +4060,8 @@ export default function AdminPageNew() {
                                 </Tr>
                               </Thead>
                               <Tbody>
-                                {activityAnalysisData?.memberStats.map((member) => (
+                                {activityAnalysisData?.memberStats && activityAnalysisData.memberStats.length > 0 ? (
+                                  activityAnalysisData.memberStats.map((member) => (
                                     <Tr key={member.id}>
                                       <Td fontWeight="bold">
                                         {member.name}
@@ -4093,7 +4106,14 @@ export default function AdminPageNew() {
                                         </Badge>
                                       </Td>
                                     </Tr>
-                                )) || []}
+                                  ))
+                                ) : (
+                                  <Tr>
+                                    <Td colSpan={4} textAlign="center" py={8}>
+                                      <Text color="gray.500">회원 데이터가 없습니다.</Text>
+                                    </Td>
+                                  </Tr>
+                                )}
                               </Tbody>
                             </Table>
                           </TableContainer>
@@ -4115,29 +4135,33 @@ export default function AdminPageNew() {
                           <Divider />
                           
                           <VStack spacing={3} align="stretch">
-                            {activityAnalysisData?.monthlyGameStats.map((monthData, index) => {
-                              const gameCount = monthData.gameCount;
-                              const maxGames = 8; // 월 최대 경기수 가정
-                              
-                              return (
-                                <Box key={index}>
-                                  <Flex justify="space-between" align="center" mb={1}>
-                                    <Text fontSize="sm" fontWeight="bold">
-                                      {monthData.month}
-                                    </Text>
-                                    <Text fontSize="sm" color="gray.600">
-                                      {gameCount}경기
-                                    </Text>
-                                  </Flex>
-                                  <Progress 
-                                    value={gameCount > 0 ? (gameCount / maxGames) * 100 : 0}
-                                    colorScheme="blue"
-                                    size="sm"
-                                    bg="gray.100"
-                                  />
-    </Box>
-  );
-                            }) || []}
+                            {activityAnalysisData?.monthlyGameStats && activityAnalysisData.monthlyGameStats.length > 0 ? (
+                              activityAnalysisData.monthlyGameStats.map((monthData, index) => {
+                                const gameCount = monthData.gameCount;
+                                const maxGames = 8; // 월 최대 경기수 가정
+                                
+                                return (
+                                  <Box key={index}>
+                                    <Flex justify="space-between" align="center" mb={1}>
+                                      <Text fontSize="sm" fontWeight="bold">
+                                        {monthData.month}
+                                      </Text>
+                                      <Text fontSize="sm" color="gray.600">
+                                        {gameCount}경기
+                                      </Text>
+                                    </Flex>
+                                    <Progress 
+                                      value={gameCount > 0 ? (gameCount / maxGames) * 100 : 0}
+                                      colorScheme="blue"
+                                      size="sm"
+                                      bg="gray.100"
+                                    />
+                                  </Box>
+                                );
+                              })
+                            ) : (
+                              <Text color="gray.500" textAlign="center" py={4}>월별 경기 데이터가 없습니다.</Text>
+                            )}
                           </VStack>
                           
                           <Divider />
@@ -4174,9 +4198,13 @@ export default function AdminPageNew() {
                           <Box>
                             <Text fontSize="md" fontWeight="bold" mb={3}>👑 최고 참여자</Text>
                             <VStack spacing={2} align="stretch">
-                              {activityAnalysisData?.memberStats.slice(0, 3).map((member, index) => (
-                                <TopParticipantItem key={member.id} member={member} index={index} />
-                              )) || []}
+                              {activityAnalysisData?.memberStats && activityAnalysisData.memberStats.length > 0 ? (
+                                activityAnalysisData.memberStats.slice(0, 3).map((member, index) => (
+                                  <TopParticipantItem key={member.id} member={member} index={index} />
+                                ))
+                              ) : (
+                                <Text fontSize="sm" color="gray.500">데이터가 없습니다.</Text>
+                              )}
                             </VStack>
                           </Box>
                           
@@ -4204,25 +4232,29 @@ export default function AdminPageNew() {
                           <Box>
                             <Text fontSize="md" fontWeight="bold" mb={3}>🏆 상위 참여자</Text>
                             <VStack spacing={2} align="stretch">
-                              {activityAnalysisData?.memberStats.slice(0, 3).map((member, index) => (
-                                <Flex key={member.id} justify="space-between" align="center">
-                                  <HStack>
-                                    <Badge 
-                                      colorScheme={
-                                        index === 0 ? 'yellow' : 
-                                        index === 1 ? 'gray' : 'orange'
-                                      }
-                                      size="sm"
-                                    >
-                                      {index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'}
-                                    </Badge>
-                                    <Text fontSize="sm" fontWeight="bold">{member.name}</Text>
-                                  </HStack>
-                                  <Text fontSize="sm" color="gray.600">
-                                    {Math.round((member.gameParticipation + member.voteParticipation) / 2)}%
-                                  </Text>
-                                </Flex>
-                              )) || []}
+                              {activityAnalysisData?.memberStats && activityAnalysisData.memberStats.length > 0 ? (
+                                activityAnalysisData.memberStats.slice(0, 3).map((member, index) => (
+                                  <Flex key={member.id} justify="space-between" align="center">
+                                    <HStack>
+                                      <Badge 
+                                        colorScheme={
+                                          index === 0 ? 'yellow' : 
+                                          index === 1 ? 'gray' : 'orange'
+                                        }
+                                        size="sm"
+                                      >
+                                        {index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'}
+                                      </Badge>
+                                      <Text fontSize="sm" fontWeight="bold">{member.name}</Text>
+                                    </HStack>
+                                    <Text fontSize="sm" color="gray.600">
+                                      {Math.round((member.gameParticipation + member.voteParticipation) / 2)}%
+                                    </Text>
+                                  </Flex>
+                                ))
+                              ) : (
+                                <Text fontSize="sm" color="gray.500">데이터가 없습니다.</Text>
+                              )}
                             </VStack>
                           </Box>
                           
