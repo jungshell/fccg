@@ -123,10 +123,138 @@ export default function PhotoGalleryPage() {
     }
   };
 
+  // 그룹화 함수 (재사용 가능)
+  const groupPosts = (posts: InstagramPost[]): InstagramPost[] => {
+    if (!posts || posts.length === 0) return [];
+    
+    console.log('🔄 그룹화 시작...', posts.length, '개 아이템');
+    const groupedMap = new Map<string, InstagramPost[]>();
+    
+    posts.forEach((item: InstagramPost) => {
+      // eventDate 정규화 (YYYY-MM-DD 형식으로 통일)
+      let normalizedDate = item.eventDate;
+      if (normalizedDate) {
+        // ISO 형식이나 다른 형식에서 날짜 부분만 추출
+        const dateMatch = normalizedDate.match(/^\d{4}-\d{2}-\d{2}/);
+        if (dateMatch) {
+          normalizedDate = dateMatch[0];
+        } else {
+          // 다른 형식인 경우 Date 객체로 파싱 후 다시 포맷
+          try {
+            const date = new Date(normalizedDate);
+            if (!isNaN(date.getTime())) {
+              normalizedDate = date.toISOString().split('T')[0];
+            }
+          } catch (e) {
+            console.warn('날짜 파싱 실패:', normalizedDate, e);
+          }
+        }
+      }
+      
+      // eventType 정규화 (공백 제거)
+      const normalizedEventType = (item.eventType || '기타').trim();
+      
+      const groupKey = `${normalizedDate}_${normalizedEventType}`;
+      
+      console.log('🔍 그룹화 키 생성:', {
+        id: item.id,
+        originalEventDate: item.eventDate,
+        normalizedDate,
+        originalEventType: item.eventType,
+        normalizedEventType,
+        groupKey
+      });
+      
+      if (!groupedMap.has(groupKey)) {
+        groupedMap.set(groupKey, []);
+      }
+      groupedMap.get(groupKey)!.push(item);
+    });
+    
+    console.log('📊 그룹화 결과:', {
+      총_아이템: posts.length,
+      그룹_수: groupedMap.size,
+      그룹별_아이템수: Array.from(groupedMap.entries()).map(([key, items]) => ({
+        key,
+        count: items.length
+      }))
+    });
+    
+    // 그룹화된 데이터를 단일 포스트로 변환
+    const convertedPosts: InstagramPost[] = [];
+    
+    groupedMap.forEach((items, groupKey) => {
+      if (items.length === 1) {
+        // 단일 이미지인 경우
+        convertedPosts.push(items[0]);
+      } else {
+        // 여러 이미지인 경우 - 첫 번째 아이템을 기준으로 그룹화
+        const firstItem = items[0];
+        const allImageUrls = items.map(item => item.src);
+        
+        // 좋아요와 댓글은 모든 아이템의 합산
+        const totalLikes = items.reduce((sum, item) => sum + item.likes, 0);
+        const allLikedBy = items.reduce((acc, item) => {
+          item.likedBy.forEach(like => {
+            if (!acc.find(l => l.id === like.id)) {
+              acc.push(like);
+            }
+          });
+          return acc;
+        }, [] as Array<{id: number, name: string}>);
+        const allComments = items.reduce((acc, item) => {
+          item.comments.forEach(comment => {
+            if (!acc.find(c => c.id === comment.id)) {
+              acc.push(comment);
+            }
+          });
+          return acc;
+        }, [] as Comment[]);
+        const allTags = items.reduce((acc, item) => {
+          item.tags.forEach(tag => {
+            if (!acc.includes(tag)) {
+              acc.push(tag);
+            }
+          });
+          return acc;
+        }, [] as string[]);
+        
+        // 가장 최근 생성된 아이템의 ID 사용
+        const latestItem = items.sort((a, b) => 
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        )[0];
+        
+        convertedPosts.push({
+          ...firstItem,
+          id: latestItem.id, // 가장 최근 아이템의 ID 사용
+          src: allImageUrls[0], // 첫 번째 이미지를 기본 이미지로
+          multiplePhotos: allImageUrls, // 모든 이미지 URL 배열
+          likes: totalLikes,
+          likedBy: allLikedBy,
+          isLiked: items.some(item => item.isLiked), // 하나라도 좋아요가 있으면 true
+          comments: allComments.sort((a, b) => 
+            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+          ),
+          tags: allTags,
+          createdAt: latestItem.createdAt // 가장 최근 업로드 시간
+        });
+      }
+    });
+    
+    // 업로드 시간순으로 정렬 (최신순)
+    convertedPosts.sort((a, b) => 
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+    
+    return convertedPosts;
+  };
+
   // 갤러리 데이터 로드 함수
   const loadGalleryData = async () => {
+    console.log('🚀 loadGalleryData 함수 시작');
     try {
       const response = await fetch(`${API_ENDPOINTS.BASE_URL}/gallery`);
+      console.log('📡 API 응답 상태:', response.status, response.ok);
 
       if (response.ok) {
         const data = await response.json();
@@ -227,124 +355,16 @@ export default function PhotoGalleryPage() {
             };
           }).filter((post: any) => post !== null); // null인 항목 제거
           
+          console.log('📋 변환된 아이템 수:', allItems.length);
+          if (allItems.length === 0) {
+            console.warn('⚠️ 변환된 아이템이 없습니다.');
+            setInstagramPosts([]);
+            setIsInitialLoad(false);
+            return false;
+          }
+          
           // 같은 날짜와 이벤트 타입으로 그룹화
-          const groupedMap = new Map<string, InstagramPost[]>();
-          
-          allItems.forEach((item: InstagramPost) => {
-            // eventDate 정규화 (YYYY-MM-DD 형식으로 통일)
-            let normalizedDate = item.eventDate;
-            if (normalizedDate) {
-              // ISO 형식이나 다른 형식에서 날짜 부분만 추출
-              const dateMatch = normalizedDate.match(/^\d{4}-\d{2}-\d{2}/);
-              if (dateMatch) {
-                normalizedDate = dateMatch[0];
-              } else {
-                // 다른 형식인 경우 Date 객체로 파싱 후 다시 포맷
-                try {
-                  const date = new Date(normalizedDate);
-                  if (!isNaN(date.getTime())) {
-                    normalizedDate = date.toISOString().split('T')[0];
-                  }
-                } catch (e) {
-                  console.warn('날짜 파싱 실패:', normalizedDate, e);
-                }
-              }
-            }
-            
-            // eventType 정규화 (공백 제거, 대소문자 통일)
-            const normalizedEventType = (item.eventType || '기타').trim();
-            
-            const groupKey = `${normalizedDate}_${normalizedEventType}`;
-            
-            console.log('🔍 그룹화 키 생성:', {
-              id: item.id,
-              originalEventDate: item.eventDate,
-              normalizedDate,
-              originalEventType: item.eventType,
-              normalizedEventType,
-              groupKey
-            });
-            
-            if (!groupedMap.has(groupKey)) {
-              groupedMap.set(groupKey, []);
-            }
-            groupedMap.get(groupKey)!.push(item);
-          });
-          
-          console.log('📊 그룹화 결과:', {
-            총_아이템: allItems.length,
-            그룹_수: groupedMap.size,
-            그룹별_아이템수: Array.from(groupedMap.entries()).map(([key, items]) => ({
-              key,
-              count: items.length
-            }))
-          });
-          
-          // 그룹화된 데이터를 단일 포스트로 변환
-          const convertedPosts: InstagramPost[] = [];
-          
-          groupedMap.forEach((items, groupKey) => {
-            if (items.length === 1) {
-              // 단일 이미지인 경우
-              convertedPosts.push(items[0]);
-            } else {
-              // 여러 이미지인 경우 - 첫 번째 아이템을 기준으로 그룹화
-              const firstItem = items[0];
-              const allImageUrls = items.map(item => item.src);
-              
-              // 좋아요와 댓글은 모든 아이템의 합산
-              const totalLikes = items.reduce((sum, item) => sum + item.likes, 0);
-              const allLikedBy = items.reduce((acc, item) => {
-                item.likedBy.forEach(like => {
-                  if (!acc.find(l => l.id === like.id)) {
-                    acc.push(like);
-                  }
-                });
-                return acc;
-              }, [] as Array<{id: number, name: string}>);
-              const allComments = items.reduce((acc, item) => {
-                item.comments.forEach(comment => {
-                  if (!acc.find(c => c.id === comment.id)) {
-                    acc.push(comment);
-                  }
-                });
-                return acc;
-              }, [] as Comment[]);
-              const allTags = items.reduce((acc, item) => {
-                item.tags.forEach(tag => {
-                  if (!acc.includes(tag)) {
-                    acc.push(tag);
-                  }
-                });
-                return acc;
-              }, [] as string[]);
-              
-              // 가장 최근 생성된 아이템의 ID 사용
-              const latestItem = items.sort((a, b) => 
-                new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-              )[0];
-              
-              convertedPosts.push({
-                ...firstItem,
-                id: latestItem.id, // 가장 최근 아이템의 ID 사용
-                src: allImageUrls[0], // 첫 번째 이미지를 기본 이미지로
-                multiplePhotos: allImageUrls, // 모든 이미지 URL 배열
-                likes: totalLikes,
-                likedBy: allLikedBy,
-                isLiked: items.some(item => item.isLiked), // 하나라도 좋아요가 있으면 true
-                comments: allComments.sort((a, b) => 
-                  new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-                ),
-                tags: allTags,
-                createdAt: latestItem.createdAt // 가장 최근 업로드 시간
-              });
-            }
-          });
-          
-          // 업로드 시간순으로 정렬 (최신순)
-          convertedPosts.sort((a, b) => 
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-          );
+          const convertedPosts = groupPosts(allItems);
           
           setInstagramPosts(convertedPosts);
           setIsInitialLoad(false);
@@ -462,9 +482,12 @@ export default function PhotoGalleryPage() {
           try {
             const parsed = JSON.parse(stored);
             if (Array.isArray(parsed) && parsed.length > 0) {
-              setInstagramPosts(parsed);
+              console.log('📦 localStorage에서 포스트 로드:', parsed.length, '개 (그룹화 적용)');
+              // localStorage에서도 그룹화 적용
+              const grouped = groupPosts(parsed);
+              setInstagramPosts(grouped);
               setIsInitialLoad(false);
-              console.log('⚠️ localStorage에서 포스트 로드:', parsed.length, '개 (백엔드 데이터 없음)');
+              console.log('✅ localStorage 그룹화 완료:', grouped.length, '개');
               return;
             }
           } catch (e) {
@@ -478,10 +501,13 @@ export default function PhotoGalleryPage() {
           try {
             const parsed = JSON.parse(backup);
             if (Array.isArray(parsed) && parsed.length > 0) {
-              setInstagramPosts(parsed);
+              console.log('📦 백업에서 포스트 복원:', parsed.length, '개 (그룹화 적용)');
+              // 백업에서도 그룹화 적용
+              const grouped = groupPosts(parsed);
+              setInstagramPosts(grouped);
               setIsInitialLoad(false);
               localStorage.setItem('instagramPosts', backup);
-              console.log('⚠️ 백업에서 포스트 복원:', parsed.length, '개 (백엔드 데이터 없음)');
+              console.log('✅ 백업 그룹화 완료:', grouped.length, '개');
               return;
             }
           } catch (e) {
