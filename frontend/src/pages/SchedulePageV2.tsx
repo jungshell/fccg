@@ -3124,8 +3124,8 @@ export default function SchedulePageV2() {
                     );
                   })}
                   
-                  {/* 불참 항목 - 실제 불참 투표가 있는 경우만 표시 */}
-                  {(voteResults.voteResults['불참'] || 0) > 0 && (
+                  {/* 불참 항목 - 0명이어도 항상 표시 */}
+                  (
                     <Flex 
                       justify="space-between" 
                       align="center" 
