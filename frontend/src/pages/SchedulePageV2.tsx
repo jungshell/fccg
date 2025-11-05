@@ -388,7 +388,15 @@ export default function SchedulePageV2() {
             voteDate: new Date()
         }));
         // 활성 세션의 투표 데이터를 voteResults 형식으로 변환
-          voteResults = {
+        // 불참 카운트 계산 (DB에는 요일 코드만 집계되어 있어 프론트에서 계산)
+        const absentCount = (activeSession.votes || []).reduce((count: number, v: any) => {
+          try {
+            const sel = typeof v.selectedDays === 'string' ? v.selectedDays : JSON.stringify(v.selectedDays);
+            return sel.includes('불참') ? count + 1 : count;
+          } catch { return count; }
+        }, 0);
+
+        voteResults = {
             voteSession: {
             id: activeSession.sessionId,
             weekStartDate: activeSession.weekStartDate,
@@ -405,7 +413,10 @@ export default function SchedulePageV2() {
               createdAt: participant.votedAt
               }))
             },
-          voteResults: activeSession.results
+        voteResults: {
+            ...activeSession.results,
+            ['불참']: absentCount
+          }
         };
         
         // 다음주 투표 데이터를 실제 데이터로 업데이트
