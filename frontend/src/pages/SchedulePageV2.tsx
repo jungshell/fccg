@@ -158,6 +158,9 @@ export default function SchedulePageV2() {
     return holidays.some(holiday => dateString.includes(holiday));
   }, []);
 
+  // 최근 로컬 투표 캐시 (백엔드 일시적 지연 대비)
+  const localVotesRef = useRef<any[]>([]);
+
   // 투표 마감 안내 문구: 규칙 설명용 고정 문구 (자동 마감 아님)
   // 항상 "이번주 목요일 17시까지"로 표기하되, 컬러 표시는 이번주 목요일 17:00까지 남은 시간으로 계산
   const getVoteDeadline = useCallback(() => {
@@ -957,6 +960,12 @@ export default function SchedulePageV2() {
             }
           };
         });
+
+        // 로컬 캐시 업데이트
+        try {
+          localVotesRef.current = (localVotesRef.current || []).filter((v: any) => Number(v.userId) !== Number(user?.id));
+          localVotesRef.current = [...localVotesRef.current, newVote];
+        } catch {}
         
         // 강제 리렌더링을 위한 상태 업데이트
         setAppData(prev => ({
@@ -2681,7 +2690,7 @@ export default function SchedulePageV2() {
                     <Tooltip
                       label={(() => {
                         const absentCount = (() => {
-                          const votes = voteResults?.voteSession?.votes || [];
+                          const votes = (voteResults?.voteSession?.votes?.length ? voteResults?.voteSession?.votes : localVotesRef.current) || [];
                           const byVotes = votes.filter((v: any) => {
                             if (Array.isArray(v.selectedDays)) return v.selectedDays.includes('불참');
                             if (typeof v.selectedDays === 'string') {
@@ -2725,7 +2734,7 @@ export default function SchedulePageV2() {
                       flexShrink={0}
                     >
                       {(() => {
-                        const votes = voteResults?.voteSession?.votes || [];
+                        const votes = (voteResults?.voteSession?.votes?.length ? voteResults?.voteSession?.votes : localVotesRef.current) || [];
                         const byVotes = votes.filter((v: any) => {
                           if (Array.isArray(v.selectedDays)) return v.selectedDays.includes('불참');
                           if (typeof v.selectedDays === 'string') {
