@@ -29,7 +29,7 @@ import NewCalendarV2 from '../components/NewCalendarV2';
 import { ArrowUpIcon } from '@chakra-ui/icons';
 import { useAuthStore } from '../store/auth';
 import { WarningIcon } from '@chakra-ui/icons';
-import { getUnifiedVoteDataNew } from '../api/auth';
+import { getUnifiedVoteDataNew, deleteVote } from '../api/auth';
 import { eventBus, EVENT_TYPES } from '../utils/eventBus';
 import { API_ENDPOINTS } from '../constants';
 import { EditIcon, DeleteIcon } from '@chakra-ui/icons';
@@ -987,7 +987,6 @@ export default function SchedulePageV2() {
 
       // 현재 활성 세션 확인
       if (unifiedVoteData?.activeSession && unifiedVoteData.activeSession.isActive) {
-        const { deleteVote } = await import('../api/auth');
         await deleteVote(user.id);
         
         // 로컬 상태 초기화
