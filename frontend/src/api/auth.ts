@@ -115,5 +115,9 @@ export const cleanupDuplicateSessions = () =>
 
 export const startWeeklyVote = () => request('/start-weekly-vote', { method: 'POST' });
 
+// 사용자 투표 삭제 (재투표용)
+export const deleteVote = (userId: number) =>
+  request(`/votes/${userId}`, { method: 'DELETE' });
+
 // ===== 기타 유틸 =====
 export const apiGet = request;
