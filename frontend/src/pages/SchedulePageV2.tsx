@@ -2669,10 +2669,23 @@ export default function SchedulePageV2() {
                     aria-pressed={selectedDays.includes('불참')}
                     aria-label="불참 선택"
                   >
-                    <Text fontSize={{ base: "xs", md: "sm" }} color="red.500">불참</Text>
+                    <Flex align="center" gap={{ base: 1, md: 2 }} flex="1" minW="0">
+                      <Text 
+                        fontSize={{ base: "xs", md: "sm" }} 
+                        fontWeight={selectedDays.includes('불참') ? "bold" : "normal"}
+                        color="gray.700"
+                      >
+                        불참
+                      </Text>
+                    </Flex>
                     <Tooltip
                       label={(() => {
-                        const absentCount = voteResults?.voteResults['불참'] || 0;
+                        const absentCount = (() => {
+                          const votes = voteResults?.voteSession?.votes || [];
+                          const byVotes = votes.filter((v: any) => Array.isArray(v.selectedDays) && v.selectedDays.includes('불참')).length;
+                          const byResults = voteResults?.voteResults?.['불참'] || 0;
+                          return Math.max(byVotes, byResults);
+                        })();
                         if (absentCount === 0) return '-';
                         
                         // 불참한 인원명 가져오기
@@ -2705,7 +2718,12 @@ export default function SchedulePageV2() {
                       justifyContent="center"
                       flexShrink={0}
                     >
-                      {voteResults?.voteResults['불참'] || 0}명
+                      {(() => {
+                        const votes = voteResults?.voteSession?.votes || [];
+                        const byVotes = votes.filter((v: any) => Array.isArray(v.selectedDays) && v.selectedDays.includes('불참')).length;
+                        const byResults = voteResults?.voteResults?.['불참'] || 0;
+                        return Math.max(byVotes, byResults);
+                      })()}명
                     </Badge>
                     </Tooltip>
                   </Flex>
