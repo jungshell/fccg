@@ -2639,9 +2639,6 @@ export default function SchedulePageV2() {
                     bg={selectedDays.includes('불참') ? "purple.50" : "transparent"}
 
                     onClick={() => {
-                      // 투표가 완료된 경우 선택 불가
-                      if (voteResults) return;
-                      
                       // 투표 마감된 경우 선택 불가
                       if (isVoteClosed) return;
                       
