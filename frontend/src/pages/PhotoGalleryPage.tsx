@@ -166,8 +166,35 @@ export default function PhotoGalleryPage() {
               console.log('✅ 변환된 imageUrl:', imageUrl);
             }
             
-            const eventDate = item.eventDate ? item.eventDate.split('T')[0] : item.createdAt.split('T')[0];
-            const eventType = item.eventType || '기타';
+            // eventDate 정규화: YYYY-MM-DD 형식으로 통일
+            let eventDate = item.eventDate;
+            if (eventDate) {
+              // ISO 형식이나 다른 형식에서 날짜 부분만 추출
+              const dateMatch = eventDate.match(/^\d{4}-\d{2}-\d{2}/);
+              if (dateMatch) {
+                eventDate = dateMatch[0];
+              } else {
+                // 다른 형식인 경우 Date 객체로 파싱 후 다시 포맷
+                try {
+                  const date = new Date(eventDate);
+                  if (!isNaN(date.getTime())) {
+                    eventDate = date.toISOString().split('T')[0];
+                  } else {
+                    // 파싱 실패 시 createdAt 사용
+                    eventDate = item.createdAt ? item.createdAt.split('T')[0] : new Date().toISOString().split('T')[0];
+                  }
+                } catch (e) {
+                  // 파싱 실패 시 createdAt 사용
+                  eventDate = item.createdAt ? item.createdAt.split('T')[0] : new Date().toISOString().split('T')[0];
+                }
+              }
+            } else {
+              // eventDate가 없으면 createdAt의 날짜 부분 사용
+              eventDate = item.createdAt ? item.createdAt.split('T')[0] : new Date().toISOString().split('T')[0];
+            }
+            
+            // eventType 정규화 (공백 제거)
+            const eventType = (item.eventType || '기타').trim();
             
             return {
               id: item.id,
@@ -204,11 +231,53 @@ export default function PhotoGalleryPage() {
           const groupedMap = new Map<string, InstagramPost[]>();
           
           allItems.forEach((item: InstagramPost) => {
-            const groupKey = `${item.eventDate}_${item.eventType}`;
+            // eventDate 정규화 (YYYY-MM-DD 형식으로 통일)
+            let normalizedDate = item.eventDate;
+            if (normalizedDate) {
+              // ISO 형식이나 다른 형식에서 날짜 부분만 추출
+              const dateMatch = normalizedDate.match(/^\d{4}-\d{2}-\d{2}/);
+              if (dateMatch) {
+                normalizedDate = dateMatch[0];
+              } else {
+                // 다른 형식인 경우 Date 객체로 파싱 후 다시 포맷
+                try {
+                  const date = new Date(normalizedDate);
+                  if (!isNaN(date.getTime())) {
+                    normalizedDate = date.toISOString().split('T')[0];
+                  }
+                } catch (e) {
+                  console.warn('날짜 파싱 실패:', normalizedDate, e);
+                }
+              }
+            }
+            
+            // eventType 정규화 (공백 제거, 대소문자 통일)
+            const normalizedEventType = (item.eventType || '기타').trim();
+            
+            const groupKey = `${normalizedDate}_${normalizedEventType}`;
+            
+            console.log('🔍 그룹화 키 생성:', {
+              id: item.id,
+              originalEventDate: item.eventDate,
+              normalizedDate,
+              originalEventType: item.eventType,
+              normalizedEventType,
+              groupKey
+            });
+            
             if (!groupedMap.has(groupKey)) {
               groupedMap.set(groupKey, []);
             }
             groupedMap.get(groupKey)!.push(item);
+          });
+          
+          console.log('📊 그룹화 결과:', {
+            총_아이템: allItems.length,
+            그룹_수: groupedMap.size,
+            그룹별_아이템수: Array.from(groupedMap.entries()).map(([key, items]) => ({
+              key,
+              count: items.length
+            }))
           });
           
           // 그룹화된 데이터를 단일 포스트로 변환
