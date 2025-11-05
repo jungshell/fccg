@@ -406,12 +406,16 @@ export default function SchedulePageV2() {
             isCompleted: activeSession.isCompleted,
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
-            votes: activeSession.participants.map((participant: any) => ({
-                id: Date.now() + Math.random(),
-              userId: participant.userId,
-              selectedDays: participant.selectedDays,
-              createdAt: participant.votedAt
-              }))
+          // 백엔드 unified API는 votes 배열을 제공합니다. selectedDays는 JSON 문자열 -> 배열로 변환
+          votes: (activeSession.votes || []).map((v: any) => ({
+              id: v.id || Date.now() + Math.random(),
+              userId: v.userId,
+              selectedDays: (() => {
+                try { return Array.isArray(v.selectedDays) ? v.selectedDays : JSON.parse(v.selectedDays || '[]'); }
+                catch { return []; }
+              })(),
+              createdAt: v.createdAt || v.votedAt || new Date().toISOString()
+            }))
             },
         voteResults: {
             ...activeSession.results,
