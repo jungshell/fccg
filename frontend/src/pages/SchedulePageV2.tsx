@@ -827,7 +827,7 @@ export default function SchedulePageV2() {
     
     // 현재 사용자가 이미 투표했는지 확인
     const hasUserVoted = voteResults?.voteSession?.votes?.some((vote: any) => 
-      vote.userId === user?.id
+      Number(vote.userId) === Number(user?.id)
     );
     
     console.log('🔍 사용자 투표 여부 확인:', { hasUserVoted, userId: user?.id });
@@ -940,7 +940,7 @@ export default function SchedulePageV2() {
               ['불참']:
                 // 기존에 본인이 불참으로 투표했다면 -1, 이번 투표가 불참이면 +1
                 (prev.voteResults?.['불참'] || 0)
-                - (prev.voteSession.votes.some((v: any) => v.userId === user?.id && Array.isArray(v.selectedDays) && v.selectedDays.includes('불참')) ? 1 : 0)
+                - (prev.voteSession.votes.some((v: any) => Number(v.userId) === Number(user?.id) && Array.isArray(v.selectedDays) && v.selectedDays.includes('불참')) ? 1 : 0)
                 + (newVote.selectedDays.includes('불참') ? 1 : 0)
             },
             voteSession: {
@@ -2750,11 +2750,11 @@ export default function SchedulePageV2() {
                         
                         // 현재 사용자가 현재 활성 세션에서 투표했는지 확인
                         const hasUserVoted = voteResults.voteSession.votes.some((vote: any) => 
-                          vote.userId === user?.id
+                          Number(vote.userId) === Number(user?.id)
                         );
                         
                         console.log('🔍 재투표하기 버튼 조건 확인:', {
-                          userVotes: voteResults.voteSession.votes.filter((v: any) => v.userId === user?.id),
+                          userVotes: voteResults.voteSession.votes.filter((v: any) => Number(v.userId) === Number(user?.id)),
                           hasUserVoted,
                           totalVotes: voteResults.voteSession.votes.length
                         });
