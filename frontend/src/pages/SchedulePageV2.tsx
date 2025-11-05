@@ -2632,7 +2632,7 @@ export default function SchedulePageV2() {
                   <Flex 
                     justify="space-between" 
                     align="center"
-                    p={{ base: 2, md: 2 }}
+                    p={{ base: 1, md: 1 }}
                     borderRadius="lg"
                     border={selectedDays.includes('불참') ? "1px solid" : "none"}
                     borderColor={selectedDays.includes('불참') ? "purple.400" : "transparent"}
@@ -2673,7 +2673,7 @@ export default function SchedulePageV2() {
                       <Text 
                         fontSize={{ base: "xs", md: "sm" }} 
                         fontWeight={selectedDays.includes('불참') ? "bold" : "normal"}
-                        color="gray.700"
+                        color="red.500"
                       >
                         불참
                       </Text>
@@ -2682,7 +2682,13 @@ export default function SchedulePageV2() {
                       label={(() => {
                         const absentCount = (() => {
                           const votes = voteResults?.voteSession?.votes || [];
-                          const byVotes = votes.filter((v: any) => Array.isArray(v.selectedDays) && v.selectedDays.includes('불참')).length;
+                          const byVotes = votes.filter((v: any) => {
+                            if (Array.isArray(v.selectedDays)) return v.selectedDays.includes('불참');
+                            if (typeof v.selectedDays === 'string') {
+                              try { return JSON.parse(v.selectedDays).includes('불참'); } catch { return v.selectedDays.includes('불참'); }
+                            }
+                            return false;
+                          }).length;
                           const byResults = voteResults?.voteResults?.['불참'] || 0;
                           return Math.max(byVotes, byResults);
                         })();
@@ -2720,7 +2726,13 @@ export default function SchedulePageV2() {
                     >
                       {(() => {
                         const votes = voteResults?.voteSession?.votes || [];
-                        const byVotes = votes.filter((v: any) => Array.isArray(v.selectedDays) && v.selectedDays.includes('불참')).length;
+                        const byVotes = votes.filter((v: any) => {
+                          if (Array.isArray(v.selectedDays)) return v.selectedDays.includes('불참');
+                          if (typeof v.selectedDays === 'string') {
+                            try { return JSON.parse(v.selectedDays).includes('불참'); } catch { return v.selectedDays.includes('불참'); }
+                          }
+                          return false;
+                        }).length;
                         const byResults = voteResults?.voteResults?.['불참'] || 0;
                         return Math.max(byVotes, byResults);
                       })()}명
