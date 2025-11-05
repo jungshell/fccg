@@ -34,7 +34,7 @@ import {
   CardBody
 } from '@chakra-ui/react';
 import { AiFillHeart, AiOutlineHeart, AiOutlineShareAlt, AiOutlineMore } from 'react-icons/ai';
-import { FiDownload } from 'react-icons/fi';
+import { FiDownload, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 import { ViewIcon, AddIcon, AttachmentIcon, ArrowUpIcon } from '@chakra-ui/icons';
 import { EditIcon, DeleteIcon, CheckIcon, CloseIcon } from '@chakra-ui/icons';
 import { useAuthStore } from '../store/auth';
@@ -93,6 +93,7 @@ export default function PhotoGalleryPage() {
   const [previewSrc, setPreviewSrc] = useState<string | null>(null);
   const [previewFull, setPreviewFull] = useState(false);
   const [sortBy, setSortBy] = useState<'upload' | 'event' | 'likes' | 'comments'>('upload');
+  const [currentImageIndex, setCurrentImageIndex] = useState(0); // 상세보기 모달에서 현재 이미지 인덱스
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingPost, setEditingPost] = useState<InstagramPost | null>(null);
@@ -132,8 +133,22 @@ export default function PhotoGalleryPage() {
         console.log('📸 갤러리 API 응답:', data);
         
         if (data.success && data.data && data.data.items && data.data.items.length > 0) {
+          // 백엔드 URL 추출
+          const baseApiUrl = API_ENDPOINTS.BASE_URL;
+          let backendUrl = '';
+          
+          // 프로덕션 환경 확인
+          if (baseApiUrl.includes('onrender.com')) {
+            backendUrl = 'https://fccgfirst.onrender.com';
+          } else if (baseApiUrl.includes('localhost') || baseApiUrl.includes('127.0.0.1')) {
+            backendUrl = baseApiUrl.replace('/api/auth', '');
+          } else {
+            // 일반적인 경우: /api/auth를 제거
+            backendUrl = baseApiUrl.replace('/api/auth', '');
+          }
+          
           // API 데이터를 InstagramPost 형식으로 변환
-          const convertedPosts = data.data.items.map((item: any) => {
+          const allItems = data.data.items.map((item: any) => {
             console.log('📸 아이템 처리:', item.id, item.imageUrl);
             
             // imageUrl이 상대 경로인 경우 전체 URL로 변환
@@ -145,62 +160,126 @@ export default function PhotoGalleryPage() {
               return null;
             }
             
-            // 백엔드 URL 추출
-            const baseApiUrl = API_ENDPOINTS.BASE_URL;
-            let backendUrl = '';
-            
-            // 프로덕션 환경 확인
-            if (baseApiUrl.includes('onrender.com')) {
-              backendUrl = 'https://fccgfirst.onrender.com';
-            } else if (baseApiUrl.includes('localhost') || baseApiUrl.includes('127.0.0.1')) {
-              backendUrl = baseApiUrl.replace('/api/auth', '');
-            } else {
-              // 일반적인 경우: /api/auth를 제거
-              backendUrl = baseApiUrl.replace('/api/auth', '');
-            }
-            
-            console.log('🔗 백엔드 URL:', backendUrl, '원본 imageUrl:', imageUrl);
-            
             // 상대 경로인 경우 전체 URL로 변환
             if (!imageUrl.startsWith('http') && !imageUrl.startsWith('//') && !imageUrl.startsWith('data:')) {
               imageUrl = imageUrl.startsWith('/') ? `${backendUrl}${imageUrl}` : `${backendUrl}/${imageUrl}`;
               console.log('✅ 변환된 imageUrl:', imageUrl);
             }
             
+            const eventDate = item.eventDate ? item.eventDate.split('T')[0] : item.createdAt.split('T')[0];
+            const eventType = item.eventType || '기타';
+            
             return {
-            id: item.id,
-            type: 'photo',
-            src: imageUrl || 'https://via.placeholder.com/400x400?text=No+Image',
-            caption: item.title,
-            author: {
-              id: item.uploader.id,
-              name: item.uploader.name,
-              avatar: item.uploader.avatarUrl || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=100&q=80'
-            },
-            createdAt: item.createdAt,
-            eventDate: item.eventDate ? item.eventDate.split('T')[0] : item.createdAt.split('T')[0],
-            eventType: item.eventType || '기타',
-            likes: item.likesCount,
-            likedBy: item.likes ? item.likes.map((like: any) => like.user?.name || like.user?.name || '') : [],
-            isLiked: item.isLiked,
-            comments: item.comments ? item.comments.map((comment: any) => ({
-              id: comment.id,
+              id: item.id,
+              type: 'photo',
+              src: imageUrl || 'https://via.placeholder.com/400x400?text=No+Image',
+              caption: item.title,
               author: {
-                id: comment.user?.id || 0,
-                name: comment.user?.name || '알 수 없음'
+                id: item.uploader.id,
+                name: item.uploader.name,
+                avatar: item.uploader.avatarUrl || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=100&q=80'
               },
-              content: comment.content,
-              createdAt: comment.createdAt
-            })) : [],
-            tags: item.tags ? item.tags.map((tag: any) => tag.name) : [],
-            location: '구장',
-            views: 0
-          };
+              createdAt: item.createdAt,
+              eventDate: eventDate,
+              eventType: eventType,
+              likes: item.likesCount,
+              likedBy: item.likes ? item.likes.map((like: any) => ({ id: like.user?.id || 0, name: like.user?.name || '' })).filter((like: any) => like.name) : [],
+              isLiked: item.isLiked,
+              comments: item.comments ? item.comments.map((comment: any) => ({
+                id: comment.id,
+                author: {
+                  id: comment.user?.id || 0,
+                  name: comment.user?.name || '알 수 없음'
+                },
+                content: comment.content,
+                createdAt: comment.createdAt
+              })) : [],
+              tags: item.tags ? item.tags.map((tag: any) => tag.name) : [],
+              location: '구장',
+              views: 0
+            };
           }).filter((post: any) => post !== null); // null인 항목 제거
+          
+          // 같은 날짜와 이벤트 타입으로 그룹화
+          const groupedMap = new Map<string, InstagramPost[]>();
+          
+          allItems.forEach((item: InstagramPost) => {
+            const groupKey = `${item.eventDate}_${item.eventType}`;
+            if (!groupedMap.has(groupKey)) {
+              groupedMap.set(groupKey, []);
+            }
+            groupedMap.get(groupKey)!.push(item);
+          });
+          
+          // 그룹화된 데이터를 단일 포스트로 변환
+          const convertedPosts: InstagramPost[] = [];
+          
+          groupedMap.forEach((items, groupKey) => {
+            if (items.length === 1) {
+              // 단일 이미지인 경우
+              convertedPosts.push(items[0]);
+            } else {
+              // 여러 이미지인 경우 - 첫 번째 아이템을 기준으로 그룹화
+              const firstItem = items[0];
+              const allImageUrls = items.map(item => item.src);
+              
+              // 좋아요와 댓글은 모든 아이템의 합산
+              const totalLikes = items.reduce((sum, item) => sum + item.likes, 0);
+              const allLikedBy = items.reduce((acc, item) => {
+                item.likedBy.forEach(like => {
+                  if (!acc.find(l => l.id === like.id)) {
+                    acc.push(like);
+                  }
+                });
+                return acc;
+              }, [] as Array<{id: number, name: string}>);
+              const allComments = items.reduce((acc, item) => {
+                item.comments.forEach(comment => {
+                  if (!acc.find(c => c.id === comment.id)) {
+                    acc.push(comment);
+                  }
+                });
+                return acc;
+              }, [] as Comment[]);
+              const allTags = items.reduce((acc, item) => {
+                item.tags.forEach(tag => {
+                  if (!acc.includes(tag)) {
+                    acc.push(tag);
+                  }
+                });
+                return acc;
+              }, [] as string[]);
+              
+              // 가장 최근 생성된 아이템의 ID 사용
+              const latestItem = items.sort((a, b) => 
+                new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+              )[0];
+              
+              convertedPosts.push({
+                ...firstItem,
+                id: latestItem.id, // 가장 최근 아이템의 ID 사용
+                src: allImageUrls[0], // 첫 번째 이미지를 기본 이미지로
+                multiplePhotos: allImageUrls, // 모든 이미지 URL 배열
+                likes: totalLikes,
+                likedBy: allLikedBy,
+                isLiked: items.some(item => item.isLiked), // 하나라도 좋아요가 있으면 true
+                comments: allComments.sort((a, b) => 
+                  new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+                ),
+                tags: allTags,
+                createdAt: latestItem.createdAt // 가장 최근 업로드 시간
+              });
+            }
+          });
+          
+          // 업로드 시간순으로 정렬 (최신순)
+          convertedPosts.sort((a, b) => 
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          );
           
           setInstagramPosts(convertedPosts);
           setIsInitialLoad(false);
-          console.log('✅ 백엔드에서 데이터 로드 성공:', convertedPosts.length, '개');
+          console.log('✅ 백엔드에서 데이터 로드 성공:', convertedPosts.length, '개 (그룹화 전:', allItems.length, '개)');
           return true; // 성공적으로 로드됨을 반환
         } else {
           console.warn('⚠️ 백엔드 응답에 데이터 없음:', data);
@@ -256,6 +335,44 @@ export default function PhotoGalleryPage() {
     }
   }, []);
 
+  // 키보드 네비게이션 (상세보기 모달에서 좌우 화살표 키)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!isModalOpen || !selectedPost) return;
+      
+      const images = selectedPost.multiplePhotos && selectedPost.multiplePhotos.length > 1 
+        ? selectedPost.multiplePhotos 
+        : [selectedPost.src];
+      
+      if (images.length <= 1) return;
+      
+      const currentIdx = hoveredImageIndex[selectedPost.id] || 0;
+      
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        const newIndex = currentIdx === 0 ? images.length - 1 : currentIdx - 1;
+        setHoveredImageIndex(prev => ({ ...prev, [selectedPost.id]: newIndex }));
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        const newIndex = currentIdx === images.length - 1 ? 0 : currentIdx + 1;
+        setHoveredImageIndex(prev => ({ ...prev, [selectedPost.id]: newIndex }));
+      }
+    };
+    
+    if (isModalOpen) {
+      window.addEventListener('keydown', handleKeyDown);
+      return () => {
+        window.removeEventListener('keydown', handleKeyDown);
+      };
+    }
+  }, [isModalOpen, selectedPost, hoveredImageIndex]);
+  
+  // 상세보기 모달이 열릴 때 이미지 인덱스 초기화
+  useEffect(() => {
+    if (isModalOpen && selectedPost) {
+      setHoveredImageIndex(prev => ({ ...prev, [selectedPost.id]: 0 }));
+    }
+  }, [isModalOpen, selectedPost]);
 
   // 데이터 로드 (최적화된 버전)
   useEffect(() => {
@@ -1447,14 +1564,31 @@ export default function PhotoGalleryPage() {
           <ModalCloseButton />
           <ModalBody p={0}>
             {selectedPost && (() => {
-              const currentImageSrc = selectedPost.multiplePhotos && selectedPost.multiplePhotos.length > 1 
-                ? selectedPost.multiplePhotos[hoveredImageIndex[selectedPost.id] || 0]
-                : selectedPost.src;
+              const images = selectedPost.multiplePhotos && selectedPost.multiplePhotos.length > 1 
+                ? selectedPost.multiplePhotos 
+                : [selectedPost.src];
+              const currentIdx = hoveredImageIndex[selectedPost.id] || 0;
+              const currentImageSrc = images[currentIdx];
               
               // 이미지 비율 감지 및 저장
               saveImageAspectRatio(selectedPost.id, currentImageSrc);
               const aspectRatio = imageAspectRatios[selectedPost.id] || 1;
               const isLandscape = aspectRatio > 1.2; // 가로 사진 판정
+              
+              // 좌우 네비게이션 함수
+              const goToPrevious = () => {
+                if (images.length > 1) {
+                  const newIndex = currentIdx === 0 ? images.length - 1 : currentIdx - 1;
+                  setHoveredImageIndex(prev => ({ ...prev, [selectedPost.id]: newIndex }));
+                }
+              };
+              
+              const goToNext = () => {
+                if (images.length > 1) {
+                  const newIndex = currentIdx === images.length - 1 ? 0 : currentIdx + 1;
+                  setHoveredImageIndex(prev => ({ ...prev, [selectedPost.id]: newIndex }));
+                }
+              };
               
               return (
                 <Flex direction={{ base: 'column', lg: isLandscape ? 'row' : 'row' }} h={isLandscape ? "60vh" : "80vh"}>
@@ -1469,7 +1603,7 @@ export default function PhotoGalleryPage() {
                          (selectedPost.eventType === '자체' || selectedPost.eventType?.includes('ì') || selectedPost.eventType?.includes('자체')) ? 'green.500' : 
                          selectedPost.eventType === '회식' ? 'red.500' : 'gray.500'}
                     color="white" 
-                    zIndex={1}
+                    zIndex={2}
                     fontSize="xs"
                     fontWeight="bold"
                     px={2}
@@ -1478,10 +1612,47 @@ export default function PhotoGalleryPage() {
                   >
                     {selectedPost.eventType?.includes('ì') || selectedPost.eventType?.includes('자체') ? '자체' : selectedPost.eventType}
                   </Badge>
-                  {selectedPost.multiplePhotos && selectedPost.multiplePhotos.length > 1 ? (
+                  
+                  {/* 좌우 화살표 버튼 (여러 이미지가 있을 때만 표시) */}
+                  {images.length > 1 && (
+                    <>
+                      <IconButton
+                        aria-label="이전 이미지"
+                        icon={<FiChevronLeft />}
+                        position="absolute"
+                        left={2}
+                        top="50%"
+                        transform="translateY(-50%)"
+                        zIndex={2}
+                        bg="blackAlpha.600"
+                        color="white"
+                        _hover={{ bg: "blackAlpha.800" }}
+                        onClick={goToPrevious}
+                        borderRadius="full"
+                        size="lg"
+                      />
+                      <IconButton
+                        aria-label="다음 이미지"
+                        icon={<FiChevronRight />}
+                        position="absolute"
+                        right={2}
+                        top="50%"
+                        transform="translateY(-50%)"
+                        zIndex={2}
+                        bg="blackAlpha.600"
+                        color="white"
+                        _hover={{ bg: "blackAlpha.800" }}
+                        onClick={goToNext}
+                        borderRadius="full"
+                        size="lg"
+                      />
+                    </>
+                  )}
+                  
+                  {images.length > 1 ? (
                     <Box position="relative" h="full">
                       <Image
-                        src={selectedPost.multiplePhotos[hoveredImageIndex[selectedPost.id] || 0]}
+                        src={images[currentIdx]}
                         alt={selectedPost.caption}
                         w="full"
                         h="full"
@@ -1489,25 +1660,13 @@ export default function PhotoGalleryPage() {
                         bg="black"
                         cursor="zoom-in"
                         onClick={() => {
-                          const idx = hoveredImageIndex[selectedPost.id] || 0;
-                          const url = selectedPost.multiplePhotos![idx];
-                          openPreview(url);
-                        }}
-                        onMouseMove={(e) => {
-                          const rect = e.currentTarget.getBoundingClientRect();
-                          const x = e.clientX - rect.left;
-                          const width = rect.width;
-                          const index = Math.floor((x / width) * selectedPost.multiplePhotos!.length);
-                          setHoveredImageIndex(prev => ({
-                            ...prev,
-                            [selectedPost.id]: Math.min(index, selectedPost.multiplePhotos!.length - 1)
-                          }));
+                          openPreview(images[currentIdx]);
                         }}
                         onError={(e: any) => {
-                          console.error('❌ 다중 이미지 로드 실패:', selectedPost.multiplePhotos?.[hoveredImageIndex[selectedPost.id] || 0], e);
+                          console.error('❌ 다중 이미지 로드 실패:', images[currentIdx], e);
                         }}
                         onLoad={() => {
-                          console.log('✅ 다중 이미지 로드 성공:', selectedPost.multiplePhotos?.[hoveredImageIndex[selectedPost.id] || 0]);
+                          console.log('✅ 다중 이미지 로드 성공:', images[currentIdx]);
                         }}
                         fallbackSrc="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='600'%3E%3Crect width='800' height='600' fill='%23f0f0f0'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='18' fill='%23999'%3E이미지를 불러올 수 없습니다%3C/text%3E%3C/svg%3E"
                       />
@@ -1519,14 +1678,17 @@ export default function PhotoGalleryPage() {
                         left="50%"
                         transform="translateX(-50%)"
                         spacing={1}
+                        zIndex={2}
                       >
-                        {selectedPost.multiplePhotos.map((_, index) => (
+                        {images.map((_, index) => (
                           <Box
                             key={index}
                             w={2}
                             h={2}
                             borderRadius="full"
-                            bg={index === (hoveredImageIndex[selectedPost.id] || 0) ? "white" : "whiteAlpha.500"}
+                            bg={index === currentIdx ? "white" : "whiteAlpha.500"}
+                            cursor="pointer"
+                            onClick={() => setHoveredImageIndex(prev => ({ ...prev, [selectedPost.id]: index }))}
                           />
                         ))}
                       </HStack>
