@@ -721,17 +721,8 @@ export default function SchedulePageV2() {
       return;
     }
 
-    // 선택된 날짜 확인
-    if (selectedDays.length === 0) {
-      toast({
-        title: '투표 실패',
-        description: '최소 하나의 날짜를 선택해주세요.',
-        status: 'error',
-        duration: 3000,
-        isClosable: true,
-      });
-      return;
-    }
+    // 선택된 날짜가 없으면 '불참'으로 간주하여 제출 허용
+    // 사용자가 아무 것도 선택하지 않고 제출해도 불참 투표가 가능해야 함
     
     console.log('✅ 인증 성공 - 투표 진행');
 
@@ -818,7 +809,7 @@ export default function SchedulePageV2() {
     console.log('🔍 사용자 투표 여부 확인:', { hasUserVoted, userId: user?.id });
     
     try {
-      // API에 투표 데이터 전송
+      // API에 투표 데이터 전송 (선택이 없으면 '불참'으로 처리)
       const response = await fetch(`${API_ENDPOINTS.BASE_URL}/votes`, {
         method: 'POST',
         headers: {
@@ -827,7 +818,7 @@ export default function SchedulePageV2() {
         },
         body: JSON.stringify({
           voteSessionId: voteSessionId,
-          selectedDays: selectedDays,
+          selectedDays: selectedDays.length > 0 ? selectedDays : ['불참'],
           timestamp: new Date().toISOString()
         })
       });
@@ -837,11 +828,14 @@ export default function SchedulePageV2() {
         console.log('✅ 투표 API 성공:', result);
         
         // 성공 메시지
+        const isAbsentVote = selectedDays.length === 0 || (selectedDays.length === 1 && selectedDays[0] === '불참');
         toast({
           title: hasUserVoted ? '재투표 완료' : '투표 완료',
-          description: hasUserVoted 
-            ? `${selectedDays.length}개 날짜로 재투표가 완료되었습니다.`
-            : `${selectedDays.length}개 날짜에 투표가 완료되었습니다.`,
+          description: isAbsentVote
+            ? '불참으로 투표가 완료되었습니다.'
+            : (hasUserVoted 
+                ? `${selectedDays.length}개 날짜로 재투표가 완료되었습니다.`
+                : `${selectedDays.length}개 날짜에 투표가 완료되었습니다.`),
           status: 'success',
           duration: 3000,
           isClosable: true,
@@ -863,7 +857,7 @@ export default function SchedulePageV2() {
         const newVote = {
           id: Date.now(),
           userId: user?.id,
-          selectedDays: selectedDays,
+          selectedDays: (selectedDays.length > 0 ? selectedDays : ['불참']),
           createdAt: new Date().toISOString()
         };
         
