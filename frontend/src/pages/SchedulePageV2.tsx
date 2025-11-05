@@ -2742,32 +2742,7 @@ export default function SchedulePageV2() {
                         투표현황
                       </Button>
                       
-                      {(() => {
-                        // 현재 활성화된 투표 세션인지 확인
-                        if (!voteResults || !voteResults.voteSession || !voteResults.voteSession.votes) return false;
-                        
-                        const currentDate = new Date();
-                        const sessionDate = new Date(voteResults.voteSession.weekStartDate);
-                        const isCurrentSession = Math.abs(currentDate.getTime() - sessionDate.getTime()) < 7 * 24 * 60 * 60 * 1000; // 7일 이내
-                        
-                        if (!isCurrentSession) return false;
-                        
-                        // 투표 마감 상태 확인
-                        if (isVoteClosed) return false;
-                        
-                        // 현재 사용자가 현재 활성 세션에서 투표했는지 확인
-                        const hasUserVoted = voteResults.voteSession.votes.some((vote: any) => 
-                          Number(vote.userId) === Number(user?.id)
-                        );
-                        
-                        console.log('🔍 재투표하기 버튼 조건 확인:', {
-                          userVotes: voteResults.voteSession.votes.filter((v: any) => Number(v.userId) === Number(user?.id)),
-                          hasUserVoted,
-                          totalVotes: voteResults.voteSession.votes.length
-                        });
-                        
-                        return hasUserVoted;
-                      })() ? (
+                      {(!isVoteClosed && hasUserVoted()) ? (
                         <Button
                           size={{ base: "xs", md: "sm" }}
                           bg="#FF6B35"
