@@ -3140,7 +3140,6 @@ export default function SchedulePageV2() {
                   })}
                   
                   {/* 불참 항목 - 0명이어도 항상 표시 */}
-                  (
                     <Flex 
                       justify="space-between" 
                       align="center" 
@@ -3189,7 +3188,6 @@ export default function SchedulePageV2() {
                       })()}
                     </Text>
                   </Flex>
-                  )}
                 </VStack>
 
                 {/* 댓글 섹션 */}
