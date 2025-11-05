@@ -1098,11 +1098,18 @@ export default function SchedulePageV2() {
 
   // 사용자가 이미 투표했는지 확인하는 함수
   const hasUserVoted = () => {
-    if (!voteResults?.voteSession?.votes || !user) return false;
-    
-    return voteResults.voteSession.votes.some((vote: any) => 
-      vote.userId === user.id
-    );
+    if (!user) return false;
+    // 1) 통합 데이터 우선 (서버 진실값)
+    const unifiedParticipants = unifiedVoteData?.activeSession?.participants;
+    if (Array.isArray(unifiedParticipants)) {
+      const found = unifiedParticipants.some((p: any) => Number(p.userId) === Number(user.id));
+      if (found) return true;
+    }
+    // 2) 로컬 백업
+    if (voteResults?.voteSession?.votes) {
+      return voteResults.voteSession.votes.some((vote: any) => Number(vote.userId) === Number(user.id));
+    }
+    return false;
   };
 
   // 투표 마감 상태 확인 (세션 상태 또는 마감일 기준)
