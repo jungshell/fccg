@@ -80,9 +80,6 @@ const corsOptions = {
   optionsSuccessStatus: 204
 };
 
-// OPTIONS 요청을 먼저 처리 (CORS preflight)
-app.options('*', cors(corsOptions));
-
 app.use(cors(corsOptions));
 // app.use(express.json()); // 기존 코드 주석 처리
 app.use(bodyParser.json({ limit: '50mb' })); // body-parser로 대체, 업로드용 크기 제한 증가

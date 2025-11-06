@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   Box,
   Flex,
@@ -1251,25 +1251,33 @@ export default function PhotoGalleryPage() {
   };
 
   // 정렬된 포스트
-  const sortedPosts = [...instagramPosts].sort((a, b) => {
-    switch (sortBy) {
-      case 'event':
-        // eventDate가 없으면 createdAt 사용
-        const aDate = a.eventDate || a.createdAt || '';
-        const bDate = b.eventDate || b.createdAt || '';
-        const aTime = aDate ? new Date(aDate).getTime() : 0;
-        const bTime = bDate ? new Date(bDate).getTime() : 0;
-        return bTime - aTime;
-      case 'likes':
-        return (b.likes || 0) - (a.likes || 0);
-      case 'comments':
-        return (b.comments?.length || 0) - (a.comments?.length || 0);
-      default:
-        const aCreated = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-        const bCreated = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-        return bCreated - aCreated;
+  const sortedPosts = useMemo(() => {
+    if (!Array.isArray(instagramPosts) || instagramPosts.length === 0) {
+      return [];
     }
-  });
+    
+    return [...instagramPosts].sort((a, b) => {
+      if (!a || !b) return 0;
+      
+      switch (sortBy) {
+        case 'event':
+          // eventDate가 없으면 createdAt 사용
+          const aDate = a.eventDate || a.createdAt || '';
+          const bDate = b.eventDate || b.createdAt || '';
+          const aTime = aDate ? new Date(aDate).getTime() : 0;
+          const bTime = bDate ? new Date(bDate).getTime() : 0;
+          return bTime - aTime;
+        case 'likes':
+          return (b.likes || 0) - (a.likes || 0);
+        case 'comments':
+          return (b.comments?.length || 0) - (a.comments?.length || 0);
+        default:
+          const aCreated = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const bCreated = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return bCreated - aCreated;
+      }
+    });
+  }, [instagramPosts, sortBy]);
 
   // 상대시간 포맷팅 (분/시간/일 단위)
   const formatDate = (dateString: string) => {
