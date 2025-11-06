@@ -1,5 +1,6 @@
 // 공통 API 클라이언트 (프론트 전역에서 사용)
-import { API_ENDPOINTS } from '../constants';
+import { API_ENDPOINTS, ensureApiBaseUrl } from '../constants';
+import { buildUrl } from '../config/runtime';
 
 // ===== 타입 =====
 export type Role = 'SUPER_ADMIN' | 'ADMIN' | 'MEMBER' | 'GUEST';
@@ -44,7 +45,8 @@ const authHeaders = () => {
 };
 
 const request = async <T = any>(path: string, init: RequestInit = {}): Promise<T> => {
-  const url = path.startsWith('http') ? path : `${API_ENDPOINTS.BASE_URL}${path}`;
+  const base = await ensureApiBaseUrl();
+  const url = buildUrl(base, path);
   const res = await fetch(url, {
     headers: { 'Content-Type': 'application/json', ...authHeaders(), ...(init.headers || {}) },
     ...init,
