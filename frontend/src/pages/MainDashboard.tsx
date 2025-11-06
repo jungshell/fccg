@@ -139,8 +139,10 @@ export default function MainDashboard() {
     },
     {
       icon: '📅',
-              title: '이번주 경기',
-      value: thisWeekGame ? `${new Date(thisWeekGame.date).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })} ${thisWeekGame.title}` : '없음'
+      title: '이번주 경기',
+      value: thisWeekGame && thisWeekGame.date && thisWeekGame.title 
+        ? `${new Date(thisWeekGame.date).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })} ${thisWeekGame.title}` 
+        : '없음'
     },
     {
       icon: '🏆',
@@ -1249,6 +1251,7 @@ export default function MainDashboard() {
               <Box textAlign="center">
                     <Text fontSize="md" color="gray.700" fontWeight="medium">
                       {(() => {
+                        if (!unifiedVoteData?.activeSession) return '투표 세션이 없습니다.';
                         const session = unifiedVoteData.activeSession;
                         const weekStartDate = new Date(session.weekStartDate);
                         const weekEndDate = new Date(weekStartDate.getTime() + 4 * 24 * 60 * 60 * 1000); // 금요일
@@ -1267,6 +1270,7 @@ export default function MainDashboard() {
                   {/* 투표 상태 pill */}
                   <Box position="absolute" top={3} right={3}>
                     {(() => {
+                      if (!unifiedVoteData?.activeSession) return null;
                       const session = unifiedVoteData.activeSession;
                       const isVoteClosed = !session.isActive;
                       return (
