@@ -665,7 +665,12 @@ export default function MainDashboard() {
   }, [fetchRealTimeMembers, fetchRealTimeGames, fetchVoteData, loadUnifiedVoteData]);
 
   // 명언 랜덤 선택
-  const randomQuote = useMemo(() => quotes[Math.floor(Math.random() * quotes.length)], []);
+  const randomQuote = useMemo(() => {
+    if (!quotes || quotes.length === 0) {
+      return { quote: '축구는 단순하다. 하지만 단순한 것이 가장 어렵다.', quoteEn: 'Football is simple, but the hardest thing is to play simple.', author: '요한 크루이프', authorEn: 'Johan Cruyff' };
+    }
+    return quotes[Math.floor(Math.random() * quotes.length)] || quotes[0];
+  }, []);
 
   // 유튜브 영상 fetch (최신 3개 자동)
   const YT_API_KEY = 'AIzaSyC7M5KrtdL8ChfVCX0M2CZfg7GWGaExMTk';
@@ -698,7 +703,13 @@ export default function MainDashboard() {
   // 유튜브 IFrame Player는 외부 라이브러리로 동작하며, 최신화 fetch만 사용합니다.
 
   const [videoIdx, setVideoIdx] = useState<number>(0);
-  const currentVideo = youtubeVideos[videoIdx] || fallbackVideos[0] || { id: 'AAftIIK3MOg', title: '기본 영상' };
+  const currentVideo = useMemo(() => {
+    const video = youtubeVideos?.[videoIdx] || fallbackVideos?.[0] || { id: 'AAftIIK3MOg', title: '기본 영상' };
+    return {
+      id: video?.id || 'AAftIIK3MOg',
+      title: video?.title || '기본 영상'
+    };
+  }, [youtubeVideos, videoIdx]);
   // 동영상 인덱스 이동 (최신화된 리스트에 맞게)
   const handlePrev = () => setVideoIdx((idx: number) => (idx === 0 ? youtubeVideos.length - 1 : idx - 1));
   const handleNext = () => setVideoIdx((idx: number) => (idx === youtubeVideos.length - 1 ? 0 : idx + 1));
@@ -1420,10 +1431,10 @@ export default function MainDashboard() {
         {/* 명언 카드 */}
         <Box flex={1} bg="white" p={{ base: 4, md: 8 }} borderRadius="lg" boxShadow="md" display="flex" flexDirection="column" justifyContent="center" minH="433px" maxW={{ base: '100%', md: '420px' }}>
           <Text fontSize="5xl" color="#004ea8" fontWeight="bold" mb={4}>&ldquo;</Text>
-          <Text fontSize="xl" fontWeight="bold" mb={2}>{randomQuote.quoteEn}</Text>
-          <Text fontSize="md" color="gray.500" mb={1}>- {randomQuote.authorEn}</Text>
-          <Text fontSize="lg" color="gray.700" mb={2}>{randomQuote.quote}</Text>
-          <Text fontWeight="bold" color="gray.600" mb={1}>{randomQuote.author}</Text>
+          <Text fontSize="xl" fontWeight="bold" mb={2}>{randomQuote?.quoteEn || ''}</Text>
+          <Text fontSize="md" color="gray.500" mb={1}>- {randomQuote?.authorEn || ''}</Text>
+          <Text fontSize="lg" color="gray.700" mb={2}>{randomQuote?.quote || ''}</Text>
+          <Text fontWeight="bold" color="gray.600" mb={1}>{randomQuote?.author || ''}</Text>
         </Box>
         {/* 유튜브 슬라이드 */}
         <Box
