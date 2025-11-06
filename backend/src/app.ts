@@ -19,6 +19,11 @@ console.log('서버 시작');
 
 // JWT 인증 미들웨어
 const authenticateToken = (req: any, res: any, next: any) => {
+  // OPTIONS 요청은 인증하지 않음 (CORS preflight)
+  if (req.method === 'OPTIONS') {
+    return next();
+  }
+  
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
@@ -70,8 +75,13 @@ const corsOptions = {
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'cache-control', 'Cache-Control', 'pragma', 'Pragma'],
-  exposedHeaders: ['Content-Range', 'X-Content-Range']
+  exposedHeaders: ['Content-Range', 'X-Content-Range'],
+  preflightContinue: false,
+  optionsSuccessStatus: 204
 };
+
+// OPTIONS 요청을 먼저 처리 (CORS preflight)
+app.options('*', cors(corsOptions));
 
 app.use(cors(corsOptions));
 // app.use(express.json()); // 기존 코드 주석 처리
