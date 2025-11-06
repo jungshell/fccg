@@ -1,6 +1,12 @@
 // API 엔드포인트
+// BASE_URL 결정 로직: (1) 런타임(app-config.json/window) → (2) 빌드타임(VITE_) → (3) 오류
+import { getRuntimeApiBaseUrl, normalizeBaseUrl } from '../config/runtime';
+
+const buildTimeBase = (import.meta as any)?.env?.VITE_API_BASE_URL as string | undefined;
+const buildTimeBaseNormalized = buildTimeBase && buildTimeBase.trim() ? normalizeBaseUrl(buildTimeBase) : '';
+
 export const API_ENDPOINTS = {
-  BASE_URL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api/auth',
+  BASE_URL: buildTimeBaseNormalized || '',
   MEMBERS: '/members',
   MEMBERS_STATS: '/members/stats',
   GAMES: '/games',
@@ -8,6 +14,17 @@ export const API_ENDPOINTS = {
   LOGIN: '/login',
   SIGNUP: '/signup',
 } as const;
+
+// 런타임에서 BASE_URL을 보장적으로 주입하기 위한 헬퍼
+export async function ensureApiBaseUrl(): Promise<string> {
+  // 1) 런타임 파일/전역에서 우선 획득
+  const runtime = await getRuntimeApiBaseUrl();
+  if (runtime) return runtime;
+  // 2) 빌드타임이 있으면 사용
+  if (API_ENDPOINTS.BASE_URL) return API_ENDPOINTS.BASE_URL;
+  // 3) 명확한 오류 (임시 하드코딩 방지)
+  throw new Error('API_BASE_URL이 설정되지 않았습니다. Vercel 환경변수(VITE_API_BASE_URL) 또는 public/app-config.json을 설정하세요.');
+}
 
 // UI 관련 상수
 export const UI_CONSTANTS = {

@@ -1,7 +1,8 @@
-import { API_ENDPOINTS, ERROR_MESSAGES } from '../constants';
+import { API_ENDPOINTS, ERROR_MESSAGES, ensureApiBaseUrl } from '../constants';
+import { buildUrl } from '../config/runtime';
 import { cachedApiCall, createCacheKey, createWeeklyCacheKey, invalidateCache } from './cache';
 
-// API 기본 설정
+// API 기본 설정 (베이스 URL은 런타임에 보장적으로 주입)
 const API_CONFIG = {
   baseURL: API_ENDPOINTS.BASE_URL,
   timeout: 10000, // 10초
@@ -27,7 +28,9 @@ const handleApiError = (error: any): never => {
 // 공통 fetch 함수
 const apiFetch = async (url: string, options: RequestInit = {}): Promise<any> => {
   try {
-    const fullUrl = url.startsWith('http') ? url : `${API_CONFIG.baseURL}${url}`;
+    const base = API_CONFIG.baseURL && API_CONFIG.baseURL.trim() ? API_CONFIG.baseURL : await ensureApiBaseUrl();
+    API_CONFIG.baseURL = base; // 한번 구하면 캐시
+    const fullUrl = buildUrl(base, url);
     
     const response = await fetch(fullUrl, {
       ...options,
