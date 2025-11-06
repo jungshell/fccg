@@ -92,7 +92,7 @@ export default function PhotoGalleryPage() {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewSrc, setPreviewSrc] = useState<string | null>(null);
   const [previewFull, setPreviewFull] = useState(false);
-  const [sortBy, setSortBy] = useState<'upload' | 'event' | 'likes' | 'comments'>('upload');
+  const [sortBy, setSortBy] = useState<'upload' | 'event' | 'likes' | 'comments'>('event');
   const [currentImageIndex, setCurrentImageIndex] = useState(0); // 상세보기 모달에서 현재 이미지 인덱스
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
