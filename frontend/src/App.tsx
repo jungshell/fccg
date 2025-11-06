@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { Box } from '@chakra-ui/react';
+import { Box, Spinner, Center } from '@chakra-ui/react';
 import { useAuthStore } from './store/auth';
 import { Header } from './components';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -8,16 +8,24 @@ import { AccessibilityProvider } from './components/AccessibilityProvider';
 import { PWAInstallPrompt, PWAStatus } from './components/PWAInstallPrompt';
 import InAppNotificationManager from './components/InAppNotificationManager';
 import GlobalNotification from './components/GlobalNotification';
-import {
-  MainDashboard,
-  SchedulePageV2,
-  PhotoGalleryPage,
-  VideoGalleryPage,
-  AdminPage,
-  LoginPage as Login,
-  RegisterPage as Signup,
-  ProfilePage,
-} from './pages';
+
+// 즉시 로드 필요한 컴포넌트 (로그인 등)
+import { LoginPage as Login, RegisterPage as Signup } from './pages';
+
+// 레이지 로딩 (코드 스플리팅)
+const MainDashboard = lazy(() => import('./pages/MainDashboard').then(m => ({ default: m.MainDashboard })));
+const SchedulePageV2 = lazy(() => import('./pages/SchedulePageV2').then(m => ({ default: m.SchedulePageV2 })));
+const PhotoGalleryPage = lazy(() => import('./pages/PhotoGalleryPage').then(m => ({ default: m.PhotoGalleryPage })));
+const VideoGalleryPage = lazy(() => import('./pages/VideoGalleryPage').then(m => ({ default: m.VideoGalleryPage })));
+const AdminPage = lazy(() => import('./pages/AdminPageNew').then(m => ({ default: m.AdminPage })));
+const ProfilePage = lazy(() => import('./pages/ProfilePage').then(m => ({ default: m.ProfilePage })));
+
+// 로딩 스피너 컴포넌트
+const PageLoader = () => (
+  <Center minH="50vh">
+    <Spinner size="xl" thickness="4px" speed="0.65s" color="purple.500" />
+  </Center>
+);
 
 // 고급 기능들 초기화
 import { initGA, trackPageView } from './utils/analytics';
@@ -72,21 +80,23 @@ function AppLayout() {
   return (
     <Box minH="100vh" bgGradient="linear(to-br, #004ea8, #1f2937)">
       {!hideHeader && <Header />}
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
-        {/* 인증이 필요 없는 공개 페이지들 */}
-        <Route path="/" element={<MainDashboard />} />
-        {/* 일정 페이지는 공개(비회원 열람 가능) */}
-        <Route path="/schedule-v2" element={<SchedulePageV2 />} />
+      <Suspense fallback={<PageLoader />}>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
+          {/* 인증이 필요 없는 공개 페이지들 */}
+          <Route path="/" element={<MainDashboard />} />
+          {/* 일정 페이지는 공개(비회원 열람 가능) */}
+          <Route path="/schedule-v2" element={<SchedulePageV2 />} />
 
-        <Route path="/gallery/photos" element={<PhotoGalleryPage />} />
-        <Route path="/gallery/videos" element={<VideoGalleryPage />} />
-        {/* 인증이 필요한 보호된 페이지들 */}
-        <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
-        <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+          <Route path="/gallery/photos" element={<PhotoGalleryPage />} />
+          <Route path="/gallery/videos" element={<VideoGalleryPage />} />
+          {/* 인증이 필요한 보호된 페이지들 */}
+          <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
+          <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
       
       {/* PWA Components */}
       <PWAInstallPrompt />
