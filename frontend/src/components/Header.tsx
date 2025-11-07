@@ -7,8 +7,7 @@ import Signup from '../pages/Signup';
 import Login from '../pages/Login';
 import { useNavigate, useLocation } from 'react-router-dom';
 import eventBus, { EVENT_TYPES } from '../utils/eventBus';
-import { API_ENDPOINTS, ensureApiBaseUrl } from '../constants';
-import { buildUrl } from '../config/runtime';
+import { API_ENDPOINTS } from '../constants';
 
 export default function Header() {
   const { isOpen, onOpen, onClose } = useDisclosure();
@@ -42,8 +41,7 @@ export default function Header() {
       console.log('🔄 헤더: 사용자 데이터 새로고침 시작');
       
       // 캐시를 무시하고 강제로 새로고침
-      const base = await ensureApiBaseUrl();
-      const response = await fetch(buildUrl(base, '/profile'), {
+      const response = await fetch(`${API_ENDPOINTS.BASE_URL}/profile`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -241,15 +239,7 @@ export default function Header() {
       }
     };
 
-    const handleVoteDataChanged = () => {
-      console.log('🔍 헤더: 투표 데이터 변경 이벤트 수신, 사용자 데이터 새로고침');
-      if (token) {
-        refreshUserData();
-      }
-    };
-
     window.addEventListener('voteSubmitted', handleVoteSubmitted);
-    window.addEventListener('voteDataChanged', handleVoteDataChanged);
     // 경기 변경 이벤트에도 즉시 새로고침
     const handleGamesChanged = () => {
       console.log('🔔 헤더: 경기 변경 이벤트 수신, 사용자 데이터 새로고침');
@@ -267,7 +257,6 @@ export default function Header() {
     
     return () => {
       window.removeEventListener('voteSubmitted', handleVoteSubmitted);
-      window.removeEventListener('voteDataChanged', handleVoteDataChanged);
       window.removeEventListener('gamesChanged', handleGamesChanged);
       eventBus.off(EVENT_TYPES.GAME_CREATED, busHandler);
       eventBus.off(EVENT_TYPES.GAME_UPDATED, busHandler);
@@ -278,13 +267,12 @@ export default function Header() {
 
   return (
     <>
-      <Flex as="nav" align="center" justify="space-between" px={{ base: 2, md: 4, lg: 6 }} py={2} bg="white" boxShadow="sm" w="100%" position="fixed" top={0} left={0} right={0} zIndex={100} maxW="100vw" overflowX="hidden" boxSizing="border-box">
-        <HStack spacing={4} flexShrink={1} minW={0}>
+      <Flex as="nav" align="center" justify="space-between" px={{ base: 4, md: 16 }} py={4} bg="white" boxShadow="sm" w="100vw" position="fixed" top={0} left={0} right={0} zIndex={100}>
+        <HStack spacing={4}>
           <Text 
-            fontSize={{ base: 'lg', md: 'xl' }}
+            fontSize="xl" 
             fontWeight="bold" 
             cursor="pointer"
-            whiteSpace="nowrap"
             onClick={(e) => { 
               e.preventDefault();
               e.stopPropagation();
@@ -319,7 +307,7 @@ export default function Header() {
             FC CHAL-GGYEO
           </Text>
         </HStack>
-        <HStack spacing={2} flexShrink={1} minW={0}>
+        <HStack spacing={4}>
           <Button 
             variant={location.pathname === '/schedule-v2' ? "outline" : "ghost"} 
             bg="transparent"
@@ -332,8 +320,6 @@ export default function Header() {
             }} 
             leftIcon={<CalendarIcon />} 
             onClick={() => navigate('/schedule-v2')}
-            size="sm"
-            flexShrink={1}
           >
             일정
           </Button>
@@ -349,8 +335,6 @@ export default function Header() {
             }}
             leftIcon={<AttachmentIcon />}
             onClick={() => navigate('/gallery/photos')}
-            size="sm"
-            flexShrink={1}
           >
             사진
           </Button>
@@ -366,8 +350,6 @@ export default function Header() {
             }}
             leftIcon={<ExternalLinkIcon />}
             onClick={() => navigate('/gallery/videos')}
-            size="sm"
-            flexShrink={1}
           >
             동영상
           </Button>
@@ -412,18 +394,12 @@ export default function Header() {
             </Button>
           )}
         </HStack>
-        <HStack spacing={2} flexShrink={0} minW="fit-content">
-          {(() => {
-            // 로그인 상태 확인 - 명시적으로 체크
-            const isLoggedIn = user && token && user !== null && token !== null && typeof user === 'object' && typeof token === 'string' && token.length > 0;
-            if (!isLoggedIn) {
-              return <Button size="sm" bg="#004ea8" color="white" _hover={{ bg: '#00397a' }} onClick={onOpen} whiteSpace="nowrap">로그인</Button>;
-            }
-            return null;
-          })()}
-          {user && token && (
+        <HStack spacing={4}>
+          {!user ? (
+            <Button size="sm" bg="#004ea8" color="white" _hover={{ bg: '#00397a' }} variant="outline" onClick={onOpen}>로그인</Button>
+          ) : (
             <>
-              <HStack align="center" spacing={2} flexShrink={1} minW={0}>
+              <HStack align="center" spacing={3}>
                 {/* 투표율과 참여율 표시 (user가 있으면 항상 표시) */}
                 {user && (
                   <>
@@ -435,8 +411,8 @@ export default function Header() {
                       color="white"
                       fontSize="sm"
                     >
-                      <Box minW={{ base: '60px', md: '70px' }} textAlign="center" display="flex" flexDirection="column" alignItems="center" justifyContent="center" flexShrink={1}>
-                        <Text fontSize="xs" color="gray.500" cursor="default" _hover={{ color: "blue.400" }} whiteSpace="nowrap">
+                      <Box minW="80px" textAlign="center" display="flex" flexDirection="column" alignItems="center" justifyContent="center">
+                        <Text fontSize="xs" color="gray.500" cursor="default" _hover={{ color: "blue.400" }}>
                           투표율 <span style={{ color: '#004ea8', fontWeight: 'bold' }}>
                             {isLoading ? '...' : `${animatedVoteAttendance}%`}
                           </span>
@@ -477,8 +453,8 @@ export default function Header() {
                       color="white"
                       fontSize="sm"
                     >
-                      <Box minW={{ base: '60px', md: '70px' }} textAlign="center" display="flex" flexDirection="column" alignItems="center" justifyContent="center" flexShrink={1}>
-                        <Text fontSize="xs" color="gray.500" cursor="default" _hover={{ color: "blue.400" }} whiteSpace="nowrap">참여율 <span style={{ color: '#004ea8', fontWeight: 'bold' }}>{animatedAttendance}%</span></Text>
+                      <Box minW="80px" textAlign="center" display="flex" flexDirection="column" alignItems="center" justifyContent="center">
+                        <Text fontSize="xs" color="gray.500" cursor="default" _hover={{ color: "blue.400" }}>참여율 <span style={{ color: '#004ea8', fontWeight: 'bold' }}>{animatedAttendance}%</span></Text>
                         <Box w="60px" mt={1}>
                           <Box
                             h="6px"
@@ -509,23 +485,19 @@ export default function Header() {
                     </Tooltip>
                   </>
                 )}
-                <HStack align="center" spacing={2} flexShrink={0}>
-                  <Badge bg="#004ea8" color="white" borderRadius="full" px={2} py={1} whiteSpace="nowrap">정</Badge>
+                <HStack align="center" spacing={2}>
+                  <Badge bg="#004ea8" color="white" borderRadius="full" px={2} py={1}>정</Badge>
                   <Text
                     fontWeight="bold"
                     cursor="pointer"
                     _hover={{ textDecoration: 'underline', color: '#00397a' }}
                     onClick={handleNamePillClick}
-                    whiteSpace="nowrap"
-                    overflow="hidden"
-                    textOverflow="ellipsis"
-                    maxW={{ base: '60px', md: '100px' }}
                   >
                     {user.name}
                   </Text>
                 </HStack>
               </HStack>
-              <Button size="sm" colorScheme="gray" variant="outline" onClick={() => { logout(); navigate('/'); }} whiteSpace="nowrap">로그아웃</Button>
+              <Button size="sm" colorScheme="gray" variant="outline" onClick={() => { logout(); navigate('/'); }}>로그아웃</Button>
             </>
           )}
         </HStack>

@@ -29,11 +29,10 @@ import { initializePushNotifications, isNotificationSupported } from './utils/pu
 // 보호된 라우트 컴포넌트 (관리자 페이지, 프로필 페이지 등)
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, token } = useAuthStore();
-  const location = useLocation();
   
   if (!user || !token) {
     // 로그인 페이지로 리다이렉트하면서 현재 경로 정보 전달
-    return <Navigate to="/login" state={{ from: { pathname: location.pathname } }} replace />;
+    return <Navigate to="/login" state={{ from: { pathname: window.location.pathname } }} replace />;
   }
   
   return <>{children}</>;
@@ -62,20 +61,16 @@ function AppLayout() {
     backupUtils.optimize();
 
     // 페이지뷰 추적
-    if (typeof document !== 'undefined') {
-      trackPageView(location.pathname, document.title);
-    }
+    trackPageView(location.pathname, document.title);
   }, []);
 
   // 페이지 변경 시 추적
   React.useEffect(() => {
-    if (typeof document !== 'undefined') {
-      trackPageView(location.pathname, document.title);
-    }
+    trackPageView(location.pathname, document.title);
   }, [location.pathname]);
 
   return (
-    <Box minH="100vh" bgGradient="linear(to-br, #004ea8, #1f2937)" overflowX="hidden" maxW="100vw" w="100%">
+    <Box minH="100vh" bgGradient="linear(to-br, #004ea8, #1f2937)">
       {!hideHeader && <Header />}
       <Routes>
         <Route path="/login" element={<Login />} />
@@ -110,8 +105,7 @@ export default function App() {
   // 푸시 알림 초기화
   React.useEffect(() => {
     const initNotifications = async () => {
-      const enablePush = (import.meta as any)?.env?.VITE_ENABLE_PUSH === 'true';
-      if (enablePush && isNotificationSupported()) {
+      if (isNotificationSupported()) {
         try {
           await initializePushNotifications();
           console.log('✅ 푸시 알림 시스템 초기화 완료');
