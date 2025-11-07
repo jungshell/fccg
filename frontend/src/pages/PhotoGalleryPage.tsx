@@ -250,7 +250,7 @@ export default function PhotoGalleryPage() {
   };
 
   // 갤러리 데이터 로드 함수
-  const loadGalleryData = async () => {
+  const loadGalleryData = async (): Promise<boolean> => {
     console.log('🚀 loadGalleryData 함수 시작');
     try {
       const response = await fetch(`${API_ENDPOINTS.BASE_URL}/gallery`);
