@@ -1410,11 +1410,11 @@ export default function MainDashboard() {
 
 
   return (
-    <Box minH="100vh" bg="#f7f9fb" w="100%" overflowX="hidden" pt="70px" maxW="100vw" boxSizing="border-box">
+    <Box minH="100vh" bg="#f7f9fb" w="100vw" minW="100vw" pt="18mm" overflowX="hidden">
       {/* 메인 컨텐츠 */}
-      <Flex direction={{ base: 'column', md: 'row' }} gap={6} px={{ base: 4, md: 6, lg: 12 }} py={6} w="100%" maxW={{ base: '100%', lg: '1400px' }} mx="auto" align="stretch" overflowX="hidden" boxSizing="border-box">
+      <Flex direction={{ base: 'column', md: 'row' }} gap={8} px={{ base: 2, md: 8, lg: 24 }} py={10} w="full" maxW="100vw" align="stretch" overflowX="hidden">
         {/* 명언 카드 */}
-        <Box flex={{ base: '1 1 100%', md: '1 1 380px' }} bg="white" p={{ base: 4, md: 6 }} borderRadius="lg" boxShadow="md" display="flex" flexDirection="column" justifyContent="center" minH="400px" maxW={{ base: '100%', md: '380px' }} boxSizing="border-box" overflow="hidden">
+        <Box flex={1} bg="white" p={{ base: 4, md: 8 }} borderRadius="lg" boxShadow="md" display="flex" flexDirection="column" justifyContent="center" minH="433px" maxW={{ base: '100%', md: '420px' }}>
           <Text fontSize="5xl" color="#004ea8" fontWeight="bold" mb={4}>&ldquo;</Text>
           <Text fontSize="xl" fontWeight="bold" mb={2}>{randomQuote.quoteEn}</Text>
           <Text fontSize="md" color="gray.500" mb={1}>- {randomQuote.authorEn}</Text>
@@ -1423,19 +1423,16 @@ export default function MainDashboard() {
         </Box>
         {/* 유튜브 슬라이드 */}
         <Box
-          flex={{ base: '1 1 100%', md: '2 1 auto' }}
+          flex={2}
           bg="white"
-          p={3}
+          p={4}
           borderRadius="lg"
           boxShadow="md"
           display="flex"
           alignItems="center"
           justifyContent="center"
           minH={{ base: '180px', md: '300px', lg: '400px' }}
-          w="100%"
-          maxW="100%"
           position="relative"
-          boxSizing="border-box"
           overflow="hidden"
         >
           <IconButton icon={<ChevronLeftIcon />} aria-label="이전" position="absolute" left={2} top="50%" transform="translateY(-50%)" onClick={handlePrev} zIndex={2} bg="white" boxShadow="md"/>
@@ -1461,8 +1458,8 @@ export default function MainDashboard() {
               key={currentVideo.id}
               videoId={currentVideo.id}
               opts={{
-                width: '100%',
-                height: '100%',
+                width: '125%',
+                height: '125%',
                 playerVars: {
                   autoplay: 1,
                   mute: 1,
@@ -1471,12 +1468,12 @@ export default function MainDashboard() {
               }}
               style={{
                 position: 'absolute',
-                width: '100%',
-                height: '100%',
+                width: '125%',
+                height: '125%',
                 borderRadius: 12,
                 background: 'black',
-                left: '0',
-                top: '0',
+                left: '-12.5%',
+                top: '-12.5%',
               }}
               className="yt-iframe"
               onEnd={() => setVideoIdx(idx => (idx + 1) % youtubeVideos.length)}
@@ -1495,23 +1492,19 @@ export default function MainDashboard() {
       )}
 
       {/* 하단 통계 카드 */}
-      <SimpleGrid columns={{ base: 1, sm: 2, lg: 4 }} spacing={4} mb={6} px={{ base: 4, md: 6, lg: 12 }} w="100%" maxW={{ base: '100%', lg: '1400px' }} mx="auto" overflowX="hidden" boxSizing="border-box">
+      <SimpleGrid columns={{ base: 1, sm: 2, lg: 4 }} spacing={4} mb={6} px={{ base: 2, md: 8, lg: 24 }} w="full" maxW="100vw" overflowX="hidden">
         {loading ? (
           <>
             {bottomInfoData.map((info, idx) => (
               <Box
                 key={idx}
                 bg="white"
-                p={6}
+                p={4}
                 borderRadius="lg"
                 boxShadow="md"
                 textAlign="center"
-                minW={0}
-                maxW="100%"
-                overflow="hidden"
-                boxSizing="border-box"
               >
-                <Stack direction="row" align="center" justify="center" spacing={2} mb={2}>
+                <Stack direction="row" align="center" justify="center" spacing={2} mb={1}>
                   <Text fontSize="2xl">{info.icon}</Text>
                   <Text fontWeight="bold" fontSize="lg">{info.title}</Text>
                 </Stack>
@@ -1528,18 +1521,14 @@ export default function MainDashboard() {
               <Box
                 key={idx}
                 bg="white"
-                p={6}
+                p={4}
                 borderRadius="lg"
                 boxShadow="md"
                 textAlign="center"
-                minW={0}
-                maxW="100%"
-                overflow="hidden"
                 cursor="pointer"
                 _hover={{ boxShadow: 'xl', transform: 'translateY(-2px)', transition: 'all 0.15s' }}
                 onClick={() => { setModalIdx(idx); onOpen(); }}
                 position="relative"
-                boxSizing="border-box"
               >
                 {/* 투표 상태 뱃지 - 오른쪽 상단 (로그인 여부와 관계없이 표시) */}
                 {info.title === '다음주 경기 투표하기' && (
@@ -1591,7 +1580,7 @@ export default function MainDashboard() {
                     })()}
                   </Box>
                 )}
-            <Stack direction="row" align="center" justify="center" spacing={2} mb={2}>
+            <Stack direction="row" align="center" justify="center" spacing={2} mb={1}>
                   <Text fontSize="2xl">{info.icon}</Text>
                   <Text fontWeight="bold" fontSize="lg">{info.title}</Text>
                 </Stack>
@@ -1599,14 +1588,7 @@ export default function MainDashboard() {
                   color="#004ea8" 
                   fontSize="lg" 
                   fontWeight="normal" 
-                  mt={2}
-                  wordBreak="break-word"
-                  overflowWrap="break-word"
-                  px={2}
-                  textOverflow="ellipsis"
-                  overflow="hidden"
-                  whiteSpace="normal"
-                  lineHeight="1.4"
+                  mt={1}
                 >
                   {info.value}
                 </Text>
