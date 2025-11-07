@@ -70,7 +70,7 @@ function AppLayout() {
   }, [location.pathname]);
 
   return (
-    <Box minH="100vh" bgGradient="linear(to-br, #004ea8, #1f2937)">
+    <Box minH="100vh" bgGradient="linear(to-br, #004ea8, #1f2937)" overflowX="hidden" maxW="100vw" w="100%">
       {!hideHeader && <Header />}
       <Routes>
         <Route path="/login" element={<Login />} />

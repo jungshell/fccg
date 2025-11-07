@@ -2025,9 +2025,10 @@ export default function SchedulePageV2() {
           }
         `}
       </style>
-      <Flex direction="column" h="100vh" bg="gray.50">
-        {/* 메인 컨텐츠 */}
-        <Flex flex="1" overflow="hidden" direction={{ base: 'column', lg: 'row' }}>
+      <Box minH="100vh" bg="gray.50" w="100%" overflowX="hidden" maxW="100vw" boxSizing="border-box">
+        <Flex direction="column" h="100vh" bg="gray.50" overflowX="hidden" maxW="100vw">
+          {/* 메인 컨텐츠 */}
+          <Flex flex="1" overflow="hidden" direction={{ base: 'column', lg: 'row' }} w="100%" maxW="100vw" boxSizing="border-box">
           {/* 정지된 회원 안내 */}
           {user && (user as any).status === 'SUSPENDED' && (
             <Box
@@ -2091,7 +2092,7 @@ export default function SchedulePageV2() {
           </Box>
 
           {/* 오른쪽: 일정 정보 */}
-          <Box w={{ base: '100%', lg: '400px' }} p={{ base: 2, md: 4 }}>
+          <Box w={{ base: '100%', lg: '400px' }} p={{ base: 2, md: 4 }} pr={{ base: 2, md: 4, lg: 6 }} overflowX="hidden" boxSizing="border-box">
             <VStack spacing={{ base: 4, md: 6 }} align="stretch">
               {/* 이번주 일정 */}
               {renderThisWeekSchedule()}
