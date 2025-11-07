@@ -51,7 +51,8 @@ class PushNotificationManager {
    * 서비스 워커 등록
    */
   async registerServiceWorker(): Promise<ServiceWorkerRegistration> {
-    if (!this.isSupported) {
+    const enablePush = (import.meta as any)?.env?.VITE_ENABLE_PUSH === 'true';
+    if (!this.isSupported || !enablePush) {
       throw new Error('서비스 워커를 지원하지 않는 브라우저입니다.');
     }
 

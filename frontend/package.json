@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "build:analyze": "vite build --mode analyze",
+    "postbuild": "osascript -e 'display notification \"프론트엔드 빌드 완료\" with title \"FCCGByGemini\"'",
     "lint": "eslint . --ext .ts,.tsx",
     "lint:fix": "eslint . --ext .ts,.tsx --fix",
     "type-check": "tsc --noEmit",
