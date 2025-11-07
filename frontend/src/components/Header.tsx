@@ -278,7 +278,7 @@ export default function Header() {
 
   return (
     <>
-      <Flex as="nav" align="center" justify="space-between" px={{ base: 4, md: 16 }} py={3} bg="white" boxShadow="sm" w="100%" position="fixed" top={0} left={0} right={0} zIndex={100}>
+      <Flex as="nav" align="center" justify="space-between" px={{ base: 4, md: 8, lg: 12 }} py={2} bg="white" boxShadow="sm" w="100%" position="fixed" top={0} left={0} right={0} zIndex={100} maxW="100%">
         <HStack spacing={4}>
           <Text 
             fontSize="xl" 
@@ -406,9 +406,15 @@ export default function Header() {
           )}
         </HStack>
         <HStack spacing={4}>
-          {!user || !token ? (
-            <Button size="sm" bg="#004ea8" color="white" _hover={{ bg: '#00397a' }} onClick={onOpen}>로그인</Button>
-          ) : (
+          {(() => {
+            // 로그인 상태 확인 - 명시적으로 체크
+            const isLoggedIn = user && token && user !== null && token !== null && typeof user === 'object' && typeof token === 'string' && token.length > 0;
+            if (!isLoggedIn) {
+              return <Button size="sm" bg="#004ea8" color="white" _hover={{ bg: '#00397a' }} onClick={onOpen}>로그인</Button>;
+            }
+            return null;
+          })()}
+          {user && token && (
             <>
               <HStack align="center" spacing={3}>
                 {/* 투표율과 참여율 표시 (user가 있으면 항상 표시) */}
