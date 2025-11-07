@@ -2837,6 +2837,7 @@ export default function SchedulePageV2() {
           </Box>
         </Flex>
       </Flex>
+      </Box>
 
       {/* 투표 현황 모달 */}
       <Modal 
