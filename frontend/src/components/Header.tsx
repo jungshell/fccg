@@ -319,7 +319,7 @@ export default function Header() {
             FC CHAL-GGYEO
           </Text>
         </HStack>
-        <HStack spacing={{ base: 1, md: 2 }} flexShrink={1} minW={0} display={{ base: 'none', md: 'flex' }}>
+        <HStack spacing={2} flexShrink={1} minW={0}>
           <Button 
             variant={location.pathname === '/schedule-v2' ? "outline" : "ghost"} 
             bg="transparent"
@@ -335,8 +335,7 @@ export default function Header() {
             size="sm"
             flexShrink={1}
           >
-            <Box as="span" display={{ base: 'none', lg: 'inline' }}>일정</Box>
-            <Box as="span" display={{ base: 'inline', lg: 'none' }}><CalendarIcon /></Box>
+            일정
           </Button>
           <Button 
             variant={location.pathname === '/gallery/photos' ? "outline" : "ghost"} 
@@ -353,8 +352,7 @@ export default function Header() {
             size="sm"
             flexShrink={1}
           >
-            <Box as="span" display={{ base: 'none', lg: 'inline' }}>사진</Box>
-            <Box as="span" display={{ base: 'inline', lg: 'none' }}><AttachmentIcon /></Box>
+            사진
           </Button>
           <Button 
             variant={location.pathname === '/gallery/videos' ? "outline" : "ghost"} 
@@ -371,8 +369,7 @@ export default function Header() {
             size="sm"
             flexShrink={1}
           >
-            <Box as="span" display={{ base: 'none', lg: 'inline' }}>동영상</Box>
-            <Box as="span" display={{ base: 'inline', lg: 'none' }}><ExternalLinkIcon /></Box>
+            동영상
           </Button>
           {(user?.role === 'ADMIN' || user?.email === 'sti60val@gmail.com') && (
             <Button 
@@ -426,7 +423,7 @@ export default function Header() {
           })()}
           {user && token && (
             <>
-              <HStack align="center" spacing={{ base: 1, md: 2 }} flexShrink={1} minW={0} display={{ base: 'none', md: 'flex' }}>
+              <HStack align="center" spacing={2} flexShrink={1} minW={0}>
                 {/* 투표율과 참여율 표시 (user가 있으면 항상 표시) */}
                 {user && (
                   <>
