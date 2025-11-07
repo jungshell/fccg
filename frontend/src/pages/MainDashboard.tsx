@@ -1425,11 +1425,11 @@ export default function MainDashboard() {
 
 
   return (
-    <Box minH="100vh" bg="#f7f9fb" w="100%" overflowX="hidden" pt="80px">
+    <Box minH="100vh" bg="#f7f9fb" w="100%" overflowX="hidden" pt="70px">
       {/* 메인 컨텐츠 */}
-      <Flex direction={{ base: 'column', md: 'row' }} gap={8} px={{ base: 2, md: 8, lg: 24 }} py={10} w="100%" maxW="100%" align="stretch">
+      <Flex direction={{ base: 'column', md: 'row' }} gap={6} px={{ base: 4, md: 6, lg: 12 }} py={6} w="100%" maxW="1400px" mx="auto" align="stretch">
         {/* 명언 카드 */}
-        <Box flex={1} bg="white" p={{ base: 4, md: 8 }} borderRadius="lg" boxShadow="md" display="flex" flexDirection="column" justifyContent="center" minH="433px" maxW={{ base: '100%', md: '420px' }}>
+        <Box flex={1} bg="white" p={{ base: 4, md: 6 }} borderRadius="lg" boxShadow="md" display="flex" flexDirection="column" justifyContent="center" minH="400px" maxW={{ base: '100%', md: '380px' }}>
           <Text fontSize="5xl" color="#004ea8" fontWeight="bold" mb={4}>&ldquo;</Text>
           <Text fontSize="xl" fontWeight="bold" mb={2}>{randomQuote?.quoteEn || ''}</Text>
           <Text fontSize="md" color="gray.500" mb={1}>- {randomQuote?.authorEn || ''}</Text>
@@ -1440,13 +1440,13 @@ export default function MainDashboard() {
         <Box
           flex={2}
           bg="white"
-          p={4}
+          p={3}
           borderRadius="lg"
           boxShadow="md"
           display="flex"
           alignItems="center"
           justifyContent="center"
-          minH={{ base: '180px', md: '320px', lg: '433px' }}
+          minH={{ base: '180px', md: '300px', lg: '400px' }}
           w="100%"
           position="relative"
         >
@@ -1459,8 +1459,8 @@ export default function MainDashboard() {
             overflow="hidden"
             boxShadow="sm"
             bg="black"
-            aspectRatio={{ base: '16/9', md: '16/7' }}
-            minH={{ base: '180px', md: '320px' }}
+            aspectRatio={{ base: '16/9', md: '16/9' }}
+            minH={{ base: '180px', md: '300px' }}
             display="block"
           >
             {/* 영상 제목 왼쪽 위에 예쁘게 노출 */}
@@ -1505,12 +1505,12 @@ export default function MainDashboard() {
       )}
 
       {/* 하단 통계 카드 */}
-      <SimpleGrid columns={[1, 2, 4]} spacing={6} mb={8} px={{ base: 2, md: 8, lg: 24 }} w="100%" maxW="100%">
+      <SimpleGrid columns={[1, 2, 4]} spacing={4} mb={6} px={{ base: 4, md: 6, lg: 12 }} w="100%" maxW="1400px" mx="auto">
         {bottomInfoData.map((info, idx) => (
           <Box
             key={idx}
             bg="white"
-            p={8}
+            p={6}
             borderRadius="lg"
             boxShadow="md"
             textAlign="center"
