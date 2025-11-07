@@ -267,8 +267,8 @@ export default function Header() {
 
   return (
     <>
-      <Flex as="nav" align="center" justify="space-between" px={{ base: 4, md: 16 }} py={4} bg="white" boxShadow="sm" w="100vw" position="fixed" top={0} left={0} right={0} zIndex={100}>
-        <HStack spacing={4}>
+      <Flex as="nav" align="center" justify="space-between" px={{ base: 2, md: 4, lg: 6 }} py={2} bg="white" boxShadow="sm" w="100%" position="fixed" top={0} left={0} right={0} zIndex={100} maxW="100vw" overflowX="hidden" boxSizing="border-box">
+        <HStack spacing={4} flexShrink={1} minW={0}>
           <Text 
             fontSize="xl" 
             fontWeight="bold" 
@@ -303,11 +303,12 @@ export default function Header() {
             _hover={{ 
               color: '#00397a'
             }}
+            whiteSpace="nowrap"
           >
             FC CHAL-GGYEO
           </Text>
         </HStack>
-        <HStack spacing={4}>
+        <HStack spacing={2} flexShrink={1} minW={0}>
           <Button 
             variant={location.pathname === '/schedule-v2' ? "outline" : "ghost"} 
             bg="transparent"
@@ -320,6 +321,8 @@ export default function Header() {
             }} 
             leftIcon={<CalendarIcon />} 
             onClick={() => navigate('/schedule-v2')}
+            size="sm"
+            flexShrink={1}
           >
             일정
           </Button>
@@ -335,6 +338,8 @@ export default function Header() {
             }}
             leftIcon={<AttachmentIcon />}
             onClick={() => navigate('/gallery/photos')}
+            size="sm"
+            flexShrink={1}
           >
             사진
           </Button>
@@ -350,6 +355,8 @@ export default function Header() {
             }}
             leftIcon={<ExternalLinkIcon />}
             onClick={() => navigate('/gallery/videos')}
+            size="sm"
+            flexShrink={1}
           >
             동영상
           </Button>
@@ -394,12 +401,12 @@ export default function Header() {
             </Button>
           )}
         </HStack>
-        <HStack spacing={4}>
+        <HStack spacing={2} flexShrink={0} minW="fit-content">
           {!user ? (
-            <Button size="sm" bg="#004ea8" color="white" _hover={{ bg: '#00397a' }} variant="outline" onClick={onOpen}>로그인</Button>
+            <Button size="sm" bg="#004ea8" color="white" _hover={{ bg: '#00397a' }} variant="outline" onClick={onOpen} whiteSpace="nowrap">로그인</Button>
           ) : (
             <>
-              <HStack align="center" spacing={3}>
+              <HStack align="center" spacing={2} flexShrink={1} minW={0}>
                 {/* 투표율과 참여율 표시 (user가 있으면 항상 표시) */}
                 {user && (
                   <>
@@ -411,8 +418,8 @@ export default function Header() {
                       color="white"
                       fontSize="sm"
                     >
-                      <Box minW="80px" textAlign="center" display="flex" flexDirection="column" alignItems="center" justifyContent="center">
-                        <Text fontSize="xs" color="gray.500" cursor="default" _hover={{ color: "blue.400" }}>
+                      <Box minW={{ base: '60px', md: '70px' }} textAlign="center" display="flex" flexDirection="column" alignItems="center" justifyContent="center" flexShrink={1}>
+                        <Text fontSize="xs" color="gray.500" cursor="default" _hover={{ color: "blue.400" }} whiteSpace="nowrap">
                           투표율 <span style={{ color: '#004ea8', fontWeight: 'bold' }}>
                             {isLoading ? '...' : `${animatedVoteAttendance}%`}
                           </span>
@@ -453,8 +460,8 @@ export default function Header() {
                       color="white"
                       fontSize="sm"
                     >
-                      <Box minW="80px" textAlign="center" display="flex" flexDirection="column" alignItems="center" justifyContent="center">
-                        <Text fontSize="xs" color="gray.500" cursor="default" _hover={{ color: "blue.400" }}>참여율 <span style={{ color: '#004ea8', fontWeight: 'bold' }}>{animatedAttendance}%</span></Text>
+                      <Box minW={{ base: '60px', md: '70px' }} textAlign="center" display="flex" flexDirection="column" alignItems="center" justifyContent="center" flexShrink={1}>
+                        <Text fontSize="xs" color="gray.500" cursor="default" _hover={{ color: "blue.400" }} whiteSpace="nowrap">참여율 <span style={{ color: '#004ea8', fontWeight: 'bold' }}>{animatedAttendance}%</span></Text>
                         <Box w="60px" mt={1}>
                           <Box
                             h="6px"
@@ -485,19 +492,23 @@ export default function Header() {
                     </Tooltip>
                   </>
                 )}
-                <HStack align="center" spacing={2}>
-                  <Badge bg="#004ea8" color="white" borderRadius="full" px={2} py={1}>정</Badge>
+                <HStack align="center" spacing={2} flexShrink={0}>
+                  <Badge bg="#004ea8" color="white" borderRadius="full" px={2} py={1} whiteSpace="nowrap">정</Badge>
                   <Text
                     fontWeight="bold"
                     cursor="pointer"
                     _hover={{ textDecoration: 'underline', color: '#00397a' }}
                     onClick={handleNamePillClick}
+                    whiteSpace="nowrap"
+                    overflow="hidden"
+                    textOverflow="ellipsis"
+                    maxW={{ base: '60px', md: '100px' }}
                   >
                     {user.name}
                   </Text>
                 </HStack>
               </HStack>
-              <Button size="sm" colorScheme="gray" variant="outline" onClick={() => { logout(); navigate('/'); }}>로그아웃</Button>
+              <Button size="sm" colorScheme="gray" variant="outline" onClick={() => { logout(); navigate('/'); }} whiteSpace="nowrap">로그아웃</Button>
             </>
           )}
         </HStack>

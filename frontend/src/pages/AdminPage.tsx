@@ -767,7 +767,7 @@ export default function AdminPage() {
       </Box>
 
       {/* 메인 컨텐츠 */}
-          <Box flex={1} p={{ base: 4, md: 8 }} pt={{ base: 16, md: 24 }} overflowY="auto">
+          <Box flex={1} p={{ base: 4, md: 8 }} pt={{ base: 16, md: 24 }} pr={{ base: 4, md: 8, lg: 12 }} overflowY="auto" overflowX="hidden" w="100%" maxW="100%" boxSizing="border-box">
 
         {/* 대시보드 - 라이트모드 복원됨 */}
         {selectedMenu==='dashboard' && (
