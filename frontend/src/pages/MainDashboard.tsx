@@ -139,10 +139,8 @@ export default function MainDashboard() {
     },
     {
       icon: '📅',
-      title: '이번주 경기',
-      value: thisWeekGame && thisWeekGame.date && thisWeekGame.title 
-        ? `${new Date(thisWeekGame.date).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })} ${thisWeekGame.title}` 
-        : '없음'
+              title: '이번주 경기',
+      value: thisWeekGame ? `${new Date(thisWeekGame.date).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })} ${thisWeekGame.title}` : '없음'
     },
     {
       icon: '🏆',
@@ -665,12 +663,7 @@ export default function MainDashboard() {
   }, [fetchRealTimeMembers, fetchRealTimeGames, fetchVoteData, loadUnifiedVoteData]);
 
   // 명언 랜덤 선택
-  const randomQuote = useMemo(() => {
-    if (!quotes || quotes.length === 0) {
-      return { quote: '축구는 단순하다. 하지만 단순한 것이 가장 어렵다.', quoteEn: 'Football is simple, but the hardest thing is to play simple.', author: '요한 크루이프', authorEn: 'Johan Cruyff' };
-    }
-    return quotes[Math.floor(Math.random() * quotes.length)] || quotes[0];
-  }, []);
+  const randomQuote = useMemo(() => quotes[Math.floor(Math.random() * quotes.length)], []);
 
   // 유튜브 영상 fetch (최신 3개 자동)
   const YT_API_KEY = 'AIzaSyC7M5KrtdL8ChfVCX0M2CZfg7GWGaExMTk';
@@ -703,13 +696,7 @@ export default function MainDashboard() {
   // 유튜브 IFrame Player는 외부 라이브러리로 동작하며, 최신화 fetch만 사용합니다.
 
   const [videoIdx, setVideoIdx] = useState<number>(0);
-  const currentVideo = useMemo(() => {
-    const video = youtubeVideos?.[videoIdx] || fallbackVideos?.[0] || { id: 'AAftIIK3MOg', title: '기본 영상' };
-    return {
-      id: video?.id || 'AAftIIK3MOg',
-      title: video?.title || '기본 영상'
-    };
-  }, [youtubeVideos, videoIdx]);
+  const currentVideo = youtubeVideos[videoIdx] || fallbackVideos[0] || { id: 'AAftIIK3MOg', title: '기본 영상' };
   // 동영상 인덱스 이동 (최신화된 리스트에 맞게)
   const handlePrev = () => setVideoIdx((idx: number) => (idx === 0 ? youtubeVideos.length - 1 : idx - 1));
   const handleNext = () => setVideoIdx((idx: number) => (idx === youtubeVideos.length - 1 ? 0 : idx + 1));
@@ -1262,7 +1249,6 @@ export default function MainDashboard() {
               <Box textAlign="center">
                     <Text fontSize="md" color="gray.700" fontWeight="medium">
                       {(() => {
-                        if (!unifiedVoteData?.activeSession) return '투표 세션이 없습니다.';
                         const session = unifiedVoteData.activeSession;
                         const weekStartDate = new Date(session.weekStartDate);
                         const weekEndDate = new Date(weekStartDate.getTime() + 4 * 24 * 60 * 60 * 1000); // 금요일
@@ -1281,7 +1267,6 @@ export default function MainDashboard() {
                   {/* 투표 상태 pill */}
                   <Box position="absolute" top={3} right={3}>
                     {(() => {
-                      if (!unifiedVoteData?.activeSession) return null;
                       const session = unifiedVoteData.activeSession;
                       const isVoteClosed = !session.isActive;
                       return (
@@ -1425,48 +1410,43 @@ export default function MainDashboard() {
 
 
   return (
-    <Box minH="100vh" bg="#f7f9fb" w="100%" overflowX="hidden" pt="70px" maxW="100vw" boxSizing="border-box">
+    <Box minH="100vh" bg="#f7f9fb" w="100vw" minW="100vw" pt="18mm">
       {/* 메인 컨텐츠 */}
-      <Flex direction={{ base: 'column', md: 'row' }} gap={6} px={{ base: 4, md: 6, lg: 12 }} py={6} w="100%" maxW={{ base: '100%', lg: '1400px' }} mx="auto" align="stretch" overflowX="hidden" boxSizing="border-box">
+      <Flex direction={{ base: 'column', md: 'row' }} gap={8} px={{ base: 2, md: 8, lg: 24 }} py={10} w="full" maxW="100vw" align="stretch">
         {/* 명언 카드 */}
-        <Box flex={{ base: '1 1 100%', md: '1 1 380px' }} bg="white" p={{ base: 4, md: 6 }} borderRadius="lg" boxShadow="md" display="flex" flexDirection="column" justifyContent="center" minH="400px" maxW={{ base: '100%', md: '380px' }} boxSizing="border-box" overflow="hidden">
+        <Box flex={1} bg="white" p={{ base: 4, md: 8 }} borderRadius="lg" boxShadow="md" display="flex" flexDirection="column" justifyContent="center" minH="433px" maxW={{ base: '100%', md: '420px' }}>
           <Text fontSize="5xl" color="#004ea8" fontWeight="bold" mb={4}>&ldquo;</Text>
-          <Text fontSize="xl" fontWeight="bold" mb={2}>{randomQuote?.quoteEn || ''}</Text>
-          <Text fontSize="md" color="gray.500" mb={1}>- {randomQuote?.authorEn || ''}</Text>
-          <Text fontSize="lg" color="gray.700" mb={2}>{randomQuote?.quote || ''}</Text>
-          <Text fontWeight="bold" color="gray.600" mb={1}>{randomQuote?.author || ''}</Text>
+          <Text fontSize="xl" fontWeight="bold" mb={2}>{randomQuote.quoteEn}</Text>
+          <Text fontSize="md" color="gray.500" mb={1}>- {randomQuote.authorEn}</Text>
+          <Text fontSize="lg" color="gray.700" mb={2}>{randomQuote.quote}</Text>
+          <Text fontWeight="bold" color="gray.600" mb={1}>{randomQuote.author}</Text>
         </Box>
         {/* 유튜브 슬라이드 */}
         <Box
-          flex={{ base: '1 1 100%', md: '2 1 auto' }}
+          flex={2}
           bg="white"
-          p={3}
+          p={4}
           borderRadius="lg"
           boxShadow="md"
           display="flex"
           alignItems="center"
           justifyContent="center"
-          minH={{ base: '180px', md: '300px', lg: '400px' }}
+          minH={{ base: '180px', md: '320px', lg: '433px' }}
           w="100%"
-          maxW="100%"
           position="relative"
-          boxSizing="border-box"
-          overflow="hidden"
         >
           <IconButton icon={<ChevronLeftIcon />} aria-label="이전" position="absolute" left={2} top="50%" transform="translateY(-50%)" onClick={handlePrev} zIndex={2} bg="white" boxShadow="md"/>
           <Box
-            w="100%"
-            h="100%"
+            w="full"
+            h="full"
             position="relative"
             borderRadius="lg"
             overflow="hidden"
             boxShadow="sm"
             bg="black"
-            aspectRatio={{ base: '16/9', md: '16/9' }}
-            minH={{ base: '180px', md: '300px' }}
-            maxW="100%"
+            aspectRatio={{ base: '16/9', md: '16/7' }}
+            minH={{ base: '180px', md: '320px' }}
             display="block"
-            boxSizing="border-box"
           >
             {/* 영상 제목 왼쪽 위에 예쁘게 노출 */}
             <Box position="absolute" top={3} left={3} bg="rgba(0,0,0,0.55)" color="white" px={4} py={2} borderRadius="lg" fontWeight="bold" fontSize="md" zIndex={3} boxShadow="md" maxW="80%" whiteSpace="nowrap" overflow="hidden" textOverflow="ellipsis">
@@ -1486,12 +1466,12 @@ export default function MainDashboard() {
               }}
               style={{
                 position: 'absolute',
-                width: '100%',
-                height: '100%',
+                width: '125%',
+                height: '125%',
                 borderRadius: 12,
                 background: 'black',
-                left: '0',
-                top: '0',
+                left: '-12.5%',
+                top: '-12.5%',
               }}
               className="yt-iframe"
               onEnd={() => setVideoIdx(idx => (idx + 1) % youtubeVideos.length)}
@@ -1510,102 +1490,107 @@ export default function MainDashboard() {
       )}
 
       {/* 하단 통계 카드 */}
-      <SimpleGrid columns={{ base: 1, sm: 2, lg: 4 }} spacing={4} mb={6} px={{ base: 4, md: 6, lg: 12 }} w="100%" maxW={{ base: '100%', lg: '1400px' }} mx="auto" overflowX="hidden" boxSizing="border-box">
-        {bottomInfoData.map((info, idx) => (
-          <Box
-            key={idx}
-            bg="white"
-            p={6}
-            borderRadius="lg"
-            boxShadow="md"
-            textAlign="center"
-            minW={0}
-            maxW="100%"
-            overflow="hidden"
-            cursor="pointer"
-            _hover={{ boxShadow: 'xl', transform: 'translateY(-2px)', transition: 'all 0.15s' }}
-            onClick={() => { setModalIdx(idx); onOpen(); }}
-            position="relative"
-            boxSizing="border-box"
-          >
-            {/* 투표 상태 뱃지 - 오른쪽 상단 (로그인 여부와 관계없이 표시) */}
-            {info.title === '다음주 경기 투표하기' && (
-              <Box position="absolute" top={2} right={2}>
-                {(() => {
-                  // 실제 투표 세션 데이터 사용
-                  if (!unifiedVoteData?.activeSession) {
-                    return (
-                      <Badge colorScheme="gray" variant="solid" fontSize="xs">
-                        세션 없음
-                      </Badge>
-                    );
-                  }
-                  
-                  const session = unifiedVoteData.activeSession;
-                  const isVoteClosed = !session.isActive;
-                  
-                  if (isVoteClosed) {
-                    return (
-                      <Badge
-                        bg="red.500"
-                        color="white"
-                        px={1}
-                        py={0}
-                        borderRadius="sm"
-                        fontSize="10px"
-                        fontWeight="bold"
-                        boxShadow="sm"
-                      >
-                        투표종료
-                      </Badge>
-                    );
-                  } else {
-                    return (
-                      <Badge
-                        bg="purple.500"
-                        color="white"
-                        px={1}
-                        py={0}
-                        borderRadius="sm"
-                        fontSize="10px"
-                        fontWeight="bold"
-                        boxShadow="sm"
-                      >
-                        투표 중
-                      </Badge>
-                    );
-                  }
-                })()}
-              </Box>
-            )}
-            <Stack direction="row" align="center" justify="center" spacing={2} mb={2}>
-              <Text fontSize="2xl">{info.icon}</Text>
-              <Text fontWeight="bold" fontSize="lg">{info.title}</Text>
-            </Stack>
-            {loading && (realTimeMemberCount === 0 && realTimeGameCount === 0) ? (
-              <Flex align="center" justify="center">
-                <Spinner size="md" color="blue.500" mr={2} />
-                <Text color="gray.500">로딩 중...</Text>
-              </Flex>
-            ) : (
-              <Text 
-                color="#004ea8" 
-                fontSize="lg" 
-                fontWeight="normal" 
-                mt={2} 
-                wordBreak="break-word" 
-                overflowWrap="break-word" 
-                px={2}
-                textOverflow="ellipsis"
-                overflow="hidden"
-                whiteSpace="normal"
-                lineHeight="1.4"
+      <SimpleGrid columns={[1, 2, 4]} spacing={6} mb={8} px={{ base: 2, md: 8, lg: 24 }} w="full" maxW="100vw">
+        {loading ? (
+          <>
+            {bottomInfoData.map((info, idx) => (
+              <Box
+                key={idx}
+                bg="white"
+                p={8}
+                borderRadius="lg"
+                boxShadow="md"
+                textAlign="center"
+                minW={0}
               >
-                {info.value}
-              </Text>
-            )}
-          </Box>
-        ))}
+                <Stack direction="row" align="center" justify="center" spacing={2} mb={2}>
+                  <Text fontSize="2xl">{info.icon}</Text>
+                  <Text fontWeight="bold" fontSize="lg">{info.title}</Text>
+                </Stack>
+                <Flex align="center" justify="center">
+                  <Spinner size="md" color="blue.500" mr={2} />
+                  <Text color="gray.500">로딩 중...</Text>
+                </Flex>
+              </Box>
+            ))}
+          </>
+        ) : stats && (
+          <>
+            {bottomInfoData.map((info, idx) => (
+              <Box
+                key={idx}
+                bg="white"
+                p={8}
+                borderRadius="lg"
+                boxShadow="md"
+                textAlign="center"
+                minW={0}
+                cursor="pointer"
+                _hover={{ boxShadow: 'xl', transform: 'translateY(-2px)', transition: 'all 0.15s' }}
+                onClick={() => { setModalIdx(idx); onOpen(); }}
+                position="relative"
+              >
+                {/* 투표 상태 뱃지 - 오른쪽 상단 (로그인 여부와 관계없이 표시) */}
+                {info.title === '다음주 경기 투표하기' && (
+                  <Box position="absolute" top={2} right={2}>
+                    {(() => {
+                      // 실제 투표 세션 데이터 사용
+                      if (!unifiedVoteData?.activeSession) {
+                        return (
+                          <Badge colorScheme="gray" variant="solid" fontSize="xs">
+                            세션 없음
+                          </Badge>
+                        );
+                      }
+                      
+                      const session = unifiedVoteData.activeSession;
+                      const isVoteClosed = !session.isActive;
+                      
+                      if (isVoteClosed) {
+                        return (
+                          <Badge
+                            bg="red.500"
+                            color="white"
+                            px={1}
+                            py={0}
+                            borderRadius="sm"
+                            fontSize="10px"
+                            fontWeight="bold"
+                            boxShadow="sm"
+                          >
+                            투표종료
+                          </Badge>
+                        );
+                      } else {
+                        return (
+                          <Badge
+                            bg="purple.500"
+                            color="white"
+                            px={1}
+                            py={0}
+                            borderRadius="sm"
+                            fontSize="10px"
+                            fontWeight="bold"
+                            boxShadow="sm"
+                          >
+                            투표 중
+                          </Badge>
+                        );
+                      }
+                    })()}
+                  </Box>
+                )}
+            <Stack direction="row" align="center" justify="center" spacing={2} mb={2}>
+                  <Text fontSize="2xl">{info.icon}</Text>
+                  <Text fontWeight="bold" fontSize="lg">{info.title}</Text>
+                </Stack>
+                <Text color="#004ea8" fontSize="lg" fontWeight="normal" mt={2}>
+                  {info.value}
+                </Text>
+              </Box>
+            ))}
+          </>
+        )}
       </SimpleGrid>
       {/* 상세 모달 */}
               <Modal isOpen={isOpen} onClose={onClose} isCentered size="sm">
