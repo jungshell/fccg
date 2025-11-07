@@ -1425,9 +1425,9 @@ export default function MainDashboard() {
 
 
   return (
-    <Box minH="100vh" bg="#f7f9fb" w="100%" overflowX="hidden" pt="70px">
+    <Box minH="100vh" bg="#f7f9fb" w="100%" overflowX="hidden" pt="70px" maxW="100vw">
       {/* 메인 컨텐츠 */}
-      <Flex direction={{ base: 'column', md: 'row' }} gap={6} px={{ base: 4, md: 6, lg: 12 }} py={6} w="100%" maxW="1400px" mx="auto" align="stretch">
+      <Flex direction={{ base: 'column', md: 'row' }} gap={6} px={{ base: 4, md: 6, lg: 8 }} py={6} w="100%" maxW={{ base: '100%', lg: '1400px' }} mx="auto" align="stretch" overflowX="hidden">
         {/* 명언 카드 */}
         <Box flex={1} bg="white" p={{ base: 4, md: 6 }} borderRadius="lg" boxShadow="md" display="flex" flexDirection="column" justifyContent="center" minH="400px" maxW={{ base: '100%', md: '380px' }}>
           <Text fontSize="5xl" color="#004ea8" fontWeight="bold" mb={4}>&ldquo;</Text>
@@ -1481,12 +1481,12 @@ export default function MainDashboard() {
               }}
               style={{
                 position: 'absolute',
-                width: '125%',
-                height: '125%',
+                width: '100%',
+                height: '100%',
                 borderRadius: 12,
                 background: 'black',
-                left: '-12.5%',
-                top: '-12.5%',
+                left: '0',
+                top: '0',
               }}
               className="yt-iframe"
               onEnd={() => setVideoIdx(idx => (idx + 1) % youtubeVideos.length)}
@@ -1505,7 +1505,7 @@ export default function MainDashboard() {
       )}
 
       {/* 하단 통계 카드 */}
-      <SimpleGrid columns={[1, 2, 4]} spacing={4} mb={6} px={{ base: 4, md: 6, lg: 12 }} w="100%" maxW="1400px" mx="auto">
+      <SimpleGrid columns={[1, 2, 4]} spacing={4} mb={6} px={{ base: 4, md: 6, lg: 8 }} w="100%" maxW={{ base: '100%', lg: '1400px' }} mx="auto" overflowX="hidden">
         {bottomInfoData.map((info, idx) => (
           <Box
             key={idx}
@@ -1515,6 +1515,8 @@ export default function MainDashboard() {
             boxShadow="md"
             textAlign="center"
             minW={0}
+            maxW="100%"
+            overflow="hidden"
             cursor="pointer"
             _hover={{ boxShadow: 'xl', transform: 'translateY(-2px)', transition: 'all 0.15s' }}
             onClick={() => { setModalIdx(idx); onOpen(); }}
@@ -1580,7 +1582,7 @@ export default function MainDashboard() {
                 <Text color="gray.500">로딩 중...</Text>
               </Flex>
             ) : (
-              <Text color="#004ea8" fontSize="lg" fontWeight="normal" mt={2}>
+              <Text color="#004ea8" fontSize="lg" fontWeight="normal" mt={2} wordBreak="break-word" overflowWrap="break-word" px={2}>
                 {info.value}
               </Text>
             )}
