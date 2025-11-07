@@ -321,7 +321,6 @@ export default function Header() {
             }} 
             leftIcon={<CalendarIcon />} 
             onClick={() => navigate('/schedule-v2')}
-            size="sm"
             flexShrink={1}
           >
             일정
@@ -338,7 +337,6 @@ export default function Header() {
             }}
             leftIcon={<AttachmentIcon />}
             onClick={() => navigate('/gallery/photos')}
-            size="sm"
             flexShrink={1}
           >
             사진
@@ -355,7 +353,6 @@ export default function Header() {
             }}
             leftIcon={<ExternalLinkIcon />}
             onClick={() => navigate('/gallery/videos')}
-            size="sm"
             flexShrink={1}
           >
             동영상
