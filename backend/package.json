@@ -8,7 +8,7 @@
     "start": "node dist/app.js",
     "start:ts": "node -r ts-node/register/transpile-only src/app.ts",
     "postinstall": "prisma generate",
-    "postbuild": "osascript -e 'display notification \"백엔드 빌드 완료\" with title \"FCCGByGemini\"'",
+    "postbuild": "node scripts/postbuild.js || true",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "engines": {

@@ -27,52 +27,66 @@ export const AccessibilityProvider: React.FC<AccessibilityProviderProps> = ({ ch
   const [isHighContrast, setIsHighContrast] = useState(false);
   const [isReducedMotion, setIsReducedMotion] = useState(false);
   const [focusVisible, setFocusVisible] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
 
-  // 사용자 설정 로드
+  // 마운트 후에만 localStorage 접근 (하이드레이션 불일치 방지)
   useEffect(() => {
-    const savedHighContrast = localStorage.getItem('highContrast') === 'true';
-    const savedReducedMotion = localStorage.getItem('reducedMotion') === 'true';
-    
-    setIsHighContrast(savedHighContrast);
-    setIsReducedMotion(savedReducedMotion);
+    setIsMounted(true);
+    if (typeof window !== 'undefined') {
+      const savedHighContrast = localStorage.getItem('highContrast') === 'true';
+      const savedReducedMotion = localStorage.getItem('reducedMotion') === 'true';
+      
+      setIsHighContrast(savedHighContrast);
+      setIsReducedMotion(savedReducedMotion);
+    }
   }, []);
 
   // 고대비 모드 토글
   const toggleHighContrast = () => {
+    if (typeof window === 'undefined') return;
+    
     const newValue = !isHighContrast;
     setIsHighContrast(newValue);
     localStorage.setItem('highContrast', newValue.toString());
     
     // CSS 변수 적용
-    if (newValue) {
-      document.documentElement.style.setProperty('--chakra-colors-gray-100', '#000000');
-      document.documentElement.style.setProperty('--chakra-colors-gray-800', '#ffffff');
-    } else {
-      document.documentElement.style.removeProperty('--chakra-colors-gray-100');
-      document.documentElement.style.removeProperty('--chakra-colors-gray-800');
+    if (typeof document !== 'undefined') {
+      if (newValue) {
+        document.documentElement.style.setProperty('--chakra-colors-gray-100', '#000000');
+        document.documentElement.style.setProperty('--chakra-colors-gray-800', '#ffffff');
+      } else {
+        document.documentElement.style.removeProperty('--chakra-colors-gray-100');
+        document.documentElement.style.removeProperty('--chakra-colors-gray-800');
+      }
     }
   };
 
   // 모션 감소 모드 토글
   const toggleReducedMotion = () => {
+    if (typeof window === 'undefined') return;
+    
     const newValue = !isReducedMotion;
     setIsReducedMotion(newValue);
     localStorage.setItem('reducedMotion', newValue.toString());
     
     // CSS 적용
-    if (newValue) {
-      document.documentElement.style.setProperty('--chakra-transition-duration-fast', '0s');
-      document.documentElement.style.setProperty('--chakra-transition-duration-normal', '0s');
-      document.documentElement.style.setProperty('--chakra-transition-duration-slow', '0s');
-    } else {
-      document.documentElement.style.removeProperty('--chakra-transition-duration-fast');
-      document.documentElement.style.removeProperty('--chakra-transition-duration-normal');
-      document.documentElement.style.removeProperty('--chakra-transition-duration-slow');
+    if (typeof document !== 'undefined') {
+      if (newValue) {
+        document.documentElement.style.setProperty('--chakra-transition-duration-fast', '0s');
+        document.documentElement.style.setProperty('--chakra-transition-duration-normal', '0s');
+        document.documentElement.style.setProperty('--chakra-transition-duration-slow', '0s');
+      } else {
+        document.documentElement.style.removeProperty('--chakra-transition-duration-fast');
+        document.documentElement.style.removeProperty('--chakra-transition-duration-normal');
+        document.documentElement.style.removeProperty('--chakra-transition-duration-slow');
+      }
     }
   };
 
   // 키보드 포커스 감지
   useEffect(() => {
+    if (typeof document === 'undefined') return;
+    
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Tab') {
         setFocusVisible(true);
@@ -94,6 +108,8 @@ export const AccessibilityProvider: React.FC<AccessibilityProviderProps> = ({ ch
 
   // 스크린 리더를 위한 스킵 링크
   useEffect(() => {
+    if (typeof document === 'undefined' || !isMounted) return;
+    
     const skipLink = document.createElement('a');
     skipLink.href = '#main-content';
     skipLink.textContent = '메인 콘텐츠로 건너뛰기';
@@ -116,14 +132,16 @@ export const AccessibilityProvider: React.FC<AccessibilityProviderProps> = ({ ch
       skipLink.style.top = '-40px';
     });
 
-    document.body.insertBefore(skipLink, document.body.firstChild);
+    if (document.body) {
+      document.body.insertBefore(skipLink, document.body.firstChild);
+    }
 
     return () => {
       if (skipLink.parentNode) {
         skipLink.parentNode.removeChild(skipLink);
       }
     };
-  }, []);
+  }, [isMounted]);
 
   const value: AccessibilityContextType = {
     isHighContrast,

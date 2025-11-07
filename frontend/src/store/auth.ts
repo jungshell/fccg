@@ -39,6 +39,11 @@ interface AuthState {
 }
 
 function loadAuthFromStorage() {
+  // Safety check for SSR environments
+  if (typeof window === 'undefined') {
+    return { user: null, token: null };
+  }
+  
   try {
     console.log('🔄 초기 로드 시 토큰 복구 시도...');
     

@@ -29,10 +29,11 @@ import { initializePushNotifications, isNotificationSupported } from './utils/pu
 // 보호된 라우트 컴포넌트 (관리자 페이지, 프로필 페이지 등)
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, token } = useAuthStore();
+  const location = useLocation();
   
   if (!user || !token) {
     // 로그인 페이지로 리다이렉트하면서 현재 경로 정보 전달
-    return <Navigate to="/login" state={{ from: { pathname: window.location.pathname } }} replace />;
+    return <Navigate to="/login" state={{ from: { pathname: location.pathname } }} replace />;
   }
   
   return <>{children}</>;
@@ -61,12 +62,16 @@ function AppLayout() {
     backupUtils.optimize();
 
     // 페이지뷰 추적
-    trackPageView(location.pathname, document.title);
+    if (typeof document !== 'undefined') {
+      trackPageView(location.pathname, document.title);
+    }
   }, []);
 
   // 페이지 변경 시 추적
   React.useEffect(() => {
-    trackPageView(location.pathname, document.title);
+    if (typeof document !== 'undefined') {
+      trackPageView(location.pathname, document.title);
+    }
   }, [location.pathname]);
 
   return (
