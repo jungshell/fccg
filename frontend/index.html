@@ -57,6 +57,22 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      // Chakra UI 색상 모드 초기화 (하이드레이션 불일치 방지)
+      (function() {
+        try {
+          var colorMode = localStorage.getItem('chakra-ui-color-mode') || 'light';
+          if (!document.documentElement.hasAttribute('data-theme')) {
+            document.documentElement.setAttribute('data-theme', colorMode);
+            document.documentElement.style.colorScheme = colorMode;
+          }
+        } catch (e) {
+          // localStorage 접근 실패 시 기본값 사용
+          document.documentElement.setAttribute('data-theme', 'light');
+          document.documentElement.style.colorScheme = 'light';
+        }
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -5,10 +5,21 @@ import App from './App.tsx';
 import theme from './theme';
 import './index.css';
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <ChakraProvider theme={theme}>
-      <App />
-    </ChakraProvider>
-  </React.StrictMode>
+// 프로덕션에서는 StrictMode 제거 (하이드레이션 문제 방지)
+const isDevelopment = import.meta.env.DEV;
+
+const AppWrapper = () => (
+  <ChakraProvider theme={theme} resetCSS={false}>
+    <App />
+  </ChakraProvider>
 );
+
+const RootComponent = isDevelopment ? (
+  <React.StrictMode>
+    <AppWrapper />
+  </React.StrictMode>
+) : (
+  <AppWrapper />
+);
+
+ReactDOM.createRoot(document.getElementById('root')!).render(RootComponent);
