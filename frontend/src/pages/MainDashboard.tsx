@@ -1425,9 +1425,9 @@ export default function MainDashboard() {
 
 
   return (
-    <Box minH="100vh" bg="#f7f9fb" w="100vw" minW="100vw" pt="18mm">
+    <Box minH="100vh" bg="#f7f9fb" w="100%" overflowX="hidden" pt="80px">
       {/* 메인 컨텐츠 */}
-      <Flex direction={{ base: 'column', md: 'row' }} gap={8} px={{ base: 2, md: 8, lg: 24 }} py={10} w="full" maxW="100vw" align="stretch">
+      <Flex direction={{ base: 'column', md: 'row' }} gap={8} px={{ base: 2, md: 8, lg: 24 }} py={10} w="100%" maxW="100%" align="stretch">
         {/* 명언 카드 */}
         <Box flex={1} bg="white" p={{ base: 4, md: 8 }} borderRadius="lg" boxShadow="md" display="flex" flexDirection="column" justifyContent="center" minH="433px" maxW={{ base: '100%', md: '420px' }}>
           <Text fontSize="5xl" color="#004ea8" fontWeight="bold" mb={4}>&ldquo;</Text>
@@ -1505,107 +1505,87 @@ export default function MainDashboard() {
       )}
 
       {/* 하단 통계 카드 */}
-      <SimpleGrid columns={[1, 2, 4]} spacing={6} mb={8} px={{ base: 2, md: 8, lg: 24 }} w="full" maxW="100vw">
-        {loading ? (
-          <>
-            {bottomInfoData.map((info, idx) => (
-              <Box
-                key={idx}
-                bg="white"
-                p={8}
-                borderRadius="lg"
-                boxShadow="md"
-                textAlign="center"
-                minW={0}
-              >
-                <Stack direction="row" align="center" justify="center" spacing={2} mb={2}>
-                  <Text fontSize="2xl">{info.icon}</Text>
-                  <Text fontWeight="bold" fontSize="lg">{info.title}</Text>
-                </Stack>
-                <Flex align="center" justify="center">
-                  <Spinner size="md" color="blue.500" mr={2} />
-                  <Text color="gray.500">로딩 중...</Text>
-                </Flex>
+      <SimpleGrid columns={[1, 2, 4]} spacing={6} mb={8} px={{ base: 2, md: 8, lg: 24 }} w="100%" maxW="100%">
+        {bottomInfoData.map((info, idx) => (
+          <Box
+            key={idx}
+            bg="white"
+            p={8}
+            borderRadius="lg"
+            boxShadow="md"
+            textAlign="center"
+            minW={0}
+            cursor="pointer"
+            _hover={{ boxShadow: 'xl', transform: 'translateY(-2px)', transition: 'all 0.15s' }}
+            onClick={() => { setModalIdx(idx); onOpen(); }}
+            position="relative"
+          >
+            {/* 투표 상태 뱃지 - 오른쪽 상단 (로그인 여부와 관계없이 표시) */}
+            {info.title === '다음주 경기 투표하기' && (
+              <Box position="absolute" top={2} right={2}>
+                {(() => {
+                  // 실제 투표 세션 데이터 사용
+                  if (!unifiedVoteData?.activeSession) {
+                    return (
+                      <Badge colorScheme="gray" variant="solid" fontSize="xs">
+                        세션 없음
+                      </Badge>
+                    );
+                  }
+                  
+                  const session = unifiedVoteData.activeSession;
+                  const isVoteClosed = !session.isActive;
+                  
+                  if (isVoteClosed) {
+                    return (
+                      <Badge
+                        bg="red.500"
+                        color="white"
+                        px={1}
+                        py={0}
+                        borderRadius="sm"
+                        fontSize="10px"
+                        fontWeight="bold"
+                        boxShadow="sm"
+                      >
+                        투표종료
+                      </Badge>
+                    );
+                  } else {
+                    return (
+                      <Badge
+                        bg="purple.500"
+                        color="white"
+                        px={1}
+                        py={0}
+                        borderRadius="sm"
+                        fontSize="10px"
+                        fontWeight="bold"
+                        boxShadow="sm"
+                      >
+                        투표 중
+                      </Badge>
+                    );
+                  }
+                })()}
               </Box>
-            ))}
-          </>
-        ) : stats && (
-          <>
-            {bottomInfoData.map((info, idx) => (
-              <Box
-                key={idx}
-                bg="white"
-                p={8}
-                borderRadius="lg"
-                boxShadow="md"
-                textAlign="center"
-                minW={0}
-                cursor="pointer"
-                _hover={{ boxShadow: 'xl', transform: 'translateY(-2px)', transition: 'all 0.15s' }}
-                onClick={() => { setModalIdx(idx); onOpen(); }}
-                position="relative"
-              >
-                {/* 투표 상태 뱃지 - 오른쪽 상단 (로그인 여부와 관계없이 표시) */}
-                {info.title === '다음주 경기 투표하기' && (
-                  <Box position="absolute" top={2} right={2}>
-                    {(() => {
-                      // 실제 투표 세션 데이터 사용
-                      if (!unifiedVoteData?.activeSession) {
-                        return (
-                          <Badge colorScheme="gray" variant="solid" fontSize="xs">
-                            세션 없음
-                          </Badge>
-                        );
-                      }
-                      
-                      const session = unifiedVoteData.activeSession;
-                      const isVoteClosed = !session.isActive;
-                      
-                      if (isVoteClosed) {
-                        return (
-                          <Badge
-                            bg="red.500"
-                            color="white"
-                            px={1}
-                            py={0}
-                            borderRadius="sm"
-                            fontSize="10px"
-                            fontWeight="bold"
-                            boxShadow="sm"
-                          >
-                            투표종료
-                          </Badge>
-                        );
-                      } else {
-                        return (
-                          <Badge
-                            bg="purple.500"
-                            color="white"
-                            px={1}
-                            py={0}
-                            borderRadius="sm"
-                            fontSize="10px"
-                            fontWeight="bold"
-                            boxShadow="sm"
-                          >
-                            투표 중
-                          </Badge>
-                        );
-                      }
-                    })()}
-                  </Box>
-                )}
+            )}
             <Stack direction="row" align="center" justify="center" spacing={2} mb={2}>
-                  <Text fontSize="2xl">{info.icon}</Text>
-                  <Text fontWeight="bold" fontSize="lg">{info.title}</Text>
-                </Stack>
-                <Text color="#004ea8" fontSize="lg" fontWeight="normal" mt={2}>
-                  {info.value}
-                </Text>
-              </Box>
-            ))}
-          </>
-        )}
+              <Text fontSize="2xl">{info.icon}</Text>
+              <Text fontWeight="bold" fontSize="lg">{info.title}</Text>
+            </Stack>
+            {loading && (realTimeMemberCount === 0 && realTimeGameCount === 0) ? (
+              <Flex align="center" justify="center">
+                <Spinner size="md" color="blue.500" mr={2} />
+                <Text color="gray.500">로딩 중...</Text>
+              </Flex>
+            ) : (
+              <Text color="#004ea8" fontSize="lg" fontWeight="normal" mt={2}>
+                {info.value}
+              </Text>
+            )}
+          </Box>
+        ))}
       </SimpleGrid>
       {/* 상세 모달 */}
               <Modal isOpen={isOpen} onClose={onClose} isCentered size="sm">

@@ -278,7 +278,7 @@ export default function Header() {
 
   return (
     <>
-      <Flex as="nav" align="center" justify="space-between" px={{ base: 4, md: 16 }} py={4} bg="white" boxShadow="sm" w="100vw" position="fixed" top={0} left={0} right={0} zIndex={100}>
+      <Flex as="nav" align="center" justify="space-between" px={{ base: 4, md: 16 }} py={3} bg="white" boxShadow="sm" w="100%" position="fixed" top={0} left={0} right={0} zIndex={100}>
         <HStack spacing={4}>
           <Text 
             fontSize="xl" 
@@ -406,8 +406,8 @@ export default function Header() {
           )}
         </HStack>
         <HStack spacing={4}>
-          {!user ? (
-            <Button size="sm" bg="#004ea8" color="white" _hover={{ bg: '#00397a' }} variant="outline" onClick={onOpen}>로그인</Button>
+          {!user || !token ? (
+            <Button size="sm" bg="#004ea8" color="white" _hover={{ bg: '#00397a' }} onClick={onOpen}>로그인</Button>
           ) : (
             <>
               <HStack align="center" spacing={3}>
