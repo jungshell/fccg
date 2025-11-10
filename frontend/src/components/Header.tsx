@@ -268,7 +268,7 @@ export default function Header() {
   return (
     <>
       <Flex as="nav" align="center" justify="space-between" px={{ base: 2, md: 4, lg: 6 }} py={2} bg="white" boxShadow="sm" w="100%" position="fixed" top={0} left={0} right={0} zIndex={100} maxW="100vw" overflowX="hidden" boxSizing="border-box">
-        <HStack spacing={4} flexShrink={1} minW={0}>
+        <HStack spacing={4} flexShrink={1} minW={0} pl={{ base: 4, md: 6, lg: 8 }}>
           <Text 
             fontSize="xl" 
             fontWeight="bold" 
@@ -398,7 +398,7 @@ export default function Header() {
             </Button>
           )}
         </HStack>
-        <HStack spacing={2} flexShrink={0} minW="fit-content">
+        <HStack spacing={2} flexShrink={0} minW="fit-content" pr={{ base: 4, md: 6, lg: 8 }}>
           {!user ? (
             <Button size="sm" bg="#004ea8" color="white" _hover={{ bg: '#00397a' }} variant="outline" onClick={onOpen} whiteSpace="nowrap">로그인</Button>
           ) : (
@@ -505,7 +505,7 @@ export default function Header() {
                   </Text>
                 </HStack>
               </HStack>
-              <Button size="sm" colorScheme="gray" variant="outline" onClick={() => { logout(); navigate('/'); }} whiteSpace="nowrap">로그아웃</Button>
+              <Button size="sm" bg="#004ea8" color="white" _hover={{ bg: '#00397a' }} onClick={() => { logout(); navigate('/'); }} whiteSpace="nowrap">로그아웃</Button>
             </>
           )}
         </HStack>
