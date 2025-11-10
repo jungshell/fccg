@@ -1612,19 +1612,19 @@ export default function SchedulePageV2() {
   const renderThisWeekSchedule = () => (
     <Box
       bg="white"
-      p={{ base: 3, md: 4 }}
+      p={{ base: 2, md: 3 }}
       borderRadius="lg"
       boxShadow="sm"
       border="1px solid"
       borderColor="gray.200"
       flex="1"
     >
-      <Flex align="center" gap={2} mb={{ base: 3, md: 4 }}>
+      <Flex align="center" gap={2} mb={{ base: 2, md: 3 }}>
         <Box as="span" fontSize={{ base: "md", md: "lg" }}>⚽</Box>
         <Text fontSize={{ base: "md", md: "lg" }} fontWeight="bold">이번주 일정</Text>
       </Flex>
       
-      <VStack spacing={{ base: 1.5, md: 2 }} align="stretch">
+      <VStack spacing={{ base: 1, md: 1.5 }} align="stretch">
         {updateThisWeekScheduleWithGames.map((schedule) => {
           const actualCount = schedule.count;
           const isConfirmed = schedule.confirmed;
@@ -2093,7 +2093,7 @@ export default function SchedulePageV2() {
 
           {/* 오른쪽: 일정 정보 */}
           <Box w={{ base: '100%', lg: '400px' }} p={{ base: 2, md: 4 }} pr={{ base: 2, md: 4, lg: 6 }} overflowX="hidden" boxSizing="border-box">
-            <VStack spacing={{ base: 4, md: 6 }} align="stretch">
+            <VStack spacing={{ base: 2, md: 3 }} align="stretch">
               {/* 이번주 일정 */}
               {renderThisWeekSchedule()}
 
@@ -2101,13 +2101,13 @@ export default function SchedulePageV2() {
               {(
                 <Box
                   bg="white"
-                  p={{ base: 3, md: 4 }}
+                  p={{ base: 2, md: 3 }}
                   borderRadius="lg"
                   boxShadow="sm"
                   border="1px solid"
                   borderColor="gray.200"
                 >
-                  <Flex justify="space-between" align="center" mb={{ base: 3, md: 4 }}>
+                  <Flex justify="space-between" align="center" mb={{ base: 2, md: 3 }}>
                     <Flex align="center" gap={2}>
                       <Box as="span" fontSize={{ base: "md", md: "lg" }}>🗳️</Box>
                       <Text fontSize={{ base: "md", md: "lg" }} fontWeight="bold">다음주 일정투표</Text>
@@ -2251,7 +2251,7 @@ export default function SchedulePageV2() {
                   </Tooltip>
                 </Flex>
 
-                <VStack spacing={{ base: 1.5, md: 2 }} align="stretch" mb={{ base: 3, md: 4 }}>
+                <VStack spacing={{ base: 1, md: 1.5 }} align="stretch" mb={{ base: 2, md: 3 }}>
                   {(() => {
                     // 로딩 상태일 때 스켈레톤 표시
                     if (appData.isLoading) {

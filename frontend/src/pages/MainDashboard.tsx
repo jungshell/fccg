@@ -1499,12 +1499,12 @@ export default function MainDashboard() {
               <Box
                 key={idx}
                 bg="white"
-                p={2.67}
+                p={2}
                 borderRadius="lg"
                 boxShadow="md"
                 textAlign="center"
               >
-                <Stack direction="row" align="center" justify="center" spacing={1.33} mb={0.67}>
+                <Stack direction="row" align="center" justify="center" spacing={1.33} mb={0.5}>
                   <Text fontSize="2xl">{info.icon}</Text>
                   <Text fontWeight="bold" fontSize="lg">{info.title}</Text>
                 </Stack>
@@ -1521,7 +1521,7 @@ export default function MainDashboard() {
               <Box
                 key={idx}
                 bg="white"
-                p={2.67}
+                p={2}
                 borderRadius="lg"
                 boxShadow="md"
                 textAlign="center"
@@ -1580,7 +1580,7 @@ export default function MainDashboard() {
                     })()}
                   </Box>
                 )}
-            <Stack direction="row" align="center" justify="center" spacing={1.33} mb={0.67}>
+            <Stack direction="row" align="center" justify="center" spacing={1.33} mb={0.5}>
                   <Text fontSize="2xl">{info.icon}</Text>
                   <Text fontWeight="bold" fontSize="lg">{info.title}</Text>
                 </Stack>
@@ -1588,7 +1588,7 @@ export default function MainDashboard() {
                   color="#004ea8" 
                   fontSize="lg" 
                   fontWeight="normal" 
-                  mt={0.67}
+                  mt={0.5}
                 >
                   {info.value}
                 </Text>
