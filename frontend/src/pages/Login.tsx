@@ -205,7 +205,7 @@ const Login: FC<LoginProps> = ({ onSwitch, onClose }) => {
               <InputGroup>
                 <Input type={showPw ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="비밀번호를 입력하세요" rounded="lg" bg="gray.50" _dark={{ bg: '#374151' }} />
                 <InputRightElement>
-                  <IconButton aria-label={showPw ? '비밀번호 숨기기' : '비밀번호 보기'} icon={showPw ? <ViewOffIcon /> : <ViewIcon />} variant="ghost" size="sm" onClick={() => setShowPw(v => !v)} />
+                  <IconButton aria-label={showPw ? '비밀번호 숨기기' : '비밀번호 보기'} icon={showPw ? <ViewOffIcon /> : <ViewIcon />} variant="ghost" size="sm" bg="#004ea8" color="white" _hover={{ bg: '#00397a' }} onClick={() => setShowPw(v => !v)} />
                 </InputRightElement>
               </InputGroup>
             </FormControl>
