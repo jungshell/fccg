@@ -983,7 +983,7 @@ export default function GalleryPage() {
                   src={item.thumbnail} 
                   alt={item.label} 
                   w="100%" 
-                  h="160px" 
+                  h="150px" 
                   objectFit="cover" 
                 />
                 <Badge 
@@ -1020,10 +1020,9 @@ export default function GalleryPage() {
               </Box>
 
               {/* 정보 영역 */}
-              <VStack align="stretch" spacing={1} p={3}>
-                {/* 제목과 뱃지 */}
-                <Flex justify="space-between" align="center">
-                  <Text fontSize="sm" color="black" fontWeight="bold" noOfLines={2} flex={1} mr={2}>
+              <VStack align="stretch" spacing={0.5} px={3} py={2}>
+                <Flex justify="space-between" align="center" mb={0.5}>
+                  <Text fontSize="sm" color="black" fontWeight="semibold" noOfLines={1} flex={1} mr={2}>
                     {item.description || item.date}
                   </Text>
                   {(item.type === 'video' && item.badge) || (item.type === 'photo' && item.eventType) ? (
@@ -1044,27 +1043,30 @@ export default function GalleryPage() {
                   ) : null}
                 </Flex>
                 
-                {/* 작성자와 좋아요/댓글 */}
-                <Flex justify="space-between" align="center">
-                  <Text fontSize="xs" color="gray.500">작성자: {item.author}</Text>
-        <HStack spacing={2}>
-                    <HStack 
-                      spacing={1} 
-                      cursor="pointer"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleLike(item.id);
-                      }}
-                    >
-                      <Text fontSize="sm" color={item.isLiked ? 'red.500' : 'gray.400'}>♡</Text>
-                      <Text fontSize="sm">{item.likes}</Text>
-                    </HStack>
-                    <HStack spacing={1}>
-                      <Text fontSize="sm">💬</Text>
-                      <Text fontSize="sm">{item.comments}</Text>
-                    </HStack>
-        </HStack>
-      </Flex>
+                {item.type === 'photo' && (
+                  <Text fontSize="xs" color="gray.600">
+                    {item.author}
+                  </Text>
+                )}
+                <Text fontSize="xs" color="gray.400">
+                  업로드: {item.date}
+                </Text>
+
+                <Flex justify="space-between" align="center" mt={1}>
+                  <HStack spacing={1} cursor="pointer"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleLike(item.id);
+                    }}
+                  >
+                    <Text fontSize="sm" color={item.isLiked ? 'red.500' : 'gray.400'}>♡</Text>
+                    <Text fontSize="sm">{item.likes}</Text>
+                  </HStack>
+                  <HStack spacing={1}>
+                    <Text fontSize="sm">💬</Text>
+                    <Text fontSize="sm">{item.comments}</Text>
+                  </HStack>
+                </Flex>
               </VStack>
             </Box>
           ))}

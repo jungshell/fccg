@@ -1,24 +1,41 @@
-name: Deploy (Render + Vercel)
+name: Deploy to Production
+
 on:
-  push:
-    branches: [ main ]
+  workflow_dispatch:  # 수동 트리거만 허용
+    inputs:
+      confirm:
+        description: '배포를 확인했습니다 (yes 입력)'
+        required: true
+        type: string
+
 jobs:
   deploy:
+    if: github.event.inputs.confirm == 'yes'
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger Render deploy
-        env:
-          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      
+      - name: Install dependencies
         run: |
-          if [ -z "$RENDER_DEPLOY_HOOK_URL" ]; then
-            echo "RENDER_DEPLOY_HOOK_URL is not set" && exit 1;
-          fi
-          curl -s -X POST "$RENDER_DEPLOY_HOOK_URL" || exit 1
-      - name: Trigger Vercel deploy (optional)
-        env:
-          VERCEL_DEPLOY_HOOK_URL: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
+          cd frontend
+          npm ci
+      
+      - name: Build
         run: |
-          if [ -z "$VERCEL_DEPLOY_HOOK_URL" ]; then
-            echo "VERCEL_DEPLOY_HOOK_URL not set - skipping"; exit 0;
-          fi
-          curl -s -X POST "$VERCEL_DEPLOY_HOOK_URL" || exit 1
+          cd frontend
+          npm run build
+      
+      - name: Type check
+        run: |
+          cd frontend
+          npx tsc --noEmit
+      
+      - name: Lint
+        run: |
+          cd frontend
+          npm run lint || true

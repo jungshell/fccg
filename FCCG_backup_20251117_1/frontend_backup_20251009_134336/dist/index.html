@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="축구팀 관리 시스템 - 일정, 갤러리, 회원관리" />
+    <meta name="keywords" content="축구, 팀관리, 일정, 갤러리, 회원관리" />
+    <meta name="author" content="FCCG Team" />
+    <meta name="theme-color" content="#004ea8" />
+    
+    <!-- PWA Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="FC CG" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="msapplication-TileColor" content="#004ea8" />
+    <meta name="msapplication-tap-highlight" content="no" />
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json" />
+    
+    <!-- Preload critical resources -->
+    <link rel="preload" href="data:application/octet-stream;base64,aW1wb3J0IHsgQ2hha3JhUHJvdmlkZXIgfSBmcm9tICdAY2hha3JhLXVpL3JlYWN0JzsKaW1wb3J0IFJlYWN0IGZyb20gJ3JlYWN0JzsKaW1wb3J0IFJlYWN0RE9NIGZyb20gJ3JlYWN0LWRvbS9jbGllbnQnOwppbXBvcnQgQXBwIGZyb20gJy4vQXBwLnRzeCc7CmltcG9ydCB0aGVtZSBmcm9tICcuL3RoZW1lJzsKaW1wb3J0ICcuL2luZGV4LmNzcyc7CgpSZWFjdERPTS5jcmVhdGVSb290KGRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCdyb290JykhKS5yZW5kZXIoCiAgPFJlYWN0LlN0cmljdE1vZGU+CiAgICA8Q2hha3JhUHJvdmlkZXIgdGhlbWU9e3RoZW1lfT4KICAgICAgPEFwcCAvPgogICAgPC9DaGFrcmFQcm92aWRlcj4KICA8L1JlYWN0LlN0cmljdE1vZGU+Cik7Cg==" as="script" />
+    <link rel="preload" href="data:application/octet-stream;base64,aW1wb3J0IFJlYWN0IGZyb20gJ3JlYWN0JzsKaW1wb3J0IHsgQnJvd3NlclJvdXRlciwgUm91dGVzLCBSb3V0ZSwgTmF2aWdhdGUsIHVzZUxvY2F0aW9uIH0gZnJvbSAncmVhY3Qtcm91dGVyLWRvbSc7CmltcG9ydCB7IEJveCB9IGZyb20gJ0BjaGFrcmEtdWkvcmVhY3QnOwppbXBvcnQgeyB1c2VBdXRoU3RvcmUgfSBmcm9tICcuL3N0b3JlL2F1dGgnOwppbXBvcnQgeyBIZWFkZXIgfSBmcm9tICcuL2NvbXBvbmVudHMnOwppbXBvcnQgRXJyb3JCb3VuZGFyeSBmcm9tICcuL2NvbXBvbmVudHMvRXJyb3JCb3VuZGFyeSc7CmltcG9ydCB7IEFjY2Vzc2liaWxpdHlQcm92aWRlciB9IGZyb20gJy4vY29tcG9uZW50cy9BY2Nlc3NpYmlsaXR5UHJvdmlkZXInOwppbXBvcnQgeyBQV0FJbnN0YWxsUHJvbXB0LCBQV0FTdGF0dXMgfSBmcm9tICcuL2NvbXBvbmVudHMvUFdBSW5zdGFsbFByb21wdCc7CmltcG9ydCBJbkFwcE5vdGlmaWNhdGlvbk1hbmFnZXIgZnJvbSAnLi9jb21wb25lbnRzL0luQXBwTm90aWZpY2F0aW9uTWFuYWdlcic7CmltcG9ydCB7CiAgTWFpbkRhc2hib2FyZCwKICBTY2hlZHVsZVBhZ2VWMiwKICBQaG90b0dhbGxlcnlQYWdlLAogIFZpZGVvR2FsbGVyeVBhZ2UsCiAgQWRtaW5QYWdlLAogIExvZ2luUGFnZSBhcyBMb2dpbiwKICBSZWdpc3RlclBhZ2UgYXMgU2lnbnVwLAogIFByb2ZpbGVQYWdlLAp9IGZyb20gJy4vcGFnZXMnOwoKLy8g6rOg6riJIOq4sOuKpeuTpCDstIjquLDtmZQKaW1wb3J0IHsgaW5pdEdBLCB0cmFja1BhZ2VWaWV3LCB0cmFja1VzZXJCZWhhdmlvciB9IGZyb20gJy4vdXRpbHMvYW5hbHl0aWNzJzsKaW1wb3J0IHsgc2Vzc2lvbk1hbmFnZXIgfSBmcm9tICcuL3V0aWxzL3NlY3VyaXR5JzsKaW1wb3J0IHsgY2FjaGVVdGlscyB9IGZyb20gJy4vdXRpbHMvY2FjaGUnOwppbXBvcnQgeyBiYWNrdXBVdGlscyB9IGZyb20gJy4vdXRpbHMvYmFja3VwJzsKCi8vIOuztO2YuOuQnCDrnbzsmrDtirgg7Lu07Y+s64SM7Yq4ICjqtIDrpqzsnpAg7Y6Y7J207KeALCDtlITroZztlYQg7Y6Y7J207KeAIOuTsSkKZnVuY3Rpb24gUHJvdGVjdGVkUm91dGUoeyBjaGlsZHJlbiB9OiB7IGNoaWxkcmVuOiBSZWFjdC5SZWFjdE5vZGUgfSkgewogIGNvbnN0IHsgdXNlciwgdG9rZW4gfSA9IHVzZUF1dGhTdG9yZSgpOwogIAogIGlmICghdXNlciB8fCAhdG9rZW4pIHsKICAgIC8vIOuhnOq3uOyduCDtjpjsnbTsp4DroZwg66as64uk7J2066CJ7Yq47ZWY66m07IScIO2YhOyerCDqsr3roZwg7KCV67O0IOyghOuLrAogICAgcmV0dXJuIDxOYXZpZ2F0ZSB0bz0iL2xvZ2luIiBzdGF0ZT17eyBmcm9tOiB7IHBhdGhuYW1lOiB3aW5kb3cubG9jYXRpb24ucGF0aG5hbWUgfSB9fSByZXBsYWNlIC8+OwogIH0KICAKICByZXR1cm4gPD57Y2hpbGRyZW59PC8+Owp9CgpmdW5jdGlvbiBBcHBMYXlvdXQoKSB7CiAgY29uc3QgbG9jYXRpb24gPSB1c2VMb2NhdGlvbigpOwogIGNvbnN0IGhpZGVIZWFkZXIgPSBbJy9sb2dpbicsICcvc2lnbnVwJ10uaW5jbHVkZXMobG9jYXRpb24ucGF0aG5hbWUpOwogIGNvbnN0IHsgdXNlciB9ID0gdXNlQXV0aFN0b3JlKCk7CgogIC8vIOqzoOq4iSDquLDriqUg7LSI6riw7ZmUCiAgUmVhY3QudXNlRWZmZWN0KCgpID0+IHsKICAgIC8vIEdvb2dsZSBBbmFseXRpY3Mg7LSI6riw7ZmUIChWaXRlIO2ZmOqyveuzgOyImCDsgqzsmqkpCiAgICBjb25zdCBnYUlkID0gaW1wb3J0Lm1ldGEuZW52LlZJVEVfR0FfTUVBU1VSRU1FTlRfSUQ7CiAgICBpZiAoZ2FJZCkgewogICAgICBpbml0R0EoZ2FJZCk7CiAgICB9CgogICAgLy8g7IS47IWYIOq0gOumrCDsi5zsnpEKICAgIHNlc3Npb25NYW5hZ2VyLnN0YXJ0U2Vzc2lvbigpOwoKICAgIC8vIOy6kOyLnCDstZzsoIHtmZQKICAgIGNhY2hlVXRpbHMub3B0aW1pemUoKTsKCiAgICAvLyDrsLHsl4Ug7LWc7KCB7ZmUCiAgICBiYWNrdXBVdGlscy5vcHRpbWl6ZSgpOwoKICAgIC8vIO2OmOydtOyngOu3sCDstpTsoIEKICAgIHRyYWNrUGFnZVZpZXcobG9jYXRpb24ucGF0aG5hbWUsIGRvY3VtZW50LnRpdGxlKTsKICB9LCBbXSk7CgogIC8vIO2OmOydtOyngCDrs4Dqsr0g7IucIOy2lOyggQogIFJlYWN0LnVzZUVmZmVjdCgoKSA9PiB7CiAgICB0cmFja1BhZ2VWaWV3KGxvY2F0aW9uLnBhdGhuYW1lLCBkb2N1bWVudC50aXRsZSk7CiAgfSwgW2xvY2F0aW9uLnBhdGhuYW1lXSk7CgogIHJldHVybiAoCiAgICA8Qm94IG1pbkg9IjEwMHZoIiBiZ0dyYWRpZW50PSJsaW5lYXIodG8tYnIsICMwMDRlYTgsICMxZjI5MzcpIj4KICAgICAgeyFoaWRlSGVhZGVyICYmIDxIZWFkZXIgLz59CiAgICAgIDxSb3V0ZXM+CiAgICAgICAgPFJvdXRlIHBhdGg9Ii9sb2dpbiIgZWxlbWVudD17PExvZ2luIC8+fSAvPgogICAgICAgIDxSb3V0ZSBwYXRoPSIvc2lnbnVwIiBlbGVtZW50PXs8U2lnbnVwIC8+fSAvPgogICAgICAgIHsvKiDsnbjspp3snbQg7ZWE7JqUIOyXhuuKlCDqs7XqsJwg7Y6Y7J207KeA65OkICovfQogICAgICAgIDxSb3V0ZSBwYXRoPSIvIiBlbGVtZW50PXs8TWFpbkRhc2hib2FyZCAvPn0gLz4KICAgICAgICA8Um91dGUgcGF0aD0iL3NjaGVkdWxlLXYyIiBlbGVtZW50PXs8U2NoZWR1bGVQYWdlVjIgLz59IC8+CgogICAgICAgIDxSb3V0ZSBwYXRoPSIvZ2FsbGVyeS9waG90b3MiIGVsZW1lbnQ9ezxQaG90b0dhbGxlcnlQYWdlIC8+fSAvPgogICAgICAgIDxSb3V0ZSBwYXRoPSIvZ2FsbGVyeS92aWRlb3MiIGVsZW1lbnQ9ezxWaWRlb0dhbGxlcnlQYWdlIC8+fSAvPgogICAgICAgIHsvKiDsnbjspp3snbQg7ZWE7JqU7ZWcIOuztO2YuOuQnCDtjpjsnbTsp4Drk6QgKi99CiAgICAgICAgPFJvdXRlIHBhdGg9Ii9hZG1pbiIgZWxlbWVudD17PFByb3RlY3RlZFJvdXRlPjxBZG1pblBhZ2UgLz48L1Byb3RlY3RlZFJvdXRlPn0gLz4KICAgICAgICA8Um91dGUgcGF0aD0iL3Byb2ZpbGUiIGVsZW1lbnQ9ezxQcm90ZWN0ZWRSb3V0ZT48UHJvZmlsZVBhZ2UgLz48L1Byb3RlY3RlZFJvdXRlPn0gLz4KICAgICAgICA8Um91dGUgcGF0aD0iKiIgZWxlbWVudD17PE5hdmlnYXRlIHRvPSIvIiByZXBsYWNlIC8+fSAvPgogICAgICA8L1JvdXRlcz4KICAgICAgCiAgICAgIHsvKiBQV0EgQ29tcG9uZW50cyAqL30KICAgICAgPFBXQUluc3RhbGxQcm9tcHQgLz4KICAgICAgPFBXQVN0YXR1cyAvPgogICAgICAKICAgICAgey8qIOyduOyVsSDslYzrprwg6rSA66as7J6QICovfQogICAgICB7dXNlciAmJiA8SW5BcHBOb3RpZmljYXRpb25NYW5hZ2VyIHVzZXJJZD17dXNlci5pZH0gLz59CiAgICA8L0JveD4KICApOwp9CgpleHBvcnQgZGVmYXVsdCBmdW5jdGlvbiBBcHAoKSB7CiAgcmV0dXJuICgKICAgIDxFcnJvckJvdW5kYXJ5PgogICAgICA8QWNjZXNzaWJpbGl0eVByb3ZpZGVyPgogICAgICAgIDxCcm93c2VyUm91dGVyPgogICAgICAgICAgPEFwcExheW91dCAvPgogICAgICAgIDwvQnJvd3NlclJvdXRlcj4KICAgICAgPC9BY2Nlc3NpYmlsaXR5UHJvdmlkZXI+CiAgICA8L0Vycm9yQm91bmRhcnk+CiAgKTsKfQo=" as="script" />
+    
+    <!-- Apple Touch Icons -->
+    <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
+    <link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-152x152.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-192x192.png" />
+    <link rel="apple-touch-icon" sizes="167x167" href="/icons/icon-152x152.png" />
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/icons/icon-16x16.png" />
+    
+    <!-- Microsoft Tiles -->
+    <meta name="msapplication-TileImage" content="/icons/icon-144x144.png" />
+    
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="FC CG By Gemini" />
+    <meta property="og:description" content="축구팀 관리 및 일정 관리 애플리케이션" />
+    <meta property="og:image" content="/icons/icon-512x512.png" />
+    
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="FC CG By Gemini" />
+    <meta name="twitter:description" content="축구팀 관리 및 일정 관리 애플리케이션" />
+    <meta name="twitter:image" content="/icons/icon-512x512.png" />
+    
+    <!-- Performance optimizations -->
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="format-detection" content="telephone=no" />
+    
+    <title>FCCG - 축구팀 관리 시스템</title>
+    <script type="module" crossorigin src="/assets/index-ucoBhf3Q.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/vendor-oOSsakeb.js">
+    <link rel="modulepreload" crossorigin href="/assets/chakra-BcC6TOEp.js">
+    <link rel="modulepreload" crossorigin href="/assets/router-C47EFJdC.js">
+    <link rel="modulepreload" crossorigin href="/assets/components-DQYM1R62.js">
+    <link rel="modulepreload" crossorigin href="/assets/state-D9RA7dEJ.js">
+    <link rel="modulepreload" crossorigin href="/assets/pages-BYpSsNsE.js">
+    <link rel="stylesheet" crossorigin href="/assets/index-3qEMak9V.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>

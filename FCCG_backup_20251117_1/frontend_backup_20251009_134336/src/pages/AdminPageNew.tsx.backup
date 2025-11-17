@@ -1,0 +1,3539 @@
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import {
+  Box,
+  Button,
+  Card,
+  CardBody,
+  Flex,
+  SimpleGrid,
+  Text,
+  VStack,
+  useToast,
+  Spinner,
+  Stat,
+  StatLabel,
+  StatNumber,
+  StatHelpText,
+  StatArrow,
+  FormControl,
+  FormLabel,
+  Input,
+  Textarea,
+  HStack,
+  Icon,
+  Divider,
+  Switch,
+  Select,
+  NumberInput,
+  NumberInputField,
+  NumberInputStepper,
+  NumberIncrementStepper,
+  NumberDecrementStepper,
+  Badge,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalCloseButton,
+  Table,
+  Thead,
+  Tbody,
+  Tr,
+  Th,
+  Td,
+  TableContainer,
+  ButtonGroup,
+  Progress
+} from '@chakra-ui/react';
+import { ViewIcon, CalendarIcon, SettingsIcon, InfoIcon, AddIcon, EditIcon, DeleteIcon } from '@chakra-ui/icons';
+import { getAllMembers, getGames, getMemberStats, type Game } from '../api/auth';
+import MemberManagement from '../components/MemberManagement';
+import GameManagement from '../components/GameManagement';
+import ThisWeekScheduleManagement from '../components/ThisWeekScheduleManagement';
+import { useAuthStore } from '../store/auth';
+
+// ===== 타입 정의 =====
+interface ThisWeekSchedule {
+  id: number;
+  date: string;
+  event: string;
+  description?: string;
+  createdById: number;
+  createdAt: string;
+  updatedAt: string;
+  createdBy?: {
+    id: number;
+    name: string;
+  };
+}
+
+interface ExtendedMember {
+  id: number;
+  name: string;
+  email: string;
+  role: 'SUPER_ADMIN' | 'ADMIN' | 'MEMBER';
+  status: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED' | 'DELETED';
+  createdAt?: string;
+}
+
+interface Player {
+  id: string;
+  name: string;
+  position: string;
+  jerseyNumber?: number;
+  phone?: string;
+  email?: string;
+  joinDate: string;
+  preferredPosition: string[];
+  skillRating: number;
+  attendanceRate: number;
+  isActive: boolean;
+  notes?: string;
+}
+
+// 알림 타입 정의
+interface Notification {
+  id: string;
+  type: 'GAME_REMINDER' | 'VOTE_REMINDER' | 'NEW_MEMBER' | 'GAME_RESULT' | 'VOTE_WARNING' | 'MEMBER_SUSPENDED';
+  title: string;
+  message: string;
+  recipients: number[]; // 사용자 ID 배열
+  sentAt: string;
+  status: 'PENDING' | 'SENT' | 'FAILED';
+  deliveryMethods: ('email' | 'push' | 'inapp')[];
+  metadata?: any;
+}
+
+// 알림 발송 결과 타입
+interface NotificationDeliveryResult {
+  notificationId: string;
+  userId: number;
+  method: 'email' | 'push' | 'inapp';
+  status: 'success' | 'failed';
+  errorMessage?: string;
+  sentAt: string;
+}
+
+// 최근 활동 타입 정의
+interface ActivityLog {
+  id: string;
+  userId: number;
+  userName: string;
+  action: 'LOGIN' | 'LOGOUT' | 'GAME_JOIN' | 'GAME_CANCEL' | 'VOTE_PARTICIPATE' | 'VOTE_ABSENT' | 'ANNOUNCEMENT_CREATE' | 'ANNOUNCEMENT_EDIT' | 'MEMBER_STATUS_CHANGE' | 'VOTE_WARNING' | 'MEMBER_SUSPENDED';
+  description: string;
+  timestamp: string;
+  metadata?: any;
+}
+
+// 투표 참여 기록 타입
+interface VoteRecord {
+  userId: number;
+  userName: string;
+  voteDate: string;
+  participated: boolean;
+  year: number;
+}
+
+interface Announcement {
+  id: string;
+  title: string;
+  content: string;
+  type: 'urgent' | 'normal' | 'info';
+  startDate: string;
+  endDate: string;
+  isActive: boolean;
+  author: string;
+  createdAt: string;
+  updatedAt: string;
+  pinned: boolean;
+}
+
+interface NotificationSettings {
+  gameReminder: {
+    enabled: boolean;
+    beforeHours: number;
+    targets: string[];
+  };
+  voteReminder: {
+    enabled: boolean;
+    beforeHours: number;
+    targets: string[];
+  };
+  newMemberNotification: {
+    enabled: boolean;
+    targets: string[];
+  };
+  gameResultNotification: {
+    enabled: boolean;
+    targets: string[];
+  };
+}
+
+interface SiteSettings {
+  teamName: string;
+  teamDescription: string;
+  contactEmail: string;
+  contactPhone: string;
+  address: string;
+  foundedYear: string;
+  teamMotto: string;
+}
+
+type UserRole = 'SUPER_ADMIN' | 'ADMIN' | 'MEMBER';
+
+// 회원 등급별 권한 정의
+const rolePermissions = {
+  SUPER_ADMIN: {
+    name: '슈퍼관리자',
+    color: 'red',
+    permissions: ['all']
+  },
+  ADMIN: {
+    name: '관리자',
+    color: 'blue',
+    permissions: ['member_management', 'game_management', 'content_management', 'homepage_management']
+  },
+  MEMBER: {
+    name: '회원',
+    color: 'gray',
+    permissions: ['vote', 'schedule_view', 'photo_upload', 'comment_write']
+  }
+};
+
+export default function AdminPageNew() {
+  const [userList, setUserList] = useState<ExtendedMember[]>([]);
+  const [games, setGames] = useState<Game[]>([]);
+  const [thisWeekSchedules, setThisWeekSchedules] = useState<ThisWeekSchedule[]>([]);
+  const [memberStats, setMemberStats] = useState<{
+    totalMembers?: number;
+    thisWeekGame?: number;
+    nextWeekVote?: number;
+  }>({});
+  const [loading, setLoading] = useState(true);
+  const [selectedMenu, setSelectedMenu] = useState('dashboard');
+  const user = useAuthStore((s) => s.user);
+  const [currentUserRole, setCurrentUserRole] = useState<UserRole>('MEMBER');
+  
+
+  
+  // 알림 설정 상태
+  const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({
+    gameReminder: {
+      enabled: true,
+      beforeHours: 24,
+      targets: ['all']
+    },
+    voteReminder: {
+      enabled: true,
+      beforeHours: 12,
+      targets: ['all']
+    },
+    newMemberNotification: {
+      enabled: true,
+      targets: ['admin']
+    },
+    gameResultNotification: {
+      enabled: true,
+      targets: ['all']
+    }
+  });
+  const [isNotificationChanged, setIsNotificationChanged] = useState(false);
+
+  // 선수 관리 상태
+  const [players, setPlayers] = useState<Player[]>([
+    {
+      id: '1',
+      name: '정성인',
+      position: 'MF',
+      jerseyNumber: 10,
+      phone: '010-1234-5678',
+      email: 'sti60val@gmail.com',
+      joinDate: '2025-01-01',
+      preferredPosition: ['MF', 'FW'],
+      skillRating: 85,
+      attendanceRate: 95,
+      isActive: true,
+      notes: '팀 주장, 리더십 좋음'
+    }
+  ]);
+  const [isPlayerFormOpen, setIsPlayerFormOpen] = useState(false);
+  const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
+  const [newPlayer, setNewPlayer] = useState<Partial<Player>>({
+    name: '',
+    position: 'MF',
+    preferredPosition: [],
+    skillRating: 70,
+    attendanceRate: 0,
+    isActive: true,
+    joinDate: new Date().toISOString().split('T')[0]
+  });
+
+  // 공지사항 관리 상태
+  const [announcements, setAnnouncements] = useState<Announcement[]>([
+    {
+      id: '1',
+      title: '🏆 8월 정기전 안내',
+      content: '8월 정기전이 8월 30일(일) 오후 2시에 진행됩니다. 많은 참여 부탁드립니다.',
+      type: 'urgent',
+      startDate: '2025-08-20',
+      endDate: '2025-08-30',
+      isActive: true,
+      author: '정성인',
+      createdAt: '2025-08-20T09:00:00Z',
+      updatedAt: '2025-08-20T09:00:00Z',
+      pinned: true
+    }
+  ]);
+  const [isAnnouncementFormOpen, setIsAnnouncementFormOpen] = useState(false);
+  const [editingAnnouncement, setEditingAnnouncement] = useState<Announcement | null>(null);
+  const [newAnnouncement, setNewAnnouncement] = useState<Partial<Announcement>>({
+    title: '',
+    content: '',
+    type: 'normal',
+    startDate: new Date().toISOString().split('T')[0],
+    endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    isActive: true,
+    pinned: false
+  });
+
+  // 최근 활동 및 투표 관리 상태
+  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
+  const [voteRecords, setVoteRecords] = useState<VoteRecord[]>([]);
+  const [voteWarnings, setVoteWarnings] = useState<{userId: number, userName: string, warningCount: number, lastWarningDate: string}[]>([]);
+
+  // 알림 시스템 상태
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notificationResults, setNotificationResults] = useState<NotificationDeliveryResult[]>([]);
+  const [isNotificationSystemActive, setIsNotificationSystemActive] = useState(false);
+
+  // 사용자 정보가 변경될 때마다 권한 업데이트
+  useEffect(() => {
+    if (user?.email === 'sti60val@gmail.com') {
+      setCurrentUserRole('SUPER_ADMIN');
+    } else if (user?.role === 'ADMIN') {
+      setCurrentUserRole('ADMIN');
+    } else {
+      setCurrentUserRole('MEMBER');
+    }
+  }, [user]);
+  
+  const toast = useToast();
+  
+  // 사용하지 않는 코드 제거
+  // const { onOpen: onGameModalOpen } = useDisclosure();
+  
+  // 회원 통계 상태
+  // const [memberStats, setMemberStats] = useState({
+  //   totalMembers: 0,
+  //   activeMembers: 0,
+  //   recentMembers: 0,
+  //   activeRate: 0,
+  //   averageAttendanceRate: 0
+  // });
+  
+  // 데이터 로드
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    
+    try {
+      console.log('데이터 로딩 시작...');
+      
+      // 각 API를 개별적으로 호출하여 일부가 실패해도 다른 데이터는 표시
+      
+      // 1. 회원 데이터 로드 (localStorage 우선)
+      try {
+        let finalUserList: ExtendedMember[] = [];
+        
+        // localStorage에서 저장된 회원 목록을 최우선으로 사용
+        const savedUserList = localStorage.getItem('adminUserList');
+        if (savedUserList) {
+          try {
+            const parsedUserList = JSON.parse(savedUserList);
+            if (Array.isArray(parsedUserList) && parsedUserList.length > 0) {
+              console.log('✅ localStorage에서 회원 목록 우선 사용:', parsedUserList.length, '명');
+              finalUserList = parsedUserList;
+              setUserList(parsedUserList);
+            }
+          } catch (error) {
+            console.error('localStorage 회원 목록 파싱 실패:', error);
+          }
+        }
+
+        // localStorage에 데이터가 없는 경우에만 API에서 가져오기
+        if (finalUserList.length === 0) {
+          console.log('localStorage에 데이터가 없어서 API에서 로드 시도...');
+          try {
+            const membersResponse = await getAllMembers();
+            console.log('회원 데이터 응답:', membersResponse);
+            
+            if (membersResponse && membersResponse.data) {
+              console.log('원본 회원 데이터:', membersResponse.data);
+              
+              // API 응답 구조에 따라 데이터 추출
+              let membersData = membersResponse.data;
+              
+              // 만약 data.members 형태라면 그 값을 사용
+              if (membersResponse.data && typeof membersResponse.data === 'object' && 'members' in membersResponse.data) {
+                membersData = (membersResponse.data as any).members;
+              }
+              
+              if (Array.isArray(membersData) && membersData.length > 0) {
+                const convertedMembers: ExtendedMember[] = membersData.map((member: any) => ({
+                  id: member.id,
+                  name: member.name,
+                  email: member.email || '',
+                  role: member.role || 'MEMBER',
+                  status: member.status || 'ACTIVE',
+                  createdAt: member.createdAt
+                }));
+                
+                console.log('API에서 변환된 회원 데이터:', convertedMembers);
+                setUserList(convertedMembers);
+              } else {
+                console.log('API 회원 데이터가 비어있음');
+                setUserList([]);
+              }
+            } else {
+              console.log('API 응답이 올바르지 않음');
+              setUserList([]);
+            }
+          } catch (apiError) {
+            console.error('API 호출 실패:', apiError);
+            setUserList([]);
+          }
+        } else {
+          console.log('localStorage 데이터를 사용하므로 API 호출 건너뜀');
+        }
+      } catch (error) {
+        console.error('회원 데이터 로드 전체 실패:', error);
+        setUserList([]);
+      }
+      
+      // 2. 경기 데이터 로드 (localStorage 우선)
+      try {
+        let finalGamesList: any[] = [];
+        
+        // localStorage에서 저장된 경기 목록을 우선으로 사용
+        const savedGamesList = localStorage.getItem('adminGamesList');
+        if (savedGamesList) {
+          try {
+            const parsedGamesList = JSON.parse(savedGamesList);
+            if (Array.isArray(parsedGamesList) && parsedGamesList.length > 0) {
+              console.log('✅ localStorage에서 경기 목록 우선 사용:', parsedGamesList.length, '경기');
+              finalGamesList = parsedGamesList;
+              setGames(parsedGamesList);
+            }
+          } catch (error) {
+            console.error('localStorage 경기 목록 파싱 실패:', error);
+          }
+        }
+
+        // localStorage에 데이터가 없는 경우에만 API에서 가져오기
+        if (finalGamesList.length === 0) {
+          console.log('localStorage에 경기 데이터가 없어서 API에서 로드 시도...');
+          console.log('=== AdminPageNew - getGames() 호출 시작 ===');
+          const gamesResponse = await getGames();
+          console.log('=== AdminPageNew - getGames() 응답 ===');
+          console.log('경기 데이터 응답:', gamesResponse);
+          console.log('응답 타입:', typeof gamesResponse);
+          console.log('응답 키들:', Object.keys(gamesResponse || {}));
+          
+          if (gamesResponse && gamesResponse.games) {
+            console.log('AdminPageNew - 경기 데이터 설정:', gamesResponse.games);
+            console.log('AdminPageNew - 경기 데이터 길이:', gamesResponse.games.length);
+            console.log('AdminPageNew - 경기 데이터 타입:', typeof gamesResponse.games);
+            console.log('AdminPageNew - 경기 데이터가 배열인가:', Array.isArray(gamesResponse.games));
+            setGames(gamesResponse.games);
+            console.log('=== AdminPageNew - games 상태 설정 완료 ===');
+          } else {
+            console.log('경기 데이터 응답이 올바르지 않음:', gamesResponse);
+            console.log('gamesResponse.games 존재 여부:', !!gamesResponse?.games);
+            setGames([]);
+          }
+        } else {
+          console.log('localStorage 경기 데이터를 사용하므로 API 호출 건너뜀');
+        }
+      } catch (error) {
+        console.error('경기 데이터 로드 실패:', error);
+        setGames([]);
+      }
+      
+      // 3. 통계 데이터 로드
+      try {
+        const statsResponse = await getMemberStats();
+        console.log('통계 데이터 응답:', statsResponse);
+        
+        if (statsResponse) {
+          setMemberStats(statsResponse);
+        } else {
+          console.log('통계 데이터 응답이 올바르지 않음:', statsResponse);
+          setMemberStats({});
+        }
+      } catch (error) {
+        console.error('통계 데이터 로드 실패:', error);
+        setMemberStats({});
+      }
+      
+    } catch (error) {
+      console.error('전체 데이터 로드 오류:', error);
+      
+      toast({
+        title: '일부 데이터 로드 실패',
+        description: '일부 데이터를 불러오는데 실패했습니다.',
+        status: 'warning',
+        duration: 3000,
+        isClosable: true,
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // 스마트 새로고침 조건 체크 함수
+  const shouldRefresh = useCallback(() => {
+    // 1. 모달이 열려있으면 새로고침 안함
+    if (isPlayerFormOpen || isAnnouncementFormOpen) {
+      console.log('새로고침 건너뜀 - 모달 열림');
+      return false;
+    }
+    
+    // 2. 편집 중이면 새로고침 안함
+    if (editingPlayer || editingAnnouncement) {
+      console.log('새로고침 건너뜀 - 편집 중');
+      return false;
+    }
+    
+    // 3. 회원관리 모달이 열려있는지 확인
+    const memberManagementModals = document.querySelectorAll('[role="dialog"]');
+    if (memberManagementModals.length > 0) {
+      console.log('새로고침 건너뜀 - 회원관리 모달 열림');
+      return false;
+    }
+    
+    // 4. 사용자가 입력 중이면 새로고침 안함
+    const activeElement = document.activeElement;
+    if (activeElement?.tagName === 'INPUT' || 
+        activeElement?.tagName === 'TEXTAREA' ||
+        activeElement?.tagName === 'SELECT') {
+      console.log('새로고침 건너뜀 - 사용자 입력 중');
+      return false;
+    }
+    
+    // 5. 모든 조건을 만족하면 새로고침 함
+    return true;
+  }, [isPlayerFormOpen, isAnnouncementFormOpen, editingPlayer, editingAnnouncement]);
+
+  // 실시간 데이터 업데이트
+  useEffect(() => {
+    // 초기 데이터 로드
+    loadData();
+    
+    // 30초마다 조건부 데이터 새로고침
+    const interval = setInterval(() => {
+      if (shouldRefresh()) {
+        console.log('실시간 데이터 업데이트 중...');
+        loadData();
+      } else {
+        console.log('새로고침 건너뜀 - 사용자 활동 중');
+      }
+    }, 30000);
+    
+    return () => clearInterval(interval);
+  }, [loadData, shouldRefresh]);
+
+  // 실시간 업데이트 상태 표시
+  const [lastUpdateTime, setLastUpdateTime] = useState<Date>(new Date());
+  
+  useEffect(() => {
+    setLastUpdateTime(new Date());
+  }, [userList, games, memberStats]);
+
+  // userList 상태가 변경될 때 localStorage에 저장
+  useEffect(() => {
+    if (userList.length > 0) {
+      try {
+        localStorage.setItem('adminUserList', JSON.stringify(userList));
+        console.log('회원 목록이 localStorage에 저장됨:', userList.length, '명');
+      } catch (error) {
+        console.error('회원 목록 localStorage 저장 실패:', error);
+      }
+    }
+  }, [userList]);
+
+  // games 상태가 변경될 때 localStorage에 저장
+  useEffect(() => {
+    if (games.length > 0) {
+      try {
+        localStorage.setItem('adminGamesList', JSON.stringify(games));
+        console.log('경기 목록이 localStorage에 저장됨:', games.length, '경기');
+      } catch (error) {
+        console.error('경기 목록 localStorage 저장 실패:', error);
+      }
+    }
+  }, [games]);
+
+  // 활동 데이터 수집 함수
+  const collectActivityData = useCallback(() => {
+    try {
+      // 갤러리 아이템 로드
+      const galleryItems = JSON.parse(localStorage.getItem('galleryItems') || '[]');
+      
+      const activityData = {
+        // 투표 활동
+        votes: games.flatMap(game => game.votes || []),
+        
+        // 경기 참여
+        gameParticipations: games.flatMap(game => game.participants || []),
+        
+        // 갤러리 활동 (좋아요, 댓글)
+        galleryActivities: galleryItems.flatMap((item: any) => [
+          ...(item.commentsList || []),
+          { 
+            type: 'like', 
+            userId: item.authorId, 
+            date: item.uploadDate,
+            itemId: item.id 
+          }
+        ]),
+        
+        // 로그인 활동 (더미 데이터)
+        loginActivities: userList.map(user => ({
+          userId: user.id,
+          lastLogin: user.lastLogin || new Date().toISOString(),
+          loginCount: Math.floor(Math.random() * 50) + 10 // 더미 데이터
+        }))
+      };
+      
+      // 활동 데이터를 localStorage에 저장
+      localStorage.setItem('activityData', JSON.stringify(activityData));
+      
+      return activityData;
+    } catch (error) {
+      console.error('활동 데이터 수집 실패:', error);
+      return {
+        votes: [],
+        gameParticipations: [],
+        galleryActivities: [],
+        loginActivities: []
+      };
+    }
+  }, [games, userList]);
+
+  // 월별 통계 계산 함수
+  const calculateMonthlyStats = useCallback((targetMonth: number, targetYear: number) => {
+    try {
+      const activityData = collectActivityData();
+      const monthStart = new Date(targetYear, targetMonth - 1, 1);
+      const monthEnd = new Date(targetYear, targetMonth, 0, 23, 59, 59);
+      
+      const monthlyActivities = {
+        votes: activityData.votes.filter((vote: any) => {
+          const voteDate = new Date(vote.createdAt);
+          return voteDate >= monthStart && voteDate <= monthEnd;
+        }),
+        
+        gameParticipations: activityData.gameParticipations.filter((participation: any) => {
+          // 경기 참여는 경기 날짜 기준으로 필터링
+          const game = games.find(g => g.participants?.includes(participation));
+          if (game) {
+            const gameDate = new Date(game.date);
+            return gameDate >= monthStart && gameDate <= monthEnd;
+          }
+          return false;
+        }),
+        
+        galleryActivities: activityData.galleryActivities.filter((activity: any) => {
+          const activityDate = new Date(activity.date || activity.createdAt);
+          return activityDate >= monthStart && activityDate <= monthEnd;
+        })
+      };
+      
+      const uniqueUsers = new Set([
+        ...monthlyActivities.votes.map((v: any) => v.userId),
+        ...monthlyActivities.gameParticipations,
+        ...monthlyActivities.galleryActivities.map((a: any) => a.userId)
+      ]);
+      
+      return {
+        month: `${targetYear}년 ${targetMonth}월`,
+        totalVotes: monthlyActivities.votes.length,
+        totalGameParticipations: monthlyActivities.gameParticipations.length,
+        totalGalleryActivities: monthlyActivities.galleryActivities.length,
+        uniqueActiveUsers: uniqueUsers.size,
+        totalGames: games.filter(game => {
+          const gameDate = new Date(game.date);
+          return gameDate >= monthStart && gameDate <= monthEnd;
+        }).length
+      };
+    } catch (error) {
+      console.error('월별 통계 계산 실패:', error);
+      return {
+        month: `${targetYear}년 ${targetMonth}월`,
+        totalVotes: 0,
+        totalGameParticipations: 0,
+        totalGalleryActivities: 0,
+        uniqueActiveUsers: 0,
+        totalGames: 0
+      };
+    }
+  }, [collectActivityData, games]);
+
+  // 참여율 계산 함수
+  const calculateParticipationRate = useCallback((userId: string) => {
+    try {
+      const activityData = collectActivityData();
+      
+      const userVotes = activityData.votes.filter((v: any) => v.userId === userId).length;
+      const userGameParticipations = activityData.gameParticipations.filter((p: any) => p === userId).length;
+      const userGalleryActivities = activityData.galleryActivities.filter((a: any) => a.userId === userId).length;
+      
+      const totalGames = games.length;
+      const totalVoteOpportunities = games.length;
+      const totalGalleryItems = JSON.parse(localStorage.getItem('galleryItems') || '[]').length;
+      
+      return {
+        voteRate: totalVoteOpportunities > 0 ? (userVotes / totalVoteOpportunities) * 100 : 0,
+        gameParticipationRate: totalGames > 0 ? (userGameParticipations / totalGames) * 100 : 0,
+        overallActivityRate: (totalVoteOpportunities + totalGames + totalGalleryItems) > 0 
+          ? ((userVotes + userGameParticipations + userGalleryActivities) / 
+             (totalVoteOpportunities + totalGames + totalGalleryItems)) * 100 
+          : 0
+      };
+    } catch (error) {
+      console.error('참여율 계산 실패:', error);
+      return {
+        voteRate: 0,
+        gameParticipationRate: 0,
+        overallActivityRate: 0
+      };
+    }
+  }, [collectActivityData, games]);
+
+  // 상위 참여자 분석 함수
+  const getTopParticipants = useCallback(() => {
+    try {
+      const activityData = collectActivityData();
+      
+      const userStats = userList.map(user => {
+        const participation = calculateParticipationRate(user.id);
+        const totalActivities = 
+          activityData.votes.filter((v: any) => v.userId === user.id).length +
+          activityData.gameParticipations.filter((p: any) => p === user.id).length +
+          activityData.galleryActivities.filter((a: any) => a.userId === user.id).length;
+        
+        return {
+          userId: user.id,
+          name: user.name,
+          voteRate: participation.voteRate,
+          gameParticipationRate: participation.gameParticipationRate,
+          overallActivityRate: participation.overallActivityRate,
+          totalActivities
+        };
+      });
+      
+      return userStats
+        .sort((a, b) => b.overallActivityRate - a.overallActivityRate)
+        .slice(0, 5); // 상위 5명
+    } catch (error) {
+      console.error('상위 참여자 분석 실패:', error);
+      return [];
+    }
+  }, [userList, collectActivityData, calculateParticipationRate]);
+
+  // 권한 체크 함수
+  const hasPermission = (permission: string) => {
+    const userPermissions = rolePermissions[currentUserRole].permissions;
+    return userPermissions.includes('all') || userPermissions.includes(permission);
+  };
+
+
+
+
+
+  // 알림 설정 변경 핸들러
+  const handleNotificationChange = (category: string, field: string, value: any) => {
+    setNotificationSettings(prev => ({
+      ...prev,
+      [category]: {
+        ...prev[category as keyof typeof prev],
+        [field]: value
+      }
+    }));
+    setIsNotificationChanged(true);
+  };
+
+  // 알림 설정 저장
+  const handleSaveNotifications = async () => {
+    try {
+      localStorage.setItem('notificationSettings', JSON.stringify(notificationSettings));
+      
+      toast({
+        title: '알림 설정이 저장되었습니다',
+        description: '알림 설정이 성공적으로 업데이트되었습니다.',
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+      
+      setIsNotificationChanged(false);
+    } catch (error) {
+      console.error('알림 설정 저장 실패:', error);
+      toast({
+        title: '알림 설정 저장 실패',
+        description: '알림 설정을 저장하는 중 오류가 발생했습니다.',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+    }
+  };
+
+  // 알림 설정 로드
+  const loadNotificationSettings = () => {
+    try {
+      const saved = localStorage.getItem('notificationSettings');
+      if (saved) {
+        setNotificationSettings(JSON.parse(saved));
+      }
+    } catch (error) {
+      console.error('알림 설정 로드 실패:', error);
+    }
+  };
+
+  // 알림 발송 엔진
+  const sendNotification = async (notification: Omit<Notification, 'id' | 'sentAt' | 'status'>) => {
+    const newNotification: Notification = {
+      ...notification,
+      id: Date.now().toString(),
+      sentAt: new Date().toISOString(),
+      status: 'PENDING'
+    };
+
+    setNotifications(prev => [newNotification, ...prev]);
+    
+    try {
+      // 1. 이메일 알림 발송
+      if (notification.deliveryMethods.includes('email')) {
+        await sendEmailNotification(newNotification);
+      }
+
+      // 2. 푸시 알림 발송
+      if (notification.deliveryMethods.includes('push')) {
+        await sendPushNotification(newNotification);
+      }
+
+      // 3. 인앱 알림 발송
+      if (notification.deliveryMethods.includes('inapp')) {
+        await sendInAppNotification(newNotification);
+      }
+
+      // 알림 상태를 성공으로 업데이트
+      setNotifications(prev => 
+        prev.map(n => n.id === newNotification.id ? { ...n, status: 'SENT' } : n)
+      );
+
+      // 활동 로그에 알림 발송 기록
+      addActivityLog(0, 'System', 'ANNOUNCEMENT_CREATE', `알림 발송: ${notification.title}`);
+
+    } catch (error) {
+      console.error('알림 발송 실패:', error);
+      
+      // 알림 상태를 실패로 업데이트
+      setNotifications(prev => 
+        prev.map(n => n.id === newNotification.id ? { ...n, status: 'FAILED' } : n)
+      );
+    }
+  };
+
+  // 이메일 알림 발송
+  const sendEmailNotification = async (notification: Notification) => {
+    // 실제 구현에서는 Gmail API 또는 SendGrid 사용
+    console.log('📧 이메일 알림 발송:', notification);
+    
+    // 더미 이메일 발송 결과
+    notification.recipients.forEach(userId => {
+      const result: NotificationDeliveryResult = {
+        notificationId: notification.id,
+        userId,
+        method: 'email',
+        status: 'success',
+        sentAt: new Date().toISOString()
+      };
+      setNotificationResults(prev => [...prev, result]);
+    });
+  };
+
+  // 푸시 알림 발송
+  const sendPushNotification = async (notification: Notification) => {
+    // 실제 구현에서는 Firebase Cloud Messaging 사용
+    console.log('📱 푸시 알림 발송:', notification);
+    
+    // 더미 푸시 발송 결과
+    notification.recipients.forEach(userId => {
+      const result: NotificationDeliveryResult = {
+        notificationId: notification.id,
+        userId,
+        method: 'push',
+        status: 'success',
+        sentAt: new Date().toISOString()
+      };
+      setNotificationResults(prev => [...prev, result]);
+    });
+  };
+
+  // 인앱 알림 발송
+  const sendInAppNotification = async (notification: Notification) => {
+    // WebSocket을 통한 실시간 인앱 알림
+    console.log('🔔 인앱 알림 발송:', notification);
+    
+    // 전역 이벤트 발생 (인앱 알림용)
+    const event = new CustomEvent('notification-received', {
+      detail: { notification }
+    });
+    window.dispatchEvent(event);
+    
+    // 더미 인앱 발송 결과
+    notification.recipients.forEach(userId => {
+      const result: NotificationDeliveryResult = {
+        notificationId: notification.id,
+        userId,
+        method: 'inapp',
+        status: 'success',
+        sentAt: new Date().toISOString()
+      };
+      setNotificationResults(prev => [...prev, result]);
+    });
+  };
+
+  // 선수 관련 함수들
+  const handleAddPlayer = () => {
+    if (!newPlayer.name) {
+      toast({
+        title: '선수명을 입력해주세요',
+        status: 'warning',
+        duration: 2000,
+        isClosable: true,
+      });
+      return;
+    }
+
+    const player: Player = {
+      id: Date.now().toString(),
+      name: newPlayer.name!,
+      position: newPlayer.position || 'MF',
+      jerseyNumber: newPlayer.jerseyNumber,
+      phone: newPlayer.phone,
+      email: newPlayer.email,
+      joinDate: newPlayer.joinDate || new Date().toISOString().split('T')[0],
+      preferredPosition: newPlayer.preferredPosition || [],
+      skillRating: newPlayer.skillRating || 70,
+      attendanceRate: newPlayer.attendanceRate || 0,
+      isActive: newPlayer.isActive !== false,
+      notes: newPlayer.notes
+    };
+
+    setPlayers(prev => [...prev, player]);
+    localStorage.setItem('players', JSON.stringify([...players, player]));
+    
+    setNewPlayer({
+      name: '',
+      position: 'MF',
+      preferredPosition: [],
+      skillRating: 70,
+      attendanceRate: 0,
+      isActive: true,
+      joinDate: new Date().toISOString().split('T')[0]
+    });
+    setIsPlayerFormOpen(false);
+
+    toast({
+      title: '선수가 추가되었습니다',
+      status: 'success',
+      duration: 2000,
+      isClosable: true,
+    });
+  };
+
+  const handleEditPlayer = (player: Player) => {
+    setEditingPlayer(player);
+    setNewPlayer(player);
+    setIsPlayerFormOpen(true);
+  };
+
+  const handleUpdatePlayer = () => {
+    if (!editingPlayer || !newPlayer.name) return;
+
+    const updatedPlayer: Player = {
+      ...editingPlayer,
+      ...newPlayer,
+      name: newPlayer.name!,
+    };
+
+    const updatedPlayers = players.map(p => 
+      p.id === editingPlayer.id ? updatedPlayer : p
+    );
+    
+    setPlayers(updatedPlayers);
+    localStorage.setItem('players', JSON.stringify(updatedPlayers));
+    
+    setEditingPlayer(null);
+    setNewPlayer({
+      name: '',
+      position: 'MF',
+      preferredPosition: [],
+      skillRating: 70,
+      attendanceRate: 0,
+      isActive: true,
+      joinDate: new Date().toISOString().split('T')[0]
+    });
+    setIsPlayerFormOpen(false);
+
+    toast({
+      title: '선수 정보가 수정되었습니다',
+      status: 'success',
+      duration: 2000,
+      isClosable: true,
+    });
+  };
+
+  const handleDeletePlayer = (playerId: string) => {
+    const updatedPlayers = players.filter(p => p.id !== playerId);
+    setPlayers(updatedPlayers);
+    localStorage.setItem('players', JSON.stringify(updatedPlayers));
+
+    toast({
+      title: '선수가 삭제되었습니다',
+      status: 'info',
+      duration: 2000,
+      isClosable: true,
+    });
+  };
+
+  // 선수 데이터 로드
+  const loadPlayers = () => {
+    try {
+      const saved = localStorage.getItem('players');
+      if (saved) {
+        setPlayers(JSON.parse(saved));
+      }
+    } catch (error) {
+      console.error('선수 데이터 로드 실패:', error);
+    }
+  };
+
+  // 공지사항 관련 함수들
+  const handleAddAnnouncement = () => {
+    if (!newAnnouncement.title || !newAnnouncement.content) {
+      toast({
+        title: '제목과 내용을 모두 입력해주세요',
+        status: 'warning',
+        duration: 2000,
+        isClosable: true,
+      });
+      return;
+    }
+
+    const announcement: Announcement = {
+      id: Date.now().toString(),
+      title: newAnnouncement.title!,
+      content: newAnnouncement.content!,
+      type: newAnnouncement.type || 'normal',
+      startDate: newAnnouncement.startDate || new Date().toISOString().split('T')[0],
+      endDate: newAnnouncement.endDate || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      isActive: newAnnouncement.isActive !== false,
+      author: user?.name || '관리자',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      pinned: newAnnouncement.pinned || false
+    };
+
+    setAnnouncements(prev => [...prev, announcement]);
+    localStorage.setItem('announcements', JSON.stringify([...announcements, announcement]));
+    
+    setNewAnnouncement({
+      title: '',
+      content: '',
+      type: 'normal',
+      startDate: new Date().toISOString().split('T')[0],
+      endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      isActive: true,
+      pinned: false
+    });
+    setIsAnnouncementFormOpen(false);
+
+    toast({
+      title: '공지사항이 등록되었습니다',
+      status: 'success',
+      duration: 2000,
+      isClosable: true,
+    });
+  };
+
+  const handleEditAnnouncement = (announcement: Announcement) => {
+    setEditingAnnouncement(announcement);
+    setNewAnnouncement(announcement);
+    setIsAnnouncementFormOpen(true);
+  };
+
+  const handleUpdateAnnouncement = () => {
+    if (!editingAnnouncement || !newAnnouncement.title || !newAnnouncement.content) return;
+
+    const updatedAnnouncement: Announcement = {
+      ...editingAnnouncement,
+      ...newAnnouncement,
+      title: newAnnouncement.title!,
+      content: newAnnouncement.content!,
+      updatedAt: new Date().toISOString()
+    };
+
+    const updatedAnnouncements = announcements.map(a => 
+      a.id === editingAnnouncement.id ? updatedAnnouncement : a
+    );
+    
+    setAnnouncements(updatedAnnouncements);
+    localStorage.setItem('announcements', JSON.stringify(updatedAnnouncements));
+    
+    setEditingAnnouncement(null);
+    setNewAnnouncement({
+      title: '',
+      content: '',
+      type: 'normal',
+      startDate: new Date().toISOString().split('T')[0],
+      endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      isActive: true,
+      pinned: false
+    });
+    setIsAnnouncementFormOpen(false);
+
+    toast({
+      title: '공지사항이 수정되었습니다',
+      status: 'success',
+      duration: 2000,
+      isClosable: true,
+    });
+  };
+
+  const handleDeleteAnnouncement = (announcementId: string) => {
+    const updatedAnnouncements = announcements.filter(a => a.id !== announcementId);
+    setAnnouncements(updatedAnnouncements);
+    localStorage.setItem('announcements', JSON.stringify(updatedAnnouncements));
+
+    toast({
+      title: '공지사항이 삭제되었습니다',
+      status: 'info',
+      duration: 2000,
+      isClosable: true,
+    });
+  };
+
+  const handleToggleAnnouncementStatus = (announcementId: string) => {
+    const updatedAnnouncements = announcements.map(a => 
+      a.id === announcementId ? { ...a, isActive: !a.isActive } : a
+    );
+    setAnnouncements(updatedAnnouncements);
+    localStorage.setItem('announcements', JSON.stringify(updatedAnnouncements));
+  };
+
+  // 공지사항 데이터 로드
+  const loadAnnouncements = () => {
+    try {
+      const saved = localStorage.getItem('announcements');
+      if (saved) {
+        setAnnouncements(JSON.parse(saved));
+      }
+    } catch (error) {
+      console.error('공지사항 데이터 로드 실패:', error);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+    loadNotificationSettings();
+    loadPlayers();
+    loadAnnouncements();
+    loadActivityLogs();
+    loadVoteRecords();
+    loadSuspensionRequests();
+    checkVoteParticipation();
+    
+    // 알림 시스템 활성화
+    setIsNotificationSystemActive(true);
+  }, [loadData]);
+
+  // 자동 알림 체크 시스템
+  const checkAndSendNotifications = useCallback(() => {
+    if (!isNotificationSystemActive) return;
+
+    const now = new Date();
+    
+    // 1. 경기 알림 체크
+    if (notificationSettings.gameReminder.enabled) {
+      games.forEach(game => {
+        const gameTime = new Date(game.date);
+        const hoursUntilGame = (gameTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+        
+        if (hoursUntilGame > 0 && hoursUntilGame <= notificationSettings.gameReminder.beforeHours) {
+          // 이미 발송된 알림인지 체크
+          const existingNotification = notifications.find(n => 
+            n.type === 'GAME_REMINDER' && 
+            n.metadata?.gameId === game.id &&
+            n.metadata?.hoursBefore === Math.floor(hoursUntilGame)
+          );
+          
+          if (!existingNotification) {
+            const recipients = getNotificationRecipients('gameReminder', game);
+            
+            sendNotification({
+              type: 'GAME_REMINDER',
+              title: '⚽ 경기 알림',
+              message: `${game.date} 경기가 ${Math.floor(hoursUntilGame)}시간 후에 시작됩니다.`,
+              recipients,
+              deliveryMethods: ['email', 'push', 'inapp'],
+              metadata: {
+                gameId: game.id,
+                gameDate: game.date,
+                hoursBefore: Math.floor(hoursUntilGame)
+              }
+            });
+          }
+        }
+      });
+    }
+
+    // 2. 투표 알림 체크
+    if (notificationSettings.voteReminder.enabled) {
+      const voteDeadline = getVoteDeadline();
+      const hoursUntilDeadline = voteDeadline.remainingHours;
+      
+      if (hoursUntilDeadline > 0 && hoursUntilDeadline <= notificationSettings.voteReminder.beforeHours) {
+        const existingNotification = notifications.find(n => 
+          n.type === 'VOTE_REMINDER' && 
+          n.metadata?.hoursBefore === Math.floor(hoursUntilDeadline)
+        );
+        
+        if (!existingNotification) {
+          const recipients = getNotificationRecipients('voteReminder');
+          
+          sendNotification({
+            type: 'VOTE_REMINDER',
+            title: '🗳️ 투표 마감 알림',
+            message: `투표가 ${Math.floor(hoursUntilDeadline)}시간 후에 마감됩니다.`,
+            recipients,
+            deliveryMethods: ['email', 'push', 'inapp'],
+            metadata: {
+              hoursBefore: Math.floor(hoursUntilDeadline)
+            }
+          });
+        }
+      }
+    }
+  }, [isNotificationSystemActive, notificationSettings, games, notifications, userList]);
+
+  // 자동 알림 체크 (1분마다)
+  useEffect(() => {
+    if (!isNotificationSystemActive) return;
+
+    const interval = setInterval(() => {
+      checkAndSendNotifications();
+    }, 60000); // 1분마다 체크
+
+    return () => clearInterval(interval);
+  }, [isNotificationSystemActive, checkAndSendNotifications]);
+
+  // 활동 로그 로드
+  const loadActivityLogs = () => {
+    try {
+      const saved = localStorage.getItem('activityLogs');
+      if (saved) {
+        setActivityLogs(JSON.parse(saved));
+      }
+    } catch (error) {
+      console.error('활동 로그 데이터 로드 실패:', error);
+    }
+  };
+
+  // 투표 기록 로드
+  const loadVoteRecords = () => {
+    try {
+      const saved = localStorage.getItem('voteRecords');
+      if (saved) {
+        setVoteRecords(JSON.parse(saved));
+      }
+    } catch (error) {
+      console.error('투표 기록 데이터 로드 실패:', error);
+    }
+  };
+
+  // 정지 해제 요청 로드
+  const loadSuspensionRequests = () => {
+    try {
+      const saved = localStorage.getItem('suspensionRequests');
+      if (saved) {
+        setSuspensionRequests(JSON.parse(saved));
+      }
+    } catch (error) {
+      console.error('정지 해제 요청 데이터 로드 실패:', error);
+    }
+  };
+
+  // 투표 참여도 체크 및 회원 상태 관리
+  const checkVoteParticipation = () => {
+    const currentYear = new Date().getFullYear();
+    const currentMonth = new Date().getMonth();
+    
+    userList.forEach(user => {
+      if (user.role === 'MEMBER') {
+        const userVotes = voteRecords.filter(v => v.userId === user.id && v.year === currentYear);
+        const participatedVotes = userVotes.filter(v => v.participated);
+        const totalVotes = userVotes.length;
+        const consecutiveMissed = getConsecutiveMissedVotes(user.id, currentYear);
+        
+        // 연속 3회 또는 총 6회 미참여 시 경고
+        if (consecutiveMissed >= 3 || (totalVotes > 0 && participatedVotes.length < totalVotes - 5)) {
+          if (!voteWarnings.find(w => w.userId === user.id)) {
+            addVoteWarning(user.id, user.name);
+          }
+        }
+        
+        // 연속 3회 미참여 시 정지
+        if (consecutiveMissed >= 3) {
+          suspendMember(user.id, user.name);
+        }
+      }
+    });
+  };
+
+  // 자동 알림 체크 시스템
+  const checkAndSendNotifications = useCallback(() => {
+    if (!isNotificationSystemActive) return;
+
+    const now = new Date();
+    
+    // 1. 경기 알림 체크
+    if (notificationSettings.gameReminder.enabled) {
+      games.forEach(game => {
+        const gameTime = new Date(game.date);
+        const hoursUntilGame = (gameTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+        
+        if (hoursUntilGame > 0 && hoursUntilGame <= notificationSettings.gameReminder.beforeHours) {
+          // 이미 발송된 알림인지 체크
+          const existingNotification = notifications.find(n => 
+            n.type === 'GAME_REMINDER' && 
+            n.metadata?.gameId === game.id &&
+            n.metadata?.hoursBefore === Math.floor(hoursUntilGame)
+          );
+          
+          if (!existingNotification) {
+            const recipients = getNotificationRecipients('gameReminder', game);
+            
+            sendNotification({
+              type: 'GAME_REMINDER',
+              title: '⚽ 경기 알림',
+              message: `${game.date} 경기가 ${Math.floor(hoursUntilGame)}시간 후에 시작됩니다.`,
+              recipients,
+              deliveryMethods: ['email', 'push', 'inapp'],
+              metadata: {
+                gameId: game.id,
+                gameDate: game.date,
+                hoursBefore: Math.floor(hoursUntilGame)
+              }
+            });
+          }
+        }
+      });
+    }
+
+    // 2. 투표 알림 체크
+    if (notificationSettings.voteReminder.enabled) {
+      const voteDeadline = getVoteDeadline();
+      const hoursUntilDeadline = voteDeadline.remainingHours;
+      
+      if (hoursUntilDeadline > 0 && hoursUntilDeadline <= notificationSettings.voteReminder.beforeHours) {
+        const existingNotification = notifications.find(n => 
+          n.type === 'VOTE_REMINDER' && 
+          n.metadata?.hoursBefore === Math.floor(hoursUntilDeadline)
+        );
+        
+        if (!existingNotification) {
+          const recipients = getNotificationRecipients('voteReminder');
+          
+          sendNotification({
+            type: 'VOTE_REMINDER',
+            title: '🗳️ 투표 마감 알림',
+            message: `투표가 ${Math.floor(hoursUntilDeadline)}시간 후에 마감됩니다.`,
+            recipients,
+            deliveryMethods: ['email', 'push', 'inapp'],
+            metadata: {
+              hoursBefore: Math.floor(hoursUntilDeadline)
+            }
+          });
+        }
+      }
+    }
+  }, [isNotificationSystemActive, notificationSettings, games, notifications, userList]);
+
+  // 알림 수신자 결정
+  const getNotificationRecipients = (notificationType: string, game?: any): number[] => {
+    const settings = notificationSettings[notificationType as keyof typeof notificationSettings];
+    
+    if (!settings || !settings.enabled) return [];
+    
+    switch (settings.targets[0]) {
+      case 'all':
+        return userList.map(user => user.id);
+      case 'participating':
+        if (game && game.participants) {
+          return game.participants.map((p: any) => p.userId);
+        }
+        return userList.map(user => user.id);
+      case 'admin':
+        return userList.filter(user => user.role === 'ADMIN' || user.role === 'SUPER_ADMIN').map(user => user.id);
+      default:
+        return userList.map(user => user.id);
+    }
+  };
+
+  // 투표 마감일 계산 (매주 수요일 17시)
+  const getVoteDeadline = () => {
+    const now = new Date();
+    const currentDay = now.getDay(); // 0: 일요일, 1: 월요일, ..., 3: 수요일
+
+    let daysUntilWednesday;
+    if (currentDay <= 3) { // If today is Sun, Mon, Tue, Wed
+      daysUntilWednesday = 3 - currentDay;
+    } else { // If today is Thu, Fri, Sat
+      daysUntilWednesday = 10 - currentDay; // Next Wednesday
+    }
+
+    const nextWednesday = new Date(now);
+    nextWednesday.setDate(now.getDate() + daysUntilWednesday);
+    nextWednesday.setHours(17, 0, 0, 0);
+
+    return {
+      text: `${nextWednesday.getMonth() + 1}월 ${nextWednesday.getDate()}일(수) 17시까지`,
+      deadline: nextWednesday,
+      remainingHours: Math.max(0, (nextWednesday.getTime() - now.getTime()) / (1000 * 60 * 60))
+    };
+  };
+
+  // 수동 알림 발송 함수들
+  const sendTestNotification = () => {
+    sendNotification({
+      type: 'GAME_REMINDER',
+      title: '🧪 테스트 알림',
+      message: '이것은 테스트 알림입니다. 알림 시스템이 정상적으로 작동하고 있습니다.',
+      recipients: userList.map(user => user.id),
+      deliveryMethods: ['email', 'push', 'inapp'],
+      metadata: { isTest: true }
+    });
+
+    toast({
+      title: '테스트 알림 발송',
+      description: '테스트 알림이 발송되었습니다.',
+      status: 'success',
+      duration: 3000,
+      isClosable: true,
+    });
+  };
+
+  const sendVoteReminder = () => {
+    const voteDeadline = getVoteDeadline();
+    
+    sendNotification({
+      type: 'VOTE_REMINDER',
+      title: '🗳️ 투표 마감 알림',
+      message: `투표가 ${voteDeadline.text}에 마감됩니다. 아직 투표하지 않은 회원은 빠른 시일 내에 투표해주세요.`,
+      recipients: userList.map(user => user.id),
+      deliveryMethods: ['email', 'push', 'inapp'],
+      metadata: { 
+        deadline: voteDeadline.deadline.toISOString(),
+        isManual: true 
+      }
+    });
+
+    toast({
+      title: '투표 마감 알림 발송',
+      description: '투표 마감 알림이 발송되었습니다.',
+      status: 'success',
+      duration: 3000,
+      isClosable: true,
+    });
+  };
+
+  // 연속 미참여 투표 수 계산
+  const getConsecutiveMissedVotes = (userId: number, year: number): number => {
+    const userVotes = voteRecords.filter(v => v.userId === userId && v.year === year);
+    let consecutiveMissed = 0;
+    
+    for (let i = userVotes.length - 1; i >= 0; i--) {
+      if (!userVotes[i].participated) {
+        consecutiveMissed++;
+      } else {
+        break;
+      }
+    }
+    
+    return consecutiveMissed;
+  };
+
+  // 투표 경고 추가
+  const addVoteWarning = (userId: number, userName: string) => {
+    const newWarning = {
+      userId,
+      userName,
+      warningCount: 1,
+      lastWarningDate: new Date().toISOString()
+    };
+    
+    setVoteWarnings(prev => [...prev, newWarning]);
+    localStorage.setItem('voteWarnings', JSON.stringify([...voteWarnings, newWarning]));
+    
+    // 활동 로그에 경고 기록
+    addActivityLog(userId, userName, 'VOTE_WARNING', `${userName}님에게 투표 참여 경고가 발송되었습니다.`);
+    
+    // 토스트 알림
+    toast({
+      title: '투표 참여 경고',
+      description: `${userName}님에게 투표 참여 경고가 발송되었습니다.`,
+      status: 'warning',
+      duration: 5000,
+      isClosable: true,
+    });
+  };
+
+  // 회원 정지
+  const suspendMember = (userId: number, userName: string) => {
+    const updatedUserList = userList.map(user => 
+      user.id === userId ? { ...user, status: 'SUSPENDED' as const } : user
+    );
+    
+    setUserList(updatedUserList);
+    localStorage.setItem('userList', JSON.stringify(updatedUserList));
+    
+    // 활동 로그에 정지 기록
+    addActivityLog(userId, userName, 'MEMBER_SUSPENDED', `${userName}님이 투표 참여 부족으로 정지되었습니다.`);
+    
+    // 토스트 알림
+    toast({
+      title: '회원 정지',
+      description: `${userName}님이 투표 참여 부족으로 정지되었습니다.`,
+      status: 'error',
+      duration: 5000,
+      isClosable: true,
+    });
+  };
+
+  // 활동 로그 추가
+  const addActivityLog = (userId: number, userName: string, action: ActivityLog['action'], description: string, metadata?: any) => {
+    const newLog: ActivityLog = {
+      id: Date.now().toString(),
+      userId,
+      userName,
+      action,
+      description,
+      timestamp: new Date().toISOString(),
+      metadata
+    };
+    
+    setActivityLogs(prev => [newLog, ...prev.slice(0, 99)]); // 최근 100개만 유지
+    localStorage.setItem('activityLogs', JSON.stringify([newLog, ...activityLogs.slice(0, 99)]));
+  };
+
+  // 투표 기록 추가
+  const addVoteRecord = (userId: number, userName: string, voteDate: string, participated: boolean) => {
+    const year = new Date(voteDate).getFullYear();
+    const newRecord: VoteRecord = {
+      userId,
+      userName,
+      voteDate,
+      participated,
+      year
+    };
+    
+    // 기존 기록이 있으면 업데이트, 없으면 추가
+    setVoteRecords(prev => {
+      const filtered = prev.filter(r => !(r.userId === userId && r.voteDate === voteDate));
+      return [newRecord, ...filtered];
+    });
+    
+    // localStorage 업데이트
+    const updatedRecords = voteRecords.filter(r => !(r.userId === userId && r.voteDate === voteDate));
+    localStorage.setItem('voteRecords', JSON.stringify([newRecord, ...updatedRecords]));
+    
+    // 활동 로그 추가
+    const action = participated ? 'VOTE_PARTICIPATE' : 'VOTE_ABSENT';
+    const description = participated ? 
+      `${userName}님이 ${voteDate} 투표에 참여했습니다.` : 
+      `${userName}님이 ${voteDate} 투표에 불참했습니다.`;
+    
+    addActivityLog(userId, userName, action, description, { voteDate, participated });
+  };
+
+  // 투표 기록 가져오기 (외부에서 호출 가능)
+  const getVoteRecords = () => voteRecords;
+  
+  // 투표 경고 가져오기 (외부에서 호출 가능)
+  const getVoteWarnings = () => voteWarnings;
+
+  // 정지 해제 요청 상태
+  const [suspensionRequests, setSuspensionRequests] = useState<{
+    id: string;
+    userId: number;
+    userName: string;
+    requestDate: string;
+    reason: string;
+    status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  }[]>([]);
+
+  // 정지 해제 요청 추가
+  const addSuspensionRequest = (userId: number, userName: string, reason: string) => {
+    const newRequest = {
+      id: Date.now().toString(),
+      userId,
+      userName,
+      requestDate: new Date().toISOString(),
+      reason,
+      status: 'PENDING' as const
+    };
+    
+    setSuspensionRequests(prev => [...prev, newRequest]);
+    localStorage.setItem('suspensionRequests', JSON.stringify([...suspensionRequests, newRequest]));
+    
+    // 활동 로그에 요청 기록
+    addActivityLog(userId, userName, 'MEMBER_STATUS_CHANGE', `${userName}님이 정지 해제를 요청했습니다.`);
+    
+    toast({
+      title: '정지 해제 요청',
+      description: `${userName}님이 정지 해제를 요청했습니다.`,
+      status: 'info',
+      duration: 5000,
+      isClosable: true,
+    });
+  };
+
+  // 정지 해제 요청 승인
+  const approveSuspensionRequest = (requestId: string) => {
+    const request = suspensionRequests.find(r => r.id === requestId);
+    if (!request) return;
+
+    // 회원 상태를 ACTIVE로 변경
+    const updatedUserList = userList.map(user => 
+      user.id === request.userId ? { ...user, status: 'ACTIVE' as const } : user
+    );
+    
+    setUserList(updatedUserList);
+    localStorage.setItem('userList', JSON.stringify(updatedUserList));
+    
+    // 요청 상태를 승인으로 변경
+    const updatedRequests = suspensionRequests.map(r => 
+      r.id === requestId ? { ...r, status: 'APPROVED' as const } : r
+    );
+    setSuspensionRequests(updatedRequests);
+    localStorage.setItem('suspensionRequests', JSON.stringify(updatedRequests));
+    
+    // 활동 로그에 승인 기록
+    addActivityLog(request.userId, request.userName, 'MEMBER_STATUS_CHANGE', `${request.userName}님의 정지가 해제되었습니다.`);
+    
+    toast({
+      title: '정지 해제 승인',
+      description: `${request.userName}님의 정지가 해제되었습니다.`,
+      status: 'success',
+      duration: 5000,
+      isClosable: true,
+    });
+  };
+
+  // 정지 해제 요청 거절
+  const rejectSuspensionRequest = (requestId: string) => {
+    const request = suspensionRequests.find(r => r.id === requestId);
+    if (!request) return;
+
+    // 요청 상태를 거절로 변경
+    const updatedRequests = suspensionRequests.map(r => 
+      r.id === requestId ? { ...r, status: 'REJECTED' as const } : r
+    );
+    setSuspensionRequests(updatedRequests);
+    localStorage.setItem('suspensionRequests', JSON.stringify(updatedRequests));
+    
+    // 활동 로그에 거절 기록
+    addActivityLog(request.userId, request.userName, 'MEMBER_STATUS_CHANGE', `${request.userName}님의 정지 해제 요청이 거절되었습니다.`);
+    
+    toast({
+      title: '정지 해제 거절',
+      description: `${request.userName}님의 정지 해제 요청이 거절되었습니다.`,
+      status: 'error',
+      duration: 5000,
+      isClosable: true,
+    });
+  };
+
+  // 전역 함수 등록 (SchedulePageV2에서 사용)
+    useEffect(() => {
+    (window as any).addVoteRecord = addVoteRecord;
+    (window as any).getVoteRecords = getVoteRecords;
+    (window as any).getVoteWarnings = getVoteWarnings;
+    (window as any).addSuspensionRequest = addSuspensionRequest;
+    (window as any).sendNotification = sendNotification;
+
+    return () => {
+      delete (window as any).addVoteRecord;
+      delete (window as any).getVoteRecords;
+      delete (window as any).getVoteWarnings;
+      delete (window as any).addSuspensionRequest;
+      delete (window as any).sendNotification;
+    };
+  }, []);
+
+  // 불필요한 코드 제거
+
+  return (
+    <Box minH="100vh" bg="gray.50" pt={20}>
+      <Flex minH="calc(100vh - 80px)">
+        {/* 사이드바 */}
+        <Box
+          w="280px"
+          bg="white"
+          borderRight="1px"
+          borderColor="gray.200"
+          position="fixed"
+          top={20}
+          left={0}
+          h="calc(100vh - 80px)"
+          overflowY="auto"
+          zIndex={10}
+        >
+          <VStack spacing={0} align="stretch">
+            {/* 로고/헤더 */}
+            <Box p={6} borderBottom="1px" borderColor="gray.200">
+              <Text fontSize="3xl" fontWeight="black" color="#004ea8">
+                관리자 페이지
+              </Text>
+            </Box>
+
+            {/* 메뉴 */}
+            <VStack spacing={1} p={4}>
+              <Button
+                w="100%"
+                justifyContent="flex-start"
+                variant={selectedMenu === 'dashboard' ? 'solid' : 'ghost'}
+                colorScheme={selectedMenu === 'dashboard' ? 'blue' : 'gray'}
+                bg={selectedMenu === 'dashboard' ? '#004ea8' : undefined}
+                color={selectedMenu === 'dashboard' ? 'white' : undefined}
+                _hover={{
+                  bg: selectedMenu === 'dashboard' ? '#003d7a' : undefined
+                }}
+                onClick={() => setSelectedMenu('dashboard')}
+                leftIcon={<ViewIcon />}
+              >
+                대시보드
+              </Button>
+              
+              <Button
+                w="100%"
+                justifyContent="flex-start"
+                variant={selectedMenu === 'users' ? 'solid' : 'ghost'}
+                colorScheme={selectedMenu === 'users' ? 'blue' : 'gray'}
+                bg={selectedMenu === 'users' ? '#004ea8' : undefined}
+                color={selectedMenu === 'users' ? 'white' : undefined}
+                _hover={{
+                  bg: selectedMenu === 'users' ? '#003d7a' : undefined
+                }}
+                onClick={() => setSelectedMenu('users')}
+                leftIcon={<ViewIcon />}
+              >
+                회원 관리
+              </Button>
+              
+              <Button
+                w="100%"
+                justifyContent="flex-start"
+                variant={selectedMenu === 'games' ? 'solid' : 'ghost'}
+                colorScheme={selectedMenu === 'games' ? 'blue' : 'gray'}
+                bg={selectedMenu === 'games' ? '#004ea8' : undefined}
+                color={selectedMenu === 'games' ? 'white' : undefined}
+                _hover={{
+                  bg: selectedMenu === 'games' ? '#003d7a' : undefined
+                }}
+                onClick={() => setSelectedMenu('games')}
+                leftIcon={<CalendarIcon />}
+              >
+                경기 관리
+              </Button>
+              
+
+
+
+
+              <Button
+                w="100%"
+                justifyContent="flex-start"
+                variant={selectedMenu === 'notifications' ? 'solid' : 'ghost'}
+                colorScheme={selectedMenu === 'notifications' ? 'blue' : 'gray'}
+                bg={selectedMenu === 'notifications' ? '#004ea8' : undefined}
+                color={selectedMenu === 'notifications' ? 'white' : undefined}
+                _hover={{
+                  bg: selectedMenu === 'notifications' ? '#003d7a' : undefined
+                }}
+                onClick={() => setSelectedMenu('notifications')}
+                leftIcon={<ViewIcon />}
+              >
+                알림 관리
+              </Button>
+
+              <Button
+                w="100%"
+                justifyContent="flex-start"
+                variant={selectedMenu === 'players' ? 'solid' : 'ghost'}
+                colorScheme={selectedMenu === 'players' ? 'blue' : 'gray'}
+                bg={selectedMenu === 'players' ? '#004ea8' : undefined}
+                color={selectedMenu === 'players' ? 'white' : undefined}
+                _hover={{
+                  bg: selectedMenu === 'players' ? '#003d7a' : undefined
+                }}
+                onClick={() => setSelectedMenu('players')}
+                leftIcon={<InfoIcon />}
+              >
+                선수 관리
+              </Button>
+
+              <Button
+                w="100%"
+                justifyContent="flex-start"
+                variant={selectedMenu === 'analytics' ? 'solid' : 'ghost'}
+                colorScheme={selectedMenu === 'analytics' ? 'blue' : 'gray'}
+                bg={selectedMenu === 'analytics' ? '#004ea8' : undefined}
+                color={selectedMenu === 'analytics' ? 'white' : undefined}
+                _hover={{
+                  bg: selectedMenu === 'analytics' ? '#003d7a' : undefined
+                }}
+                onClick={() => setSelectedMenu('analytics')}
+                leftIcon={<ViewIcon />}
+              >
+                활동 분석
+              </Button>
+
+              <Button
+                w="100%"
+                justifyContent="flex-start"
+                variant={selectedMenu === 'announcements' ? 'solid' : 'ghost'}
+                colorScheme={selectedMenu === 'announcements' ? 'blue' : 'gray'}
+                bg={selectedMenu === 'announcements' ? '#004ea8' : undefined}
+                color={selectedMenu === 'announcements' ? 'white' : undefined}
+                _hover={{
+                  bg: selectedMenu === 'announcements' ? '#003d7a' : undefined
+                }}
+                onClick={() => setSelectedMenu('announcements')}
+                leftIcon={<InfoIcon />}
+              >
+                공지 관리
+              </Button>
+            </VStack>
+          </VStack>
+        </Box>
+
+        {/* 메인 콘텐츠 */}
+        <Box 
+          flex={1} 
+          ml="280px"
+          p={8} 
+          pt={8}
+          w="calc(100vw - 280px)"
+          minW="calc(100vw - 280px)"
+          maxW="calc(100vw - 280px)"
+        >
+          {loading ? (
+            <Flex justify="center" align="center" h="50vh">
+              <VStack spacing={4}>
+                <Spinner size="xl" color="blue.500" />
+                <Text>데이터를 불러오는 중...</Text>
+              </VStack>
+            </Flex>
+          ) : (
+            <>
+              {/* 대시보드 */}
+              {selectedMenu === 'dashboard' && (
+                <VStack spacing={8} align="stretch" w="100%">
+                  {/* 실시간 업데이트 상태 */}
+                  <Flex justify="space-between" align="center">
+                    <Text fontSize="2xl" fontWeight="bold" color="#004ea8">📊 실시간 통계 대시보드</Text>
+                    <HStack spacing={2}>
+                      <Box 
+                        w={2} 
+                        h={2} 
+                        bg={shouldRefresh() ? "green.500" : "yellow.500"} 
+                        borderRadius="full" 
+                      />
+                      <Text fontSize="sm" color="gray.600">
+                        {shouldRefresh() ? "실시간 업데이트 중" : "사용자 활동 중"}
+                      </Text>
+                      <Text fontSize="xs" color="gray.500">
+                        마지막 업데이트: {lastUpdateTime.toLocaleTimeString('ko-KR')}
+                      </Text>
+                    </HStack>
+                  </Flex>
+                  {/* 핵심 통계 카드 */}
+                  <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={4} w="100%">
+                    <Card bg="blue.50" border="1px solid" borderColor="blue.200" shadow="sm">
+                      <CardBody p={4}>
+                        <Stat>
+                          <HStack justify="space-between" align="center" mb={2}>
+                            <StatLabel color="blue.800" fontSize="md" fontWeight="medium">
+                              👥 전체 회원
+                            </StatLabel>
+                            <StatNumber color="#495057" fontWeight="bold" fontSize="2xl">{userList.length || 0}</StatNumber>
+                          </HStack>
+                          <StatHelpText color="blue.800" fontSize="sm" fontWeight="normal">
+                            <StatArrow type="increase" />
+                            {userList.filter(u => u.status === 'ACTIVE').length}명 활성
+                          </StatHelpText>
+                        </Stat>
+                      </CardBody>
+                    </Card>
+                    
+                    <Card bg="blue.50" border="1px solid" borderColor="blue.200" shadow="sm">
+                      <CardBody p={4}>
+                        <Stat>
+                          <HStack justify="space-between" align="center" mb={2}>
+                            <StatLabel color="green.800" fontSize="md" fontWeight="medium">
+                              ⚽ 총 경기수
+                            </StatLabel>
+                            <StatNumber color="#495057" fontWeight="bold" fontSize="2xl">{games.length || 0}</StatNumber>
+                          </HStack>
+                          <StatHelpText color="green.800" fontSize="sm" fontWeight="normal">
+                            <StatArrow type="increase" />
+                            이번 달 {games.filter(g => {
+                              const gameDate = new Date(g.date);
+                              const now = new Date();
+                              return gameDate.getMonth() === now.getMonth() && gameDate.getFullYear() === now.getFullYear();
+                            }).length}경기
+                          </StatHelpText>
+                        </Stat>
+                      </CardBody>
+                    </Card>
+                    
+                    <Card bg="blue.50" border="1px solid" borderColor="blue.200" shadow="sm">
+                      <CardBody p={4}>
+                        <Stat>
+                          <HStack justify="space-between" align="center" mb={2}>
+                            <StatLabel color="purple.800" fontSize="md" fontWeight="medium">
+                              🆕 신규 가입
+                            </StatLabel>
+                            <StatNumber color="#495057" fontWeight="bold" fontSize="2xl">{userList.filter(u => {
+                              if (!u.createdAt) return false;
+                              const created = new Date(u.createdAt);
+                              const weekAgo = new Date();
+                              weekAgo.setDate(weekAgo.getDate() - 7);
+                              return created >= weekAgo;
+                            }).length}</StatNumber>
+                          </HStack>
+                          <StatHelpText color="purple.800" fontSize="sm" fontWeight="normal">
+                            <HStack spacing={2} align="center">
+                              <StatArrow type="increase" />
+                              <Text color="purple.800" fontWeight="semibold">최근 7일</Text>
+                            </HStack>
+                          </StatHelpText>
+                        </Stat>
+                      </CardBody>
+                    </Card>
+                    
+                    <Card bg="blue.50" border="1px solid" borderColor="blue.200" shadow="sm">
+                      <CardBody p={4}>
+                        <Stat>
+                          <HStack justify="space-between" align="center" mb={2}>
+                            <StatLabel color="orange.800" fontSize="md" fontWeight="medium">
+                              👑 관리자
+                            </StatLabel>
+                            <StatNumber color="#495057" fontWeight="bold" fontSize="2xl">{userList.filter(u => u.role === 'ADMIN' || u.role === 'SUPER_ADMIN').length}</StatNumber>
+                          </HStack>
+                          <StatHelpText color="orange.800" fontSize="sm" fontWeight="normal">
+                            <StatArrow type="increase" />
+                            슈퍼관리자 {userList.filter(u => u.role === 'SUPER_ADMIN').length}명
+                          </StatHelpText>
+                        </Stat>
+                      </CardBody>
+                    </Card>
+                  </SimpleGrid>
+
+                  {/* 상세 통계 카드 */}
+                  <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6} w="100%">
+                    <Card>
+                      <CardBody>
+                        <VStack align="stretch" spacing={4}>
+                          <Text fontSize="lg" fontWeight="bold" color="#004ea8">📊 회원 현황</Text>
+                          <VStack spacing={2} align="stretch">
+                            <Flex justify="space-between">
+                              <Text color="gray.600">활성 회원</Text>
+                              <Text fontWeight="bold">{userList.filter(u => u.status === 'ACTIVE').length}명</Text>
+                            </Flex>
+                            <Flex justify="space-between">
+                              <Text color="gray.600">비활성 회원</Text>
+                              <Text fontWeight="bold">{userList.filter(u => u.status === 'INACTIVE').length}명</Text>
+                            </Flex>
+                            <Flex justify="space-between">
+                              <Text color="gray.600">정지된 회원</Text>
+                              <Text fontWeight="bold">{userList.filter(u => u.status === 'SUSPENDED').length}명</Text>
+                            </Flex>
+                          </VStack>
+                        </VStack>
+                      </CardBody>
+                    </Card>
+
+                    <Card>
+                      <CardBody>
+                        <VStack align="stretch" spacing={4}>
+                          <Text fontSize="lg" fontWeight="bold" color="#004ea8">🏆 경기 통계</Text>
+                          <VStack spacing={2} align="stretch">
+                            <Flex justify="space-between">
+                              <Text color="gray.600">이번 달 경기</Text>
+                              <Text fontWeight="bold">{games.filter(g => {
+                                const gameDate = new Date(g.date);
+                                const now = new Date();
+                                return gameDate.getMonth() === now.getMonth() && gameDate.getFullYear() === now.getFullYear();
+                              }).length}회</Text>
+                            </Flex>
+                            <Flex justify="space-between">
+                              <Text color="gray.600">지난 달 경기</Text>
+                              <Text fontWeight="bold">{games.filter(g => {
+                                const gameDate = new Date(g.date);
+                                const now = new Date();
+                                const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1);
+                                return gameDate.getMonth() === lastMonth.getMonth() && gameDate.getFullYear() === lastMonth.getFullYear();
+                              }).length}회</Text>
+                            </Flex>
+                            <Flex justify="space-between">
+                              <Text color="gray.600">올해 총 경기</Text>
+                              <Text fontWeight="bold">{games.filter(g => {
+                                const gameDate = new Date(g.date);
+                                const now = new Date();
+                                return gameDate.getFullYear() === now.getFullYear();
+                              }).length}회</Text>
+                            </Flex>
+                          </VStack>
+                        </VStack>
+                      </CardBody>
+                    </Card>
+
+                    <Card>
+                      <CardBody>
+                        <VStack align="stretch" spacing={4}>
+                          <Text fontSize="lg" fontWeight="bold" color="#004ea8">👥 권한별 현황</Text>
+                          <VStack spacing={2} align="stretch">
+                            <Flex justify="space-between">
+                              <Text color="gray.600">슈퍼관리자</Text>
+                              <Text fontWeight="bold" color="red.500">{userList.filter(u => u.role === 'SUPER_ADMIN').length}명</Text>
+                            </Flex>
+                            <Flex justify="space-between">
+                              <Text color="gray.600">관리자</Text>
+                              <Text fontWeight="bold" color="blue.500">{userList.filter(u => u.role === 'ADMIN').length}명</Text>
+                            </Flex>
+                            <Flex justify="space-between">
+                              <Text color="gray.600">일반 회원</Text>
+                              <Text fontWeight="bold" color="gray.500">{userList.filter(u => u.role === 'MEMBER').length}명</Text>
+                            </Flex>
+                          </VStack>
+                        </VStack>
+                      </CardBody>
+                    </Card>
+
+                    <Card>
+                      <CardBody>
+                        <VStack align="stretch" spacing={4}>
+                          <Text fontSize="lg" fontWeight="bold" color="#004ea8">⚠️ 투표 경고 현황</Text>
+                          {voteWarnings.length === 0 ? (
+                            <Text color="gray.600" fontSize="sm">경고가 없습니다.</Text>
+                          ) : (
+                            <VStack spacing={2} align="stretch">
+                              {voteWarnings.map((warning) => (
+                                <Flex key={warning.userId} justify="space-between" align="center">
+                                  <VStack align="flex-start" spacing={1}>
+                                    <Text color="gray.700" fontWeight="medium">{warning.userName}</Text>
+                                    <Text color="gray.500" fontSize="xs">
+                                      경고일: {new Date(warning.lastWarningDate).toLocaleDateString('ko-KR')}
+                                    </Text>
+                                  </VStack>
+                                  <Badge colorScheme="orange" size="sm">
+                                    경고 {warning.warningCount}회
+                                  </Badge>
+                                </Flex>
+                              ))}
+                            </VStack>
+                          )}
+                        </VStack>
+                      </CardBody>
+                    </Card>
+                  </SimpleGrid>
+
+                  {/* 최근 활동 */}
+                  <Card w="100%">
+                    <CardBody>
+                      <VStack align="stretch" spacing={4}>
+                        <HStack justify="space-between" align="center">
+                          <Text fontSize="xl" fontWeight="bold" color="#004ea8">📊 최근 활동</Text>
+                          <HStack spacing={2}>
+                            <Button
+                              size="sm"
+                              colorScheme="blue"
+                              variant="outline"
+                              onClick={() => setActivityLogs([])}
+                            >
+                              로그 초기화
+                            </Button>
+                          </HStack>
+                        </HStack>
+                        
+                        {activityLogs.length === 0 ? (
+                          <Text color="gray.600">아직 활동 내역이 없습니다.</Text>
+                        ) : (
+                          <VStack spacing={3} align="stretch" maxH="400px" overflowY="auto">
+                            {activityLogs.slice(0, 20).map((log) => (
+                              <Box
+                                key={log.id}
+                                p={3}
+                                border="1px solid"
+                                borderColor="gray.200"
+                                borderRadius="md"
+                                bg="gray.50"
+                              >
+                                <HStack justify="space-between" align="flex-start">
+                                  <VStack align="flex-start" spacing={1} flex={1}>
+                                    <HStack spacing={2}>
+                                      <Badge
+                                        colorScheme={
+                                          log.action === 'MEMBER_SUSPENDED' ? 'red' :
+                                          log.action === 'VOTE_WARNING' ? 'orange' :
+                                          log.action === 'LOGIN' ? 'green' :
+                                          log.action === 'VOTE_PARTICIPATE' ? 'blue' :
+                                          'gray'
+                                        }
+                                        size="sm"
+                                      >
+                                        {log.action === 'LOGIN' ? '로그인' :
+                                         log.action === 'LOGOUT' ? '로그아웃' :
+                                         log.action === 'GAME_JOIN' ? '경기참여' :
+                                         log.action === 'GAME_CANCEL' ? '경기취소' :
+                                         log.action === 'VOTE_PARTICIPATE' ? '투표참여' :
+                                         log.action === 'VOTE_ABSENT' ? '투표불참' :
+                                         log.action === 'ANNOUNCEMENT_CREATE' ? '공지작성' :
+                                         log.action === 'ANNOUNCEMENT_EDIT' ? '공지수정' :
+                                         log.action === 'MEMBER_STATUS_CHANGE' ? '상태변경' :
+                                         log.action === 'VOTE_WARNING' ? '투표경고' :
+                                         log.action === 'MEMBER_SUSPENDED' ? '회원정지' : '기타'}
+                                      </Badge>
+                                      <Text fontSize="sm" color="gray.500">
+                                        {new Date(log.timestamp).toLocaleString('ko-KR')}
+                                      </Text>
+                                    </HStack>
+                                    <Text fontSize="sm" fontWeight="medium">
+                                      {log.userName}
+                                    </Text>
+                                    <Text fontSize="sm" color="gray.700">
+                                      {log.description}
+                                    </Text>
+                                  </VStack>
+                                </HStack>
+                              </Box>
+                            ))}
+                          </VStack>
+                        )}
+                      </VStack>
+                    </CardBody>
+                  </Card>
+
+                  {/* 정지 해제 요청 관리 */}
+                  <Card w="100%">
+                    <CardBody>
+                      <VStack align="stretch" spacing={4}>
+                        <HStack justify="space-between" align="center">
+                          <Text fontSize="xl" fontWeight="bold" color="#004ea8">🔓 정지 해제 요청 관리</Text>
+                          <Badge colorScheme="red" size="lg">
+                            {suspensionRequests.filter(r => r.status === 'PENDING').length}건 대기
+                          </Badge>
+                        </HStack>
+                        
+                        {suspensionRequests.length === 0 ? (
+                          <Text color="gray.600">정지 해제 요청이 없습니다.</Text>
+                        ) : (
+                          <VStack spacing={3} align="stretch" maxH="400px" overflowY="auto">
+                            {suspensionRequests
+                              .filter(r => r.status === 'PENDING')
+                              .map((request) => (
+                                <Box
+                                  key={request.id}
+                                  p={4}
+                                  border="1px solid"
+                                  borderColor="orange.200"
+                                  borderRadius="md"
+                                  bg="orange.50"
+                                >
+                                  <VStack align="stretch" spacing={3}>
+                                    <HStack justify="space-between" align="center">
+                                      <Text fontSize="lg" fontWeight="bold" color="orange.800">
+                                        {request.userName}
+                                      </Text>
+                                      <Badge colorScheme="orange" size="sm">
+                                        대기중
+                                      </Badge>
+                                    </HStack>
+                                    
+                                    <Text fontSize="sm" color="gray.700">
+                                      <strong>요청 사유:</strong> {request.reason}
+                                    </Text>
+                                    
+                                    <Text fontSize="xs" color="gray.500">
+                                      요청일: {new Date(request.requestDate).toLocaleDateString('ko-KR')}
+                                    </Text>
+                                    
+                                    <HStack spacing={2} justify="flex-end">
+                                      <Button
+                                        size="sm"
+                                        colorScheme="green"
+                                        onClick={() => approveSuspensionRequest(request.id)}
+                                      >
+                                        승인
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        colorScheme="red"
+                                        variant="outline"
+                                        onClick={() => rejectSuspensionRequest(request.id)}
+                                      >
+                                        거절
+                                      </Button>
+                                    </HStack>
+                                  </VStack>
+                                </Box>
+                              ))}
+                            
+                            {/* 처리된 요청들 */}
+                            {suspensionRequests.filter(r => r.status !== 'PENDING').length > 0 && (
+                              <>
+                                <Divider />
+                                <Text fontSize="md" fontWeight="bold" color="gray.600">
+                                  처리된 요청
+                                </Text>
+                                {suspensionRequests
+                                  .filter(r => r.status !== 'PENDING')
+                                  .map((request) => (
+                                    <Box
+                                      key={request.id}
+                                      p={3}
+                                      border="1px solid"
+                                      borderColor={request.status === 'APPROVED' ? 'green.200' : 'red.200'}
+                                      borderRadius="md"
+                                      bg={request.status === 'APPROVED' ? 'green.50' : 'red.50'}
+                                    >
+                                      <HStack justify="space-between" align="center">
+                                        <VStack align="flex-start" spacing={1} flex={1}>
+                                          <HStack spacing={2}>
+                                            <Text fontSize="sm" fontWeight="medium">
+                                              {request.userName}
+                                            </Text>
+                                            <Badge
+                                              colorScheme={request.status === 'APPROVED' ? 'green' : 'red'}
+                                              size="sm"
+                                            >
+                                              {request.status === 'APPROVED' ? '승인됨' : '거절됨'}
+                                            </Badge>
+                                          </HStack>
+                                          <Text fontSize="xs" color="gray.500">
+                                            {new Date(request.requestDate).toLocaleDateString('ko-KR')}
+                                          </Text>
+                                        </VStack>
+                                      </HStack>
+                                    </Box>
+                                  ))}
+                              </>
+                            )}
+                          </VStack>
+                        )}
+                      </VStack>
+                    </CardBody>
+                  </Card>
+                </VStack>
+              )}
+
+              {/* 회원 관리 */}
+              {selectedMenu === 'users' && hasPermission('member_management') && (
+                <Box w="100%">
+                          <MemberManagement 
+          userList={userList} 
+          onUserListChange={(users: ExtendedMember[]) => setUserList(users)} 
+        />
+                </Box>
+              )}
+              
+              {/* 경기 관리 */}
+              {selectedMenu === 'games' && hasPermission('game_management') && (
+                <Box w="100%">
+                  <GameManagement 
+                    games={games} 
+                    onGamesChange={setGames}
+                    userList={userList}
+                    onGameDataChanged={() => {
+                      // SchedulePageV2에 경기 데이터 변경 알림
+                      // 페이지 새로고침이나 이벤트를 통해 동기화
+                      window.dispatchEvent(new CustomEvent('gameDataChanged'));
+                    }}
+                  />
+                </Box>
+              )}
+              
+              {/* 이번주 일정 */}
+              {selectedMenu === 'this-week-schedules' && hasPermission('game_management') && (
+                <Box w="100%">
+                  <ThisWeekScheduleManagement 
+                    schedules={thisWeekSchedules} 
+                    onSchedulesChange={setThisWeekSchedules} 
+                  />
+                </Box>
+              )}
+
+
+
+              {/* 알림 관리 */}
+              {selectedMenu === 'notifications' && hasPermission('all') && (
+                <VStack spacing={8} align="stretch" w="100%">
+                  <Flex justify="space-between" align="center">
+                    <Text fontSize="2xl" fontWeight="bold" color="#004ea8">🔔 알림 관리</Text>
+                    <Button
+                      colorScheme="blue"
+                      bg="#004ea8"
+                      _hover={{ bg: '#003d7a' }}
+                      onClick={handleSaveNotifications}
+                      isDisabled={!isNotificationChanged}
+                    >
+                      알림 설정 저장
+                    </Button>
+                  </Flex>
+
+                  {/* 알림 시스템 상태 */}
+                  <Card w="100%">
+                    <CardBody>
+                      <VStack spacing={4} align="stretch">
+                        <HStack justify="space-between" align="center">
+                          <Text fontSize="lg" fontWeight="bold" color="#004ea8">📊 알림 시스템 상태</Text>
+                          <Switch
+                            isChecked={isNotificationSystemActive}
+                            onChange={(e) => setIsNotificationSystemActive(e.target.checked)}
+                            colorScheme="green"
+                          />
+                        </HStack>
+                        
+                        <HStack spacing={4}>
+                          <Badge colorScheme={isNotificationSystemActive ? 'green' : 'red'} size="lg">
+                            {isNotificationSystemActive ? '활성화' : '비활성화'}
+                          </Badge>
+                          <Text fontSize="sm" color="gray.600">
+                            {isNotificationSystemActive ? '자동 알림이 활성화되어 있습니다' : '자동 알림이 비활성화되어 있습니다'}
+                          </Text>
+                        </HStack>
+                      </VStack>
+                    </CardBody>
+                  </Card>
+
+                  <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={8} w="100%">
+                    {/* 경기 알림 설정 */}
+                    <Card>
+                      <CardBody>
+                        <VStack spacing={6} align="stretch">
+                          <HStack spacing={3}>
+                            <Icon as={CalendarIcon} color="#004ea8" boxSize={5} />
+                            <Text fontSize="lg" fontWeight="bold" color="#004ea8">경기 알림</Text>
+                            <Badge colorScheme={notificationSettings.gameReminder.enabled ? 'green' : 'gray'}>
+                              {notificationSettings.gameReminder.enabled ? '활성' : '비활성'}
+                            </Badge>
+                          </HStack>
+                          <Divider />
+                          
+                          <FormControl display="flex" alignItems="center">
+                            <FormLabel mb="0" color="gray.700" fontWeight="bold">경기 알림 활성화</FormLabel>
+                            <Switch
+                              isChecked={notificationSettings.gameReminder.enabled}
+                              onChange={(e) => handleNotificationChange('gameReminder', 'enabled', e.target.checked)}
+                              colorScheme="blue"
+                            />
+                          </FormControl>
+
+                          {notificationSettings.gameReminder.enabled && (
+                            <>
+                              <FormControl>
+                                <FormLabel color="gray.700" fontWeight="bold">알림 전송 시간</FormLabel>
+                                <HStack>
+                                  <NumberInput
+                                    value={notificationSettings.gameReminder.beforeHours}
+                                    onChange={(_, value) => handleNotificationChange('gameReminder', 'beforeHours', value)}
+                                    min={1}
+                                    max={168}
+                                    w="120px"
+                                  >
+                                    <NumberInputField />
+                                    <NumberInputStepper>
+                                      <NumberIncrementStepper />
+                                      <NumberDecrementStepper />
+                                    </NumberInputStepper>
+                                  </NumberInput>
+                                  <Text color="gray.600">시간 전</Text>
+                                </HStack>
+                              </FormControl>
+
+                              <FormControl>
+                                <FormLabel color="gray.700" fontWeight="bold">알림 대상</FormLabel>
+                                <Select
+                                  value={notificationSettings.gameReminder.targets[0]}
+                                  onChange={(e) => handleNotificationChange('gameReminder', 'targets', [e.target.value])}
+                                  focusBorderColor="#004ea8"
+                                >
+                                  <option value="all">전체 회원</option>
+                                  <option value="participating">참가 회원만</option>
+                                  <option value="admin">관리자만</option>
+                                </Select>
+                              </FormControl>
+                            </>
+                          )}
+                        </VStack>
+                      </CardBody>
+                    </Card>
+
+                    {/* 투표 알림 설정 */}
+                    <Card>
+                      <CardBody>
+                        <VStack spacing={6} align="stretch">
+                          <HStack spacing={3}>
+                            <Icon as={ViewIcon} color="#004ea8" boxSize={5} />
+                            <Text fontSize="lg" fontWeight="bold" color="#004ea8">투표 알림</Text>
+                            <Badge colorScheme={notificationSettings.voteReminder.enabled ? 'green' : 'gray'}>
+                              {notificationSettings.voteReminder.enabled ? '활성' : '비활성'}
+                            </Badge>
+                          </HStack>
+                          <Divider />
+
+                          <FormControl display="flex" alignItems="center">
+                            <FormLabel mb="0" color="gray.700" fontWeight="bold">투표 알림 활성화</FormLabel>
+                            <Switch
+                              isChecked={notificationSettings.voteReminder.enabled}
+                              onChange={(e) => handleNotificationChange('voteReminder', 'enabled', e.target.checked)}
+                              colorScheme="blue"
+                            />
+                          </FormControl>
+
+                          {notificationSettings.voteReminder.enabled && (
+                            <>
+                              <FormControl>
+                                <FormLabel color="gray.700" fontWeight="bold">알림 전송 시간</FormLabel>
+                                <HStack>
+                                  <NumberInput
+                                    value={notificationSettings.voteReminder.beforeHours}
+                                    onChange={(_, value) => handleNotificationChange('voteReminder', 'beforeHours', value)}
+                                    min={1}
+                                    max={72}
+                                    w="120px"
+                                  >
+                                    <NumberInputField />
+                                    <NumberInputStepper>
+                                      <NumberIncrementStepper />
+                                      <NumberDecrementStepper />
+                                    </NumberInputStepper>
+                                  </NumberInput>
+                                  <Text color="gray.600">시간 전</Text>
+                                </HStack>
+                              </FormControl>
+
+                              <FormControl>
+                                <FormLabel color="gray.700" fontWeight="bold">알림 대상</FormLabel>
+                                <Select
+                                  value={notificationSettings.voteReminder.targets[0]}
+                                  onChange={(e) => handleNotificationChange('voteReminder', 'targets', [e.target.value])}
+                                  focusBorderColor="#004ea8"
+                                >
+                                  <option value="all">전체 회원</option>
+                                  <option value="admin">관리자만</option>
+                                </Select>
+                              </FormControl>
+                            </>
+                          )}
+                        </VStack>
+                      </CardBody>
+                    </Card>
+
+                    {/* 신규 회원 알림 */}
+                    <Card>
+                      <CardBody>
+                        <VStack spacing={6} align="stretch">
+                          <HStack spacing={3}>
+                            <Icon as={InfoIcon} color="#004ea8" boxSize={5} />
+                            <Text fontSize="lg" fontWeight="bold" color="#004ea8">신규 회원 알림</Text>
+                            <Badge colorScheme={notificationSettings.newMemberNotification.enabled ? 'green' : 'gray'}>
+                              {notificationSettings.newMemberNotification.enabled ? '활성' : '비활성'}
+                            </Badge>
+                          </HStack>
+                          <Divider />
+
+                          <FormControl display="flex" alignItems="center">
+                            <FormLabel mb="0" color="gray.700" fontWeight="bold">신규 회원 알림 활성화</FormLabel>
+                            <Switch
+                              isChecked={notificationSettings.newMemberNotification.enabled}
+                              onChange={(e) => handleNotificationChange('newMemberNotification', 'enabled', e.target.checked)}
+                              colorScheme="blue"
+                            />
+                          </FormControl>
+
+                          {notificationSettings.newMemberNotification.enabled && (
+                            <FormControl>
+                              <FormLabel color="gray.700" fontWeight="bold">알림 대상</FormLabel>
+                              <Select
+                                value={notificationSettings.newMemberNotification.targets[0]}
+                                onChange={(e) => handleNotificationChange('newMemberNotification', 'targets', [e.target.value])}
+                                focusBorderColor="#004ea8"
+                              >
+                                <option value="admin">관리자만</option>
+                                <option value="all">전체 회원</option>
+                              </Select>
+                            </FormControl>
+                          )}
+                        </VStack>
+                      </CardBody>
+                    </Card>
+
+                    {/* 경기 결과 알림 */}
+                    <Card>
+                      <CardBody>
+                        <VStack spacing={6} align="stretch">
+                          <HStack spacing={3}>
+                            <Icon as={SettingsIcon} color="#004ea8" boxSize={5} />
+                            <Text fontSize="lg" fontWeight="bold" color="#004ea8">경기 결과 알림</Text>
+                            <Badge colorScheme={notificationSettings.gameResultNotification.enabled ? 'green' : 'gray'}>
+                              {notificationSettings.gameResultNotification.enabled ? '활성' : '비활성'}
+                            </Badge>
+                          </HStack>
+                          <Divider />
+
+                          <FormControl display="flex" alignItems="center">
+                            <FormLabel mb="0" color="gray.700" fontWeight="bold">경기 결과 알림 활성화</FormLabel>
+                            <Switch
+                              isChecked={notificationSettings.gameResultNotification.enabled}
+                              onChange={(e) => handleNotificationChange('gameResultNotification', 'enabled', e.target.checked)}
+                              colorScheme="blue"
+                            />
+                          </FormControl>
+
+                          {notificationSettings.gameResultNotification.enabled && (
+                            <FormControl>
+                              <FormLabel color="gray.700" fontWeight="bold">알림 대상</FormLabel>
+                              <Select
+                                value={notificationSettings.gameResultNotification.targets[0]}
+                                onChange={(e) => handleNotificationChange('gameResultNotification', 'targets', [e.target.value])}
+                                focusBorderColor="#004ea8"
+                              >
+                                <option value="all">전체 회원</option>
+                                <option value="participating">참가 회원만</option>
+                                <option value="admin">관리자만</option>
+                              </Select>
+                            </FormControl>
+                          )}
+                        </VStack>
+                      </CardBody>
+                    </Card>
+                  </SimpleGrid>
+
+                  {/* 알림 설정 요약 */}
+                  <Card w="100%">
+                    <CardBody>
+                      <VStack spacing={4} align="stretch">
+                        <Text fontSize="lg" fontWeight="bold" color="#004ea8">📋 알림 설정 요약</Text>
+                        <Divider />
+                        <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+                          <Box>
+                            <Text fontSize="sm" color="gray.600" fontWeight="bold">경기 알림</Text>
+                            <Text>
+                              {notificationSettings.gameReminder.enabled 
+                                ? `활성 - ${notificationSettings.gameReminder.beforeHours}시간 전 알림` 
+                                : '비활성'}
+                            </Text>
+                          </Box>
+                          <Box>
+                            <Text fontSize="sm" color="gray.600" fontWeight="bold">투표 알림</Text>
+                            <Text>
+                              {notificationSettings.voteReminder.enabled 
+                                ? `활성 - ${notificationSettings.voteReminder.beforeHours}시간 전 알림` 
+                                : '비활성'}
+                            </Text>
+                          </Box>
+                          <Box>
+                            <Text fontSize="sm" color="gray.600" fontWeight="bold">신규 회원 알림</Text>
+                            <Text>
+                              {notificationSettings.newMemberNotification.enabled ? '활성' : '비활성'}
+                            </Text>
+                          </Box>
+                          <Box>
+                            <Text fontSize="sm" color="gray.600" fontWeight="bold">경기 결과 알림</Text>
+                            <Text>
+                              {notificationSettings.gameResultNotification.enabled ? '활성' : '비활성'}
+                            </Text>
+                          </Box>
+                        </SimpleGrid>
+                      </VStack>
+                    </CardBody>
+                  </Card>
+                </VStack>
+              )}
+
+              {/* 선수 관리 */}
+              {selectedMenu === 'players' && hasPermission('all') && (
+                <VStack spacing={8} align="stretch" w="100%">
+                  <Flex justify="space-between" align="center">
+                    <Text fontSize="2xl" fontWeight="bold" color="#004ea8">⚽ 선수 관리</Text>
+                    <Button
+                      colorScheme="blue"
+                      bg="#004ea8"
+                      _hover={{ bg: '#003d7a' }}
+                      onClick={() => setIsPlayerFormOpen(true)}
+                      leftIcon={<AddIcon />}
+                    >
+                      선수 추가
+                    </Button>
+                  </Flex>
+
+                  {/* 선수 통계 요약 */}
+                  <SimpleGrid columns={{ base: 1, md: 3 }} spacing={6} w="100%">
+                    <Card>
+                      <CardBody>
+                        <Stat>
+                          <StatLabel color="gray.600">전체 선수</StatLabel>
+                          <StatNumber color="#004ea8">{players.length}명</StatNumber>
+                          <StatHelpText color="green.500">
+                            활성 {players.filter(p => p.isActive).length}명
+                          </StatHelpText>
+                        </Stat>
+                      </CardBody>
+                    </Card>
+                    
+                    <Card>
+                      <CardBody>
+                        <Stat>
+                          <StatLabel color="gray.600">평균 출석률</StatLabel>
+                          <StatNumber color="#004ea8">
+                            {players.length > 0 
+                              ? Math.round(players.reduce((sum, p) => sum + p.attendanceRate, 0) / players.length)
+                              : 0}%
+                          </StatNumber>
+                          <StatHelpText color="blue.500">
+                            지난 달 기준
+                          </StatHelpText>
+                        </Stat>
+                      </CardBody>
+                    </Card>
+                    
+                    <Card>
+                      <CardBody>
+                        <Stat>
+                          <StatLabel color="gray.600">평균 실력</StatLabel>
+                          <StatNumber color="#004ea8">
+                            {players.length > 0 
+                              ? Math.round(players.reduce((sum, p) => sum + p.skillRating, 0) / players.length)
+                              : 0}점
+                          </StatNumber>
+                          <StatHelpText color="purple.500">
+                            100점 만점
+                          </StatHelpText>
+                        </Stat>
+                      </CardBody>
+                    </Card>
+                  </SimpleGrid>
+
+                  {/* 선수 목록 */}
+                  <Card w="100%">
+                    <CardBody>
+                      <VStack spacing={4} align="stretch">
+                        <Text fontSize="lg" fontWeight="bold" color="#004ea8">📋 선수 목록</Text>
+                        <Divider />
+                        
+                        <TableContainer>
+                          <Table variant="simple">
+                            <Thead>
+                              <Tr>
+                                <Th>이름</Th>
+                                <Th>포지션</Th>
+                                <Th>등번호</Th>
+                                <Th>실력</Th>
+                                <Th>출석률</Th>
+                                <Th>상태</Th>
+                                <Th>관리</Th>
+                              </Tr>
+                            </Thead>
+                            <Tbody>
+                              {players.map((player) => (
+                                <Tr key={player.id}>
+                                  <Td fontWeight="bold">{player.name}</Td>
+                                  <Td>
+                                    <Badge colorScheme="blue" variant="subtle">
+                                      {player.position}
+                                    </Badge>
+                                  </Td>
+                                  <Td>{player.jerseyNumber || '-'}</Td>
+                                  <Td>
+                                    <Progress 
+                                      value={player.skillRating} 
+                                      colorScheme="green"
+                                      size="sm"
+                                      w="60px"
+                                    />
+                                    <Text fontSize="xs" mt={1}>{player.skillRating}/100</Text>
+                                  </Td>
+                                  <Td>
+                                    <Progress 
+                                      value={player.attendanceRate} 
+                                      colorScheme="blue"
+                                      size="sm"
+                                      w="60px"
+                                    />
+                                    <Text fontSize="xs" mt={1}>{player.attendanceRate}%</Text>
+                                  </Td>
+                                  <Td>
+                                    <Badge colorScheme={player.isActive ? 'green' : 'gray'}>
+                                      {player.isActive ? '활성' : '비활성'}
+                                    </Badge>
+                                  </Td>
+                                  <Td>
+                                    <ButtonGroup size="sm" spacing={2}>
+                                      <Button
+                                        colorScheme="blue"
+                                        variant="ghost"
+                                        onClick={() => handleEditPlayer(player)}
+                                        leftIcon={<EditIcon />}
+                                      >
+                                        수정
+                                      </Button>
+                                      <Button
+                                        colorScheme="red"
+                                        variant="ghost"
+                                        onClick={() => handleDeletePlayer(player.id)}
+                                        leftIcon={<DeleteIcon />}
+                                      >
+                                        삭제
+                                      </Button>
+                                    </ButtonGroup>
+                                  </Td>
+                                </Tr>
+                              ))}
+                            </Tbody>
+                          </Table>
+                        </TableContainer>
+                        
+                        {players.length === 0 && (
+                          <Flex justify="center" py={8}>
+                            <Text color="gray.500">등록된 선수가 없습니다.</Text>
+                          </Flex>
+                        )}
+                      </VStack>
+                    </CardBody>
+                  </Card>
+
+                  {/* 선수 추가/수정 모달 */}
+                  <Modal isOpen={isPlayerFormOpen} onClose={() => {
+                    setIsPlayerFormOpen(false);
+                    setEditingPlayer(null);
+                    setNewPlayer({
+                      name: '',
+                      position: 'MF',
+                      preferredPosition: [],
+                      skillRating: 70,
+                      attendanceRate: 0,
+                      isActive: true,
+                      joinDate: new Date().toISOString().split('T')[0]
+                    });
+                  }}>
+                    <ModalOverlay />
+                    <ModalContent maxW="600px">
+                      <ModalHeader>
+                        {editingPlayer ? '선수 정보 수정' : '새 선수 추가'}
+                      </ModalHeader>
+                      <ModalCloseButton />
+                      <ModalBody pb={6}>
+                        <VStack spacing={4} align="stretch">
+                          <SimpleGrid columns={2} spacing={4}>
+                            <FormControl isRequired>
+                              <FormLabel>이름</FormLabel>
+                              <Input
+                                value={newPlayer.name || ''}
+                                onChange={(e) => setNewPlayer({...newPlayer, name: e.target.value})}
+                                placeholder="선수 이름"
+                                focusBorderColor="#004ea8"
+                              />
+                            </FormControl>
+                            
+                            <FormControl>
+                              <FormLabel>주 포지션</FormLabel>
+                              <Select
+                                value={newPlayer.position || 'MF'}
+                                onChange={(e) => setNewPlayer({...newPlayer, position: e.target.value})}
+                                focusBorderColor="#004ea8"
+                              >
+                                <option value="GK">골키퍼 (GK)</option>
+                                <option value="DF">수비수 (DF)</option>
+                                <option value="MF">미드필더 (MF)</option>
+                                <option value="FW">공격수 (FW)</option>
+                              </Select>
+                            </FormControl>
+                          </SimpleGrid>
+
+                          <SimpleGrid columns={2} spacing={4}>
+                            <FormControl>
+                              <FormLabel>등번호</FormLabel>
+                              <NumberInput
+                                value={newPlayer.jerseyNumber || ''}
+                                onChange={(_, value) => setNewPlayer({...newPlayer, jerseyNumber: value})}
+                                min={1}
+                                max={99}
+                              >
+                                <NumberInputField placeholder="등번호" />
+                              </NumberInput>
+                            </FormControl>
+                            
+                            <FormControl>
+                              <FormLabel>가입일</FormLabel>
+                              <Input
+                                type="date"
+                                value={newPlayer.joinDate || ''}
+                                onChange={(e) => setNewPlayer({...newPlayer, joinDate: e.target.value})}
+                                focusBorderColor="#004ea8"
+                              />
+                            </FormControl>
+                          </SimpleGrid>
+
+                          <SimpleGrid columns={2} spacing={4}>
+                            <FormControl>
+                              <FormLabel>전화번호</FormLabel>
+                              <Input
+                                value={newPlayer.phone || ''}
+                                onChange={(e) => setNewPlayer({...newPlayer, phone: e.target.value})}
+                                placeholder="010-1234-5678"
+                                focusBorderColor="#004ea8"
+                              />
+                            </FormControl>
+                            
+                            <FormControl>
+                              <FormLabel>이메일</FormLabel>
+                              <Input
+                                type="email"
+                                value={newPlayer.email || ''}
+                                onChange={(e) => setNewPlayer({...newPlayer, email: e.target.value})}
+                                placeholder="player@example.com"
+                                focusBorderColor="#004ea8"
+                              />
+                            </FormControl>
+                          </SimpleGrid>
+
+                          <SimpleGrid columns={2} spacing={4}>
+                            <FormControl>
+                              <FormLabel>실력 평가 ({newPlayer.skillRating || 70}/100)</FormLabel>
+                              <NumberInput
+                                value={newPlayer.skillRating || 70}
+                                onChange={(_, value) => setNewPlayer({...newPlayer, skillRating: value || 70})}
+                                min={0}
+                                max={100}
+                              >
+                                <NumberInputField />
+                                <NumberInputStepper>
+                                  <NumberIncrementStepper />
+                                  <NumberDecrementStepper />
+                                </NumberInputStepper>
+                              </NumberInput>
+                            </FormControl>
+                            
+                            <FormControl>
+                              <FormLabel>출석률 ({newPlayer.attendanceRate || 0}%)</FormLabel>
+                              <NumberInput
+                                value={newPlayer.attendanceRate || 0}
+                                onChange={(_, value) => setNewPlayer({...newPlayer, attendanceRate: value || 0})}
+                                min={0}
+                                max={100}
+                              >
+                                <NumberInputField />
+                                <NumberInputStepper>
+                                  <NumberIncrementStepper />
+                                  <NumberDecrementStepper />
+                                </NumberInputStepper>
+                              </NumberInput>
+                            </FormControl>
+                          </SimpleGrid>
+
+                          <FormControl>
+                            <FormLabel>메모</FormLabel>
+                            <Textarea
+                              value={newPlayer.notes || ''}
+                              onChange={(e) => setNewPlayer({...newPlayer, notes: e.target.value})}
+                              placeholder="선수에 대한 추가 정보나 메모"
+                              rows={3}
+                              focusBorderColor="#004ea8"
+                            />
+                          </FormControl>
+
+                          <FormControl display="flex" alignItems="center">
+                            <FormLabel mb="0">활성 선수</FormLabel>
+                            <Switch
+                              isChecked={newPlayer.isActive !== false}
+                              onChange={(e) => setNewPlayer({...newPlayer, isActive: e.target.checked})}
+                              colorScheme="blue"
+                            />
+                          </FormControl>
+
+                          <Flex justify="flex-end" gap={3} pt={4}>
+                            <Button
+                              onClick={() => {
+                                setIsPlayerFormOpen(false);
+                                setEditingPlayer(null);
+                                setNewPlayer({
+                                  name: '',
+                                  position: 'MF',
+                                  preferredPosition: [],
+                                  skillRating: 70,
+                                  attendanceRate: 0,
+                                  isActive: true,
+                                  joinDate: new Date().toISOString().split('T')[0]
+                                });
+                              }}
+                            >
+                              취소
+                            </Button>
+                            <Button
+                              colorScheme="blue"
+                              bg="#004ea8"
+                              _hover={{ bg: '#003d7a' }}
+                              onClick={editingPlayer ? handleUpdatePlayer : handleAddPlayer}
+                            >
+                              {editingPlayer ? '수정' : '추가'}
+                            </Button>
+                          </Flex>
+                        </VStack>
+                      </ModalBody>
+                    </ModalContent>
+                  </Modal>
+                </VStack>
+              )}
+
+              {/* 활동 분석 */}
+              {selectedMenu === 'analytics' && hasPermission('all') && (
+                <VStack spacing={8} align="stretch" w="100%">
+                  <Text fontSize="2xl" fontWeight="bold" color="#004ea8">📈 활동 분석</Text>
+
+                  {/* 월간 활동 요약 */}
+                  <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={6} w="100%">
+                    <Card bg="gradient(to-r, teal.500, teal.600)" color="white" shadow="lg">
+                      <CardBody p={6}>
+                        <Stat>
+                          <StatLabel color="teal.800" fontSize="md" fontWeight="medium">이번 달 참가율</StatLabel>
+                          <StatNumber color="#495057" fontWeight="bold" fontSize="2xl">
+                            {(() => {
+                              const currentMonth = new Date().getMonth() + 1;
+                              const currentYear = new Date().getFullYear();
+                              const monthlyStats = calculateMonthlyStats(currentMonth, currentYear);
+                              const totalMembers = userList.length;
+                              return totalMembers > 0 ? Math.round((monthlyStats.uniqueActiveUsers / totalMembers) * 100) : 0;
+                            })()}%
+                          </StatNumber>
+                          <StatHelpText color="teal.800" fontSize="sm" fontWeight="normal">
+                            <StatArrow type="increase" />
+                            실제 참여 데이터 기준
+                          </StatHelpText>
+                        </Stat>
+                      </CardBody>
+                    </Card>
+                    
+                    <Card bg="gradient(to-r, cyan.500, cyan.600)" color="white" shadow="lg">
+                      <CardBody p={6}>
+                        <Stat>
+                          <StatLabel color="cyan.800" fontSize="md" fontWeight="medium">투표 참여율</StatLabel>
+                          <StatNumber color="#495057" fontWeight="bold" fontSize="2xl">
+                            {(() => {
+                              const activityData = collectActivityData();
+                              const totalVotes = activityData.votes.length;
+                              const totalGames = games.length;
+                              return totalGames > 0 ? Math.round((totalVotes / totalGames) * 100) : 0;
+                            })()}%
+                          </StatNumber>
+                          <StatHelpText color="cyan.800" fontSize="sm" fontWeight="normal">
+                            <StatArrow type="increase" />
+                            실제 투표 데이터 기준
+                          </StatHelpText>
+                        </Stat>
+                      </CardBody>
+                    </Card>
+                    
+                    <Card bg="gradient(to-r, pink.500, pink.600)" color="white" shadow="lg">
+                      <CardBody p={6}>
+                        <Stat>
+                          <StatLabel color="pink.800" fontSize="md" fontWeight="medium">활성 사용자</StatLabel>
+                          <StatNumber color="#495057" fontWeight="bold" fontSize="2xl">
+                            {(() => {
+                              const currentMonth = new Date().getMonth() + 1;
+                              const currentYear = new Date().getFullYear();
+                              const monthlyStats = calculateMonthlyStats(currentMonth, currentYear);
+                              return monthlyStats.uniqueActiveUsers;
+                            })()}
+                          </StatNumber>
+                          <StatHelpText color="pink.800" fontSize="sm" fontWeight="normal">
+                            <StatArrow type="increase" />
+                            이번 달 활동 기준
+                          </StatHelpText>
+                        </Stat>
+                      </CardBody>
+                    </Card>
+                    
+                    <Card bg="gradient(to-r, yellow.500, yellow.600)" color="white" shadow="lg">
+                      <CardBody p={6}>
+                        <Stat>
+                          <StatLabel color="yellow.800" fontSize="md" fontWeight="medium">이번 달 경기수</StatLabel>
+                          <StatNumber color="#495057" fontWeight="bold" fontSize="2xl">
+                            {(() => {
+                              const currentMonth = new Date().getMonth() + 1;
+                              const currentYear = new Date().getFullYear();
+                              const monthlyStats = calculateMonthlyStats(currentMonth, currentYear);
+                              return monthlyStats.totalGames;
+                            })()}
+                          </StatNumber>
+                          <StatHelpText color="yellow.800" fontSize="sm" fontWeight="normal">
+                            <StatArrow type="increase" />
+                            실제 경기 데이터 기준
+                          </StatHelpText>
+                        </Stat>
+                      </CardBody>
+                    </Card>
+                  </SimpleGrid>
+
+                  <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={8} w="100%">
+                    {/* 회원별 참여 현황 */}
+                    <Card>
+                      <CardBody>
+                        <VStack spacing={4} align="stretch">
+                          <Text fontSize="lg" fontWeight="bold" color="#004ea8">👥 회원별 참여 현황</Text>
+                          <Divider />
+                          
+                          <TableContainer maxH="400px" overflowY="auto">
+                            <Table size="sm" variant="simple">
+                              <Thead position="sticky" top={0} bg="white" zIndex={1}>
+                                <Tr>
+                                  <Th>회원명</Th>
+                                  <Th>경기 참여</Th>
+                                  <Th>투표 참여</Th>
+                                  <Th>활동점수</Th>
+                                </Tr>
+                              </Thead>
+                              <Tbody>
+                                {userList.map((member) => {
+                                  const participation = calculateParticipationRate(member.id);
+                                  const activityScore = Math.round(participation.overallActivityRate);
+                                  
+                                  return (
+                                    <Tr key={member.id}>
+                                      <Td fontWeight="bold">
+                                        {member.name}
+                                        <Badge 
+                                          ml={2} 
+                                          size="sm"
+                                          colorScheme={
+                                            member.role === 'SUPER_ADMIN' ? 'red' :
+                                            member.role === 'ADMIN' ? 'blue' : 'gray'
+                                          }
+                                        >
+                                          {member.role === 'SUPER_ADMIN' ? '슈퍼관리자' :
+                                           member.role === 'ADMIN' ? '관리자' : '회원'}
+                                        </Badge>
+                                      </Td>
+                                      <Td>
+                                        <Progress 
+                                          value={participation.gameParticipationRate} 
+                                          colorScheme="green"
+                                          size="sm"
+                                          w="60px"
+                                        />
+                                        <Text fontSize="xs" mt={1}>{Math.round(participation.gameParticipationRate)}%</Text>
+                                      </Td>
+                                      <Td>
+                                        <Progress 
+                                          value={participation.voteRate} 
+                                          colorScheme="blue"
+                                          size="sm"
+                                          w="60px"
+                                        />
+                                        <Text fontSize="xs" mt={1}>{Math.round(participation.voteRate)}%</Text>
+                                      </Td>
+                                      <Td>
+                                        <Badge 
+                                          colorScheme={
+                                            activityScore >= 80 ? 'green' :
+                                            activityScore >= 60 ? 'yellow' : 'red'
+                                          }
+                                        >
+                                          {activityScore}점
+                                        </Badge>
+                                      </Td>
+                                    </Tr>
+                                  );
+                                })}
+                              </Tbody>
+                            </Table>
+                          </TableContainer>
+                          
+                          {userList.length === 0 && (
+                            <Flex justify="center" py={8}>
+                              <Text color="gray.500">회원 데이터가 없습니다.</Text>
+                            </Flex>
+                          )}
+                        </VStack>
+                      </CardBody>
+                    </Card>
+
+                    {/* 월별 경기 현황 */}
+                    <Card>
+                      <CardBody>
+                        <VStack spacing={4} align="stretch">
+                          <Text fontSize="lg" fontWeight="bold" color="#004ea8">📅 월별 경기 현황</Text>
+                          <Divider />
+                          
+                          <VStack spacing={3} align="stretch">
+                            {Array.from({ length: 6 }).map((_, index) => {
+                              const monthsAgo = 5 - index;
+                              const date = new Date();
+                              date.setMonth(date.getMonth() - monthsAgo);
+                              const monthName = date.toLocaleDateString('ko-KR', { month: 'long' });
+                              
+                              const monthlyGames = games.filter(g => {
+                                const gameDate = new Date(g.date);
+                                return gameDate.getMonth() === date.getMonth() && 
+                                       gameDate.getFullYear() === date.getFullYear();
+                              });
+                              
+                              const gameCount = monthlyGames.length;
+                              const maxGames = 8; // 월 최대 경기수 가정
+                              
+                              return (
+                                <Box key={index}>
+                                  <Flex justify="space-between" align="center" mb={1}>
+                                    <Text fontSize="sm" fontWeight="bold">
+                                      {monthName}
+                                    </Text>
+                                    <Text fontSize="sm" color="gray.600">
+                                      {gameCount}경기
+                                    </Text>
+                                  </Flex>
+                                  <Progress 
+                                    value={gameCount > 0 ? (gameCount / maxGames) * 100 : 0}
+                                    colorScheme="blue"
+                                    size="sm"
+                                    bg="gray.100"
+                                  />
+                                </Box>
+                              );
+                            })}
+                          </VStack>
+                          
+                          <Divider />
+                          <Box>
+                            <Text fontSize="sm" color="gray.600" mb={2}>경기 유형별 분포</Text>
+                            <VStack spacing={2} align="stretch">
+                              <Flex justify="space-between">
+                                <Text fontSize="sm">매치 경기</Text>
+                                <Badge colorScheme="red" variant="subtle">
+                                  {games.filter(g => g.opponent).length}회
+                                </Badge>
+                              </Flex>
+                              <Flex justify="space-between">
+                                <Text fontSize="sm">자체 경기</Text>
+                                <Badge colorScheme="blue" variant="subtle">
+                                  {games.filter(g => !g.opponent).length}회
+                                </Badge>
+                              </Flex>
+                            </VStack>
+                          </Box>
+                        </VStack>
+                      </CardBody>
+                    </Card>
+                  </SimpleGrid>
+
+                  {/* 상세 분석 리포트 */}
+                  <Card w="100%">
+                    <CardBody>
+                      <VStack spacing={6} align="stretch">
+                        <Text fontSize="lg" fontWeight="bold" color="#004ea8">📊 상세 분석 리포트</Text>
+                        <Divider />
+                        
+                        <SimpleGrid columns={{ base: 1, md: 3 }} spacing={6}>
+                          <Box>
+                            <Text fontSize="md" fontWeight="bold" mb={3}>👑 최고 참여자</Text>
+                            <VStack spacing={2} align="stretch">
+                              {userList.slice(0, 3).map((member, index) => (
+                                <Flex key={member.id} justify="space-between" align="center">
+                                  <HStack>
+                                    <Badge colorScheme="yellow" variant="solid" fontSize="xs">
+                                      {index + 1}위
+                                    </Badge>
+                                    <Text fontSize="sm" fontWeight="bold">{member.name}</Text>
+                                  </HStack>
+                                  <Text fontSize="sm" color="gray.600">
+                                    {Math.floor(Math.random() * 20) + 80}점
+                                  </Text>
+                                </Flex>
+                              ))}
+                            </VStack>
+                          </Box>
+                          
+                          <Box>
+                            <Text fontSize="md" fontWeight="bold" mb={3}>⚽ 이번 달 하이라이트</Text>
+                            <VStack spacing={2} align="stretch">
+                              <Text fontSize="sm">• 총 {games.filter(g => {
+                                const gameDate = new Date(g.date);
+                                const now = new Date();
+                                return gameDate.getMonth() === now.getMonth();
+                              }).length}경기 진행</Text>
+                              <Text fontSize="sm">• 평균 참가인원: {Math.floor(Math.random() * 5) + 15}명</Text>
+                              <Text fontSize="sm">• 신규 가입자: {userList.filter(u => {
+                                if (!u.createdAt) return false;
+                                const created = new Date(u.createdAt);
+                                const now = new Date();
+                                return created.getMonth() === now.getMonth();
+                              }).length}명</Text>
+                              <Text fontSize="sm">• 팀 활동성: 
+                                <Badge colorScheme="green" ml={2}>매우 높음</Badge>
+                              </Text>
+                            </VStack>
+                          </Box>
+                          
+                          <Box>
+                            <Text fontSize="md" fontWeight="bold" mb={3}>🏆 상위 참여자</Text>
+                            <VStack spacing={2} align="stretch">
+                              {getTopParticipants().slice(0, 3).map((participant, index) => (
+                                <Flex key={participant.userId} justify="space-between" align="center">
+                                  <HStack>
+                                    <Badge 
+                                      colorScheme={
+                                        index === 0 ? 'yellow' : 
+                                        index === 1 ? 'gray' : 'orange'
+                                      }
+                                      size="sm"
+                                    >
+                                      {index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'}
+                                    </Badge>
+                                    <Text fontSize="sm" fontWeight="bold">{participant.name}</Text>
+                                  </HStack>
+                                  <Text fontSize="sm" color="gray.600">
+                                    {Math.round(participant.overallActivityRate)}%
+                                  </Text>
+                                </Flex>
+                              ))}
+                            </VStack>
+                          </Box>
+                          
+                          <Box>
+                            <Text fontSize="md" fontWeight="bold" mb={3}>📈 개선 포인트</Text>
+                            <VStack spacing={2} align="stretch">
+                              <Text fontSize="sm">• 투표 참여율 향상 필요</Text>
+                              <Text fontSize="sm">• 신규 회원 온보딩 강화</Text>
+                              <Text fontSize="sm">• 경기 후 피드백 수집</Text>
+                              <Text fontSize="sm">• 팀 내 소통 활성화</Text>
+                            </VStack>
+                          </Box>
+                        </SimpleGrid>
+                      </VStack>
+                    </CardBody>
+                  </Card>
+                </VStack>
+              )}
+
+              {/* 공지사항 관리 */}
+              {selectedMenu === 'announcements' && hasPermission('all') && (
+                <VStack spacing={8} align="stretch" w="100%">
+                  <Flex justify="space-between" align="center">
+                    <Text fontSize="2xl" fontWeight="bold" color="#004ea8">📢 공지사항 관리</Text>
+                    <Button
+                      colorScheme="blue"
+                      bg="#004ea8"
+                      _hover={{ bg: '#003d7a' }}
+                      onClick={() => setIsAnnouncementFormOpen(true)}
+                      leftIcon={<AddIcon />}
+                    >
+                      공지 작성
+                    </Button>
+                  </Flex>
+
+                  {/* 공지사항 통계 */}
+                  <SimpleGrid columns={{ base: 1, md: 3 }} spacing={6} w="100%">
+                    <Card>
+                      <CardBody>
+                        <Stat>
+                          <StatLabel color="gray.600">전체 공지</StatLabel>
+                          <StatNumber color="#004ea8">{announcements.length}개</StatNumber>
+                          <StatHelpText color="green.500">
+                            활성 {announcements.filter(a => a.isActive).length}개
+                          </StatHelpText>
+                        </Stat>
+                      </CardBody>
+                    </Card>
+                    
+                    <Card>
+                      <CardBody>
+                        <Stat>
+                          <StatLabel color="gray.600">중요 공지</StatLabel>
+                          <StatNumber color="#004ea8">
+                            {announcements.filter(a => a.type === 'urgent').length}개
+                          </StatNumber>
+                          <StatHelpText color="red.500">
+                            긴급 알림
+                          </StatHelpText>
+                        </Stat>
+                      </CardBody>
+                    </Card>
+                    
+                    <Card>
+                      <CardBody>
+                        <Stat>
+                          <StatLabel color="gray.600">고정 공지</StatLabel>
+                          <StatNumber color="#004ea8">
+                            {announcements.filter(a => a.pinned).length}개
+                          </StatNumber>
+                          <StatHelpText color="purple.500">
+                            상단 고정
+                          </StatHelpText>
+                        </Stat>
+                      </CardBody>
+                    </Card>
+                  </SimpleGrid>
+
+                  {/* 공지사항 목록 */}
+                  <Card w="100%">
+                    <CardBody>
+                      <VStack spacing={4} align="stretch">
+                        <Text fontSize="lg" fontWeight="bold" color="#004ea8">📋 공지사항 목록</Text>
+                        <Divider />
+                        
+                        <VStack spacing={3} align="stretch">
+                          {announcements
+                            .sort((a, b) => {
+                              if (a.pinned && !b.pinned) return -1;
+                              if (!a.pinned && b.pinned) return 1;
+                              return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+                            })
+                            .map((announcement) => (
+                            <Card key={announcement.id} variant="outline">
+                              <CardBody>
+                                <VStack spacing={3} align="stretch">
+                                  <Flex justify="space-between" align="flex-start">
+                                    <VStack spacing={2} align="flex-start" flex={1}>
+                                      <HStack spacing={2} wrap="wrap">
+                                        <Text fontSize="lg" fontWeight="bold" color="#004ea8">
+                                          {announcement.title}
+                                        </Text>
+                                        <Badge 
+                                          colorScheme={
+                                            announcement.type === 'urgent' ? 'red' :
+                                            announcement.type === 'info' ? 'blue' : 'gray'
+                                          }
+                                          variant="solid"
+                                        >
+                                          {announcement.type === 'urgent' ? '긴급' :
+                                           announcement.type === 'info' ? '정보' : '일반'}
+                                        </Badge>
+                                        {announcement.pinned && (
+                                          <Badge colorScheme="purple" variant="solid">📌 고정</Badge>
+                                        )}
+                                        <Badge 
+                                          colorScheme={announcement.isActive ? 'green' : 'gray'}
+                                          variant="outline"
+                                        >
+                                          {announcement.isActive ? '활성' : '비활성'}
+                                        </Badge>
+                                      </HStack>
+                                      
+                                      <Text fontSize="sm" color="gray.700" noOfLines={2}>
+                                        {announcement.content}
+                                      </Text>
+                                      
+                                      <HStack spacing={4} fontSize="xs" color="gray.500">
+                                        <Text>작성자: {announcement.author}</Text>
+                                        <Text>작성일: {new Date(announcement.createdAt).toLocaleDateString('ko-KR')}</Text>
+                                        <Text>
+                                          노출기간: {new Date(announcement.startDate).toLocaleDateString('ko-KR')} ~ 
+                                          {new Date(announcement.endDate).toLocaleDateString('ko-KR')}
+                                        </Text>
+                                      </HStack>
+                                    </VStack>
+                                    
+                                    <ButtonGroup size="sm" spacing={2}>
+                                      <Button
+                                        colorScheme={announcement.isActive ? 'orange' : 'green'}
+                                        variant="ghost"
+                                        onClick={() => handleToggleAnnouncementStatus(announcement.id)}
+                                      >
+                                        {announcement.isActive ? '비활성화' : '활성화'}
+                                      </Button>
+                                      <Button
+                                        colorScheme="blue"
+                                        variant="ghost"
+                                        onClick={() => handleEditAnnouncement(announcement)}
+                                        leftIcon={<EditIcon />}
+                                      >
+                                        수정
+                                      </Button>
+                                      <Button
+                                        colorScheme="red"
+                                        variant="ghost"
+                                        onClick={() => handleDeleteAnnouncement(announcement.id)}
+                                        leftIcon={<DeleteIcon />}
+                                      >
+                                        삭제
+                                      </Button>
+                                    </ButtonGroup>
+                                  </Flex>
+                                </VStack>
+                              </CardBody>
+                            </Card>
+                          ))}
+                        </VStack>
+                        
+                        {announcements.length === 0 && (
+                          <Flex justify="center" py={8}>
+                            <Text color="gray.500">등록된 공지사항이 없습니다.</Text>
+                          </Flex>
+                        )}
+                      </VStack>
+                    </CardBody>
+                  </Card>
+
+                  {/* 공지사항 작성/수정 모달 */}
+                  <Modal isOpen={isAnnouncementFormOpen} onClose={() => {
+                    setIsAnnouncementFormOpen(false);
+                    setEditingAnnouncement(null);
+                    setNewAnnouncement({
+                      title: '',
+                      content: '',
+                      type: 'normal',
+                      startDate: new Date().toISOString().split('T')[0],
+                      endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                      isActive: true,
+                      pinned: false
+                    });
+                  }} size="xl">
+                    <ModalOverlay />
+                    <ModalContent maxW="800px">
+                      <ModalHeader>
+                        {editingAnnouncement ? '공지사항 수정' : '새 공지사항 작성'}
+                      </ModalHeader>
+                      <ModalCloseButton />
+                      <ModalBody pb={6}>
+                        <VStack spacing={6} align="stretch">
+                          <FormControl isRequired>
+                            <FormLabel>제목</FormLabel>
+                            <Input
+                              value={newAnnouncement.title || ''}
+                              onChange={(e) => setNewAnnouncement({...newAnnouncement, title: e.target.value})}
+                              placeholder="공지사항 제목을 입력하세요"
+                              focusBorderColor="#004ea8"
+                            />
+                          </FormControl>
+                          
+                          <FormControl isRequired>
+                            <FormLabel>내용</FormLabel>
+                            <Textarea
+                              value={newAnnouncement.content || ''}
+                              onChange={(e) => setNewAnnouncement({...newAnnouncement, content: e.target.value})}
+                              placeholder="공지사항 내용을 입력하세요"
+                              rows={8}
+                              focusBorderColor="#004ea8"
+                            />
+                          </FormControl>
+
+                          <SimpleGrid columns={3} spacing={4}>
+                            <FormControl>
+                              <FormLabel>공지 유형</FormLabel>
+                              <Select
+                                value={newAnnouncement.type || 'normal'}
+                                onChange={(e) => setNewAnnouncement({...newAnnouncement, type: e.target.value as 'urgent' | 'normal' | 'info'})}
+                                focusBorderColor="#004ea8"
+                              >
+                                <option value="normal">일반 공지</option>
+                                <option value="urgent">긴급 공지</option>
+                                <option value="info">정보 공지</option>
+                              </Select>
+                            </FormControl>
+                            
+                            <FormControl>
+                              <FormLabel>시작일</FormLabel>
+                              <Input
+                                type="date"
+                                value={newAnnouncement.startDate || ''}
+                                onChange={(e) => setNewAnnouncement({...newAnnouncement, startDate: e.target.value})}
+                                focusBorderColor="#004ea8"
+                              />
+                            </FormControl>
+                            
+                            <FormControl>
+                              <FormLabel>종료일</FormLabel>
+                              <Input
+                                type="date"
+                                value={newAnnouncement.endDate || ''}
+                                onChange={(e) => setNewAnnouncement({...newAnnouncement, endDate: e.target.value})}
+                                focusBorderColor="#004ea8"
+                              />
+                            </FormControl>
+                          </SimpleGrid>
+
+                          <SimpleGrid columns={2} spacing={4}>
+                            <FormControl display="flex" alignItems="center">
+                              <FormLabel mb="0">공지 활성화</FormLabel>
+                              <Switch
+                                isChecked={newAnnouncement.isActive !== false}
+                                onChange={(e) => setNewAnnouncement({...newAnnouncement, isActive: e.target.checked})}
+                                colorScheme="blue"
+                              />
+                            </FormControl>
+                            
+                            <FormControl display="flex" alignItems="center">
+                              <FormLabel mb="0">상단 고정</FormLabel>
+                              <Switch
+                                isChecked={newAnnouncement.pinned || false}
+                                onChange={(e) => setNewAnnouncement({...newAnnouncement, pinned: e.target.checked})}
+                                colorScheme="purple"
+                              />
+                            </FormControl>
+                          </SimpleGrid>
+
+                          <Flex justify="flex-end" gap={3} pt={4}>
+                            <Button
+                              onClick={() => {
+                                setIsAnnouncementFormOpen(false);
+                                setEditingAnnouncement(null);
+                                setNewAnnouncement({
+                                  title: '',
+                                  content: '',
+                                  type: 'normal',
+                                  startDate: new Date().toISOString().split('T')[0],
+                                  endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                                  isActive: true,
+                                  pinned: false
+                                });
+                              }}
+                            >
+                              취소
+                            </Button>
+                            <Button
+                              colorScheme="blue"
+                              bg="#004ea8"
+                              _hover={{ bg: '#003d7a' }}
+                              onClick={editingAnnouncement ? handleUpdateAnnouncement : handleAddAnnouncement}
+                            >
+                              {editingAnnouncement ? '수정' : '등록'}
+                            </Button>
+                          </Flex>
+                        </VStack>
+                      </ModalBody>
+                    </ModalContent>
+                  </Modal>
+                </VStack>
+              )}
+            </>
+          )}
+        </Box>
+      </Flex>
+    </Box>
+  );
+}
