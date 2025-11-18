@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { Flex, Text, Button, HStack, Badge, Modal, ModalOverlay, ModalContent, ModalBody, useDisclosure, Box, FormControl, FormLabel, Input, useToast, Tooltip, IconButton } from '@chakra-ui/react';
-import { CalendarIcon, ViewIcon, SettingsIcon, AttachmentIcon, ExternalLinkIcon, InfoIcon } from '@chakra-ui/icons';
+import { Flex, Text, Button, HStack, Badge, Modal, ModalOverlay, ModalContent, ModalBody, useDisclosure, Box, FormControl, FormLabel, Input, useToast, Tooltip, IconButton, Drawer, DrawerOverlay, DrawerContent, DrawerHeader, DrawerBody, DrawerCloseButton, VStack, StackDivider, useBreakpointValue } from '@chakra-ui/react';
+import { CalendarIcon, ViewIcon, SettingsIcon, AttachmentIcon, ExternalLinkIcon, InfoIcon, HamburgerIcon } from '@chakra-ui/icons';
 import { useAuthStore } from '../store/auth';
 import { changePassword } from '../api/auth';
 import Signup from '../pages/Signup';
@@ -9,6 +9,12 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import eventBus, { EVENT_TYPES } from '../utils/eventBus';
 import { API_ENDPOINTS } from '../constants';
 import ManualModal from './ManualModal';
+
+type NavItem = {
+  label: string;
+  path: string;
+  icon: React.ElementType;
+};
 
 export default function Header() {
   const { isOpen, onOpen, onClose } = useDisclosure();
@@ -33,6 +39,52 @@ export default function Header() {
   const [isLoading, setIsLoading] = useState(false);
   const toast = useToast();
   const memberManual = useDisclosure();
+  const mobileNav = useDisclosure();
+  const isMobile = useBreakpointValue({ base: true, md: false });
+  const navItems: NavItem[] = [
+    { label: '일정', path: '/schedule-v2', icon: CalendarIcon },
+    { label: '사진', path: '/gallery/photos', icon: AttachmentIcon },
+    { label: '동영상', path: '/gallery/videos', icon: ExternalLinkIcon }
+  ];
+
+  const adminItem: NavItem = { label: '관리자', path: '/admin', icon: SettingsIcon };
+  const availableNavItems = [...navItems];
+  if (user?.role === 'ADMIN' || user?.email === 'sti60val@gmail.com') {
+    availableNavItems.push(adminItem);
+  }
+
+  const handleNavigate = (path: string) => {
+    if (path === '/admin') {
+      try {
+        navigate('/admin');
+        setTimeout(() => {
+          if (window.location.pathname !== '/admin') {
+            window.location.href = '/admin';
+          }
+        }, 500);
+      } catch (error) {
+        console.error('🔍 관리자 navigate 에러:', error);
+        window.location.href = '/admin';
+      }
+    } else if (path === '/') {
+      try {
+        navigate('/');
+        setTimeout(() => {
+          if (window.location.pathname !== '/') {
+            window.location.href = '/';
+          }
+        }, 500);
+      } catch (error) {
+        console.error('🔍 홈 navigate 에러:', error);
+        window.location.href = '/';
+      }
+    } else {
+      navigate(path);
+    }
+    if (isMobile) {
+      mobileNav.onClose();
+    }
+  };
 
   // 사용자 데이터 새로고침 함수
   const refreshUserData = async () => {
@@ -283,35 +335,16 @@ export default function Header() {
 
   return (
     <>
-      <Flex as="nav" align="center" justify="space-between" px={{ base: 2, md: 4, lg: 6 }} py={2} bg="white" boxShadow="sm" w="100%" position="fixed" top={0} left={0} right={0} zIndex={100} maxW="100vw" overflowX="hidden" boxSizing="border-box">
-        <HStack spacing={4} flexShrink={1} minW={0} pl={{ base: 4, md: 6, lg: 8 }}>
+      <Flex as="nav" align="center" justify="space-between" px={{ base: 3, md: 4, lg: 6 }} py={2} bg="white" boxShadow="sm" w="100%" position="fixed" top={0} left={0} right={0} zIndex={100} maxW="100vw" overflow="hidden" boxSizing="border-box">
+        <HStack spacing={3} flexShrink={1} minW={0} pl={{ base: 2, md: 4, lg: 6 }}>
           <Text 
-            fontSize="xl" 
+            fontSize={{ base: 'lg', md: 'xl' }} 
             fontWeight="bold" 
             cursor="pointer"
             onClick={(e) => { 
               e.preventDefault();
               e.stopPropagation();
-              console.log('🔍 홈으로 이동 시도 - 현재 경로:', window.location.pathname);
-              console.log('🔍 navigate 함수 타입:', typeof navigate);
-              
-              // React Router navigate 시도
-              try {
-                navigate('/');
-                console.log('🔍 홈 navigate 호출 완료');
-                
-                // 0.5초 후에도 페이지가 안 바뀌면 강제 이동
-                setTimeout(() => {
-                  if (window.location.pathname !== '/') {
-                    console.log('🔍 React Router 실패, 강제 이동 시도');
-                    window.location.href = '/';
-                  }
-                }, 500);
-              } catch (error) {
-                console.error('🔍 홈 navigate 에러:', error);
-                // 에러 발생 시 강제 이동
-                window.location.href = '/';
-              }
+              handleNavigate('/');
             }} 
             tabIndex={0} 
             aria-label="홈으로 이동"
@@ -324,102 +357,37 @@ export default function Header() {
             FC CHAL-GGYEO
           </Text>
         </HStack>
-        <HStack spacing={2} flexShrink={1} minW={0}>
-          <Button 
-            variant={location.pathname === '/schedule-v2' ? "outline" : "ghost"} 
-            bg="transparent"
-            color="#004ea8" 
-            border="0.5px solid" 
-            borderColor={location.pathname === '/schedule-v2' ? "#004ea8" : "transparent"} 
-            _hover={{ 
-              bg: location.pathname === '/schedule-v2' ? 'transparent' : 'gray.50',
-              borderColor: "#004ea8"
-            }} 
-            leftIcon={<CalendarIcon />} 
-            onClick={() => navigate('/schedule-v2')}
-            flexShrink={1}
-          >
-            일정
-          </Button>
-          <Button 
-            variant={location.pathname === '/gallery/photos' ? "outline" : "ghost"} 
-            bg="transparent"
-            color="#004ea8" 
-            border="0.5px solid" 
-            borderColor={location.pathname === '/gallery/photos' ? "#004ea8" : "transparent"} 
-            _hover={{ 
-              bg: location.pathname === '/gallery/photos' ? 'transparent' : 'gray.50',
-              borderColor: "#004ea8"
-            }}
-            leftIcon={<AttachmentIcon />}
-            onClick={() => navigate('/gallery/photos')}
-            flexShrink={1}
-          >
-            사진
-          </Button>
-          <Button 
-            variant={location.pathname === '/gallery/videos' ? "outline" : "ghost"} 
-            bg="transparent"
-            color="#004ea8" 
-            border="0.5px solid" 
-            borderColor={location.pathname === '/gallery/videos' ? "#004ea8" : "transparent"} 
-            _hover={{ 
-              bg: location.pathname === '/gallery/videos' ? 'transparent' : 'gray.50',
-              borderColor: "#004ea8"
-            }}
-            leftIcon={<ExternalLinkIcon />}
-            onClick={() => navigate('/gallery/videos')}
-            flexShrink={1}
-          >
-            동영상
-          </Button>
-          {(user?.role === 'ADMIN' || user?.email === 'sti60val@gmail.com') && (
-            <Button 
-              variant={location.pathname === '/admin' ? "outline" : "ghost"} 
-              bg="transparent"
-              color="#004ea8" 
-              border="0.5px solid" 
-              borderColor={location.pathname === '/admin' ? "#004ea8" : "transparent"} 
-              _hover={{ 
-                bg: location.pathname === '/admin' ? 'transparent' : 'gray.50',
-                borderColor: "#004ea8"
-              }}
-              leftIcon={<SettingsIcon />}
-              onClick={(e) => { 
-                e.preventDefault();
-                e.stopPropagation();
-                console.log('🔍 관리자로 이동 시도 - 현재 경로:', window.location.pathname);
-                console.log('🔍 navigate 함수 타입:', typeof navigate);
-                
-                // React Router navigate 시도
-                try {
-                  navigate('/admin');
-                  console.log('🔍 관리자 navigate 호출 완료');
-                  
-                  // 0.5초 후에도 페이지가 안 바뀌면 강제 이동
-                  setTimeout(() => {
-                    if (window.location.pathname !== '/admin') {
-                      console.log('🔍 React Router 실패, 강제 이동 시도');
-                      window.location.href = '/admin';
-                    }
-                  }, 500);
-                } catch (error) {
-                  console.error('🔍 관리자 navigate 에러:', error);
-                  // 에러 발생 시 강제 이동
-                  window.location.href = '/admin';
-                }
-              }}
-            >
-              관리자
-            </Button>
-          )}
+        <HStack spacing={2} flexShrink={1} minW={0} display={{ base: 'none', md: 'flex' }}>
+          {availableNavItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = location.pathname === item.path;
+            return (
+              <Button 
+                key={item.label}
+                variant={isActive ? "outline" : "ghost"} 
+                bg="transparent"
+                color="#004ea8" 
+                border="0.5px solid" 
+                borderColor={isActive ? "#004ea8" : "transparent"} 
+                _hover={{ 
+                  bg: isActive ? 'transparent' : 'gray.50',
+                  borderColor: "#004ea8"
+                }} 
+                leftIcon={<Icon />}
+                onClick={() => handleNavigate(item.path)}
+                flexShrink={1}
+              >
+                {item.label}
+              </Button>
+            );
+          })}
         </HStack>
-        <HStack spacing={2} flexShrink={0} minW="fit-content" pr={{ base: 4, md: 6, lg: 8 }}>
+        <HStack spacing={2} flexShrink={0} minW="fit-content" pr={{ base: 2, md: 6, lg: 8 }} display={{ base: 'none', md: 'flex' }}>
           {!user ? (
             <Button size="sm" bg="#004ea8" color="white" _hover={{ bg: '#00397a' }} variant="outline" onClick={onOpen} whiteSpace="nowrap">로그인</Button>
           ) : (
             <>
-              <HStack align="center" spacing={2} flexShrink={1} minW={0}>
+              <HStack align="center" spacing={2} flexShrink={1} minW={0} display={{ base: 'none', md: 'flex' }}>
                 {/* 투표율과 참여율 표시 (user가 있으면 항상 표시) */}
                 {user && (
                   <>
@@ -535,8 +503,84 @@ export default function Header() {
             </>
           )}
         </HStack>
+        <HStack spacing={1} display={{ base: 'flex', md: 'none' }}>
+          {!user ? (
+            <Button size="xs" bg="#004ea8" color="white" _hover={{ bg: '#00397a' }} variant="solid" onClick={onOpen}>로그인</Button>
+          ) : (
+            <Button size="xs" bg="#004ea8" color="white" _hover={{ bg: '#00397a' }} onClick={() => { logout(); navigate('/'); }}>로그아웃</Button>
+          )}
+          <IconButton
+            aria-label="메뉴얼"
+            icon={<InfoIcon />}
+            size="sm"
+            bg="#004ea8"
+            color="white"
+            _hover={{ bg: '#00397a' }}
+            onClick={memberManual.onOpen}
+            borderRadius="full"
+          />
+          <IconButton
+            aria-label="모바일 메뉴"
+            icon={<HamburgerIcon />}
+            size="sm"
+            variant="outline"
+            onClick={mobileNav.onOpen}
+          />
+        </HStack>
       </Flex>
       <ManualModal isOpen={memberManual.isOpen} onClose={memberManual.onClose} variant="member" />
+      <Drawer placement="right" onClose={mobileNav.onClose} isOpen={mobileNav.isOpen}>
+        <DrawerOverlay />
+        <DrawerContent>
+          <DrawerCloseButton />
+          <DrawerHeader>메뉴</DrawerHeader>
+          <DrawerBody>
+            <VStack align="stretch" spacing={4} divider={<StackDivider borderColor="gray.100" />}>
+              <VStack align="stretch" spacing={2}>
+                {availableNavItems.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = location.pathname === item.path;
+                  return (
+                    <Button
+                      key={item.label}
+                      variant={isActive ? 'solid' : 'ghost'}
+                      leftIcon={<Icon />}
+                      justifyContent="flex-start"
+                      colorScheme={isActive ? 'blue' : undefined}
+                      onClick={() => handleNavigate(item.path)}
+                    >
+                      {item.label}
+                    </Button>
+                  );
+                })}
+              </VStack>
+              {user ? (
+                <VStack align="stretch" spacing={3}>
+                  <HStack spacing={2}>
+                    <Badge bg="#004ea8" color="white" borderRadius="full" px={2} py={1}>정</Badge>
+                    <Text fontWeight="bold">{user.name}</Text>
+                  </HStack>
+                  <Box>
+                    <Text fontSize="sm" color="gray.500">투표율</Text>
+                    <Text fontWeight="bold">{animatedVoteAttendance}%</Text>
+                  </Box>
+                  <Box>
+                    <Text fontSize="sm" color="gray.500">참여율</Text>
+                    <Text fontWeight="bold">{animatedAttendance}%</Text>
+                  </Box>
+                  <Button colorScheme="blue" onClick={() => { logout(); navigate('/'); mobileNav.onClose(); }}>
+                    로그아웃
+                  </Button>
+                </VStack>
+              ) : (
+                <Button colorScheme="blue" onClick={() => { onOpen(); mobileNav.onClose(); }}>
+                  로그인
+                </Button>
+              )}
+            </VStack>
+          </DrawerBody>
+        </DrawerContent>
+      </Drawer>
       {/* 로그인/회원가입 모달 */}
       <Modal isOpen={isOpen} onClose={() => { setShowSignup(false); onClose(); }} isCentered size="sm">
         <ModalOverlay />
