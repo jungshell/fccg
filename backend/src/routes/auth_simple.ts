@@ -365,6 +365,28 @@ router.post('/votes', async (req, res) => {
         });
       }
 
+      // disabledDays 체크
+      let disabledDaysArray: Array<{ day: string; reason: string }> = [];
+      const voteSessionWithDisabledDays = voteSession as any;
+      if (voteSessionWithDisabledDays.disabledDays) {
+        try {
+          disabledDaysArray = JSON.parse(voteSessionWithDisabledDays.disabledDays);
+        } catch (e) {
+          console.warn('disabledDays 파싱 실패:', voteSessionWithDisabledDays.disabledDays);
+        }
+      }
+
+      // 차단된 요일이 선택되었는지 확인
+      const disabledDayKeys = disabledDaysArray.map((d) => d.day);
+      const hasDisabledDay = convertedSelectedDays.some((day: string) => disabledDayKeys.includes(day));
+      
+      if (hasDisabledDay) {
+        const disabledDay = disabledDaysArray.find((d) => convertedSelectedDays.includes(d.day));
+        return res.status(400).json({
+          error: disabledDay?.reason || '선택할 수 없는 요일이 포함되어 있습니다.'
+        });
+      }
+
       // 트랜잭션으로 기존 투표 삭제 및 새 투표 생성
       const result = await prisma.$transaction(async (tx) => {
         // 기존 투표 삭제 (재투표 방지)
@@ -2413,6 +2435,17 @@ router.get('/unified-vote-data', async (req, res) => {
         });
       });
 
+      // disabledDays 파싱
+      let disabledDaysArray: Array<{ day: string; reason: string }> = [];
+      const filteredActiveSessionWithDisabledDays = filteredActiveSession as any;
+      if (filteredActiveSessionWithDisabledDays.disabledDays) {
+        try {
+          disabledDaysArray = JSON.parse(filteredActiveSessionWithDisabledDays.disabledDays);
+        } catch (e) {
+          console.warn('disabledDays 파싱 실패:', filteredActiveSessionWithDisabledDays.disabledDays);
+        }
+      }
+
       processedActiveSession = {
         sessionId: filteredActiveSession.id,
         weekStartDate: filteredActiveSession.weekStartDate,
@@ -2422,6 +2455,7 @@ router.get('/unified-vote-data', async (req, res) => {
         isCompleted: filteredActiveSession.isCompleted,
         participants,
         results,
+        disabledDays: disabledDaysArray,
         totalParticipants: participants.length,
         totalVotes: participants.reduce((sum, p) => {
           const days = Array.isArray(p.selectedDays) ? p.selectedDays : [];
@@ -2650,6 +2684,143 @@ router.post('/start-weekly-vote', async (req, res) => {
   } catch (error) {
     console.error('주간 투표 세션 생성 오류:', error);
     handleError(error, res, '주간 투표 세션 생성');
+  }
+});
+
+// 관리자용 수동 투표 세션 생성 API
+router.post('/admin/vote-sessions/create', authenticateToken, async (req, res) => {
+  try {
+    const userId = (req as any).user?.userId;
+    if (!userId) {
+      return res.status(401).json({ error: '인증이 필요합니다.' });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+
+    if (user?.role !== 'ADMIN' && user?.role !== 'SUPER_ADMIN') {
+      return res.status(403).json({ error: '관리자만 투표 세션을 생성할 수 있습니다.' });
+    }
+
+    const { weekStartDate, startTime, endTime, disabledDays } = req.body;
+
+    if (!weekStartDate) {
+      return res.status(400).json({ error: 'weekStartDate는 필수입니다.' });
+    }
+
+    const weekStart = new Date(weekStartDate);
+    weekStart.setHours(0, 0, 0, 0);
+
+    // 중복 체크
+    const existingSession = await prisma.voteSession.findFirst({
+      where: {
+        weekStartDate: {
+          gte: weekStart,
+          lt: new Date(weekStart.getTime() + 24 * 60 * 60 * 1000)
+        }
+      }
+    });
+
+    if (existingSession) {
+      return res.status(400).json({
+        error: '이미 해당 주간을 대상으로 하는 투표 세션이 존재합니다.',
+        existingSessionId: existingSession.id
+      });
+    }
+
+    // 활성 세션이 있으면 비활성화
+    const activeSession = await prisma.voteSession.findFirst({
+      where: {
+        isActive: true,
+        isCompleted: false
+      }
+    });
+
+    if (activeSession) {
+      await prisma.voteSession.update({
+        where: { id: activeSession.id },
+        data: { isActive: false }
+      });
+    }
+
+    // 기본값 계산
+    const defaultStartTime = new Date(weekStart);
+    defaultStartTime.setDate(weekStart.getDate() - 7); // 이번주 월요일
+    defaultStartTime.setHours(0, 1, 0, 0); // 00:01
+
+    const defaultEndTime = new Date(weekStart);
+    defaultEndTime.setDate(weekStart.getDate() + 4); // 금요일
+    defaultEndTime.setHours(17, 0, 0, 0); // 17:00
+
+    const voteSession = await prisma.voteSession.create({
+      data: {
+        weekStartDate: weekStart,
+        startTime: startTime ? new Date(startTime) : defaultStartTime,
+        endTime: endTime ? new Date(endTime) : defaultEndTime,
+        isActive: true,
+        isCompleted: false,
+        disabledDays: disabledDays ? JSON.stringify(disabledDays) : '[]'
+      } as any
+    });
+
+    res.json({
+      message: '투표 세션이 생성되었습니다.',
+      voteSession
+    });
+  } catch (error) {
+    console.error('수동 투표 세션 생성 오류:', error);
+    handleError(error, res, '수동 투표 세션 생성');
+  }
+});
+
+// 활성 세션의 disabledDays 설정 API
+router.put('/admin/vote-sessions/active/disabled-days', authenticateToken, async (req, res) => {
+  try {
+    const userId = (req as any).user?.userId;
+    if (!userId) {
+      return res.status(401).json({ error: '인증이 필요합니다.' });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+
+    if (user?.role !== 'ADMIN' && user?.role !== 'SUPER_ADMIN') {
+      return res.status(403).json({ error: '관리자만 설정할 수 있습니다.' });
+    }
+
+    const { disabledDays } = req.body;
+
+    if (!Array.isArray(disabledDays)) {
+      return res.status(400).json({ error: 'disabledDays는 배열이어야 합니다.' });
+    }
+
+    const activeSession = await prisma.voteSession.findFirst({
+      where: {
+        isActive: true,
+        isCompleted: false
+      }
+    });
+
+    if (!activeSession) {
+      return res.status(404).json({ error: '활성 투표 세션이 없습니다.' });
+    }
+
+    const updatedSession = await prisma.voteSession.update({
+      where: { id: activeSession.id },
+      data: {
+        disabledDays: JSON.stringify(disabledDays)
+      } as any
+    });
+
+    res.json({
+      message: 'disabledDays가 업데이트되었습니다.',
+      voteSession: updatedSession
+    });
+  } catch (error) {
+    console.error('disabledDays 설정 오류:', error);
+    handleError(error, res, 'disabledDays 설정');
   }
 });
 

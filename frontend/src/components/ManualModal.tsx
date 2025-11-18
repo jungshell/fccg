@@ -194,6 +194,8 @@ export default function ManualModal({ isOpen, onClose, variant }: ManualModalPro
                       <StepCard step={2} emoji="🔐" title="로그인 필요" description="투표는 로그인 후 가능" color="purple" />
                       <StepCard step={3} emoji="📊" title="투표 현황" description="각 요일별 투표자 수와 참여율 확인" color="purple" />
                       <StepCard step={4} emoji="🔄" title="재투표 가능" description="이미 투표한 경우 '재투표하기' 버튼으로 수정" color="purple" />
+                      <StepCard step={5} emoji="🚫" title="공휴일 자동 차단" description="공휴일은 자동으로 빨간색 표시되며 선택 불가" color="purple" />
+                      <StepCard step={6} emoji="⚠️" title="요일 차단 안내" description="관리자가 차단한 요일은 빨간색으로 표시되고 차단 사유 확인 가능" color="purple" />
                     </VStack>
                   </Box>
                 </VStack>
@@ -243,7 +245,7 @@ export default function ManualModal({ isOpen, onClose, variant }: ManualModalPro
             <VStack align="stretch" spacing={3}>
               <Tabs index={adminTabIndex} onChange={setAdminTabIndex} colorScheme="blue" variant="enclosed" isFitted>
                 <TabList w="100%" mb={2} borderBottom="none">
-                  {['대시보드','회원 관리','투표 결과','경기 관리','이번주 일정','알림 관리','활동 분석','풋살 현황판'].map((label) => (
+                  {['대시보드','회원 관리','투표 결과','투표 세션','경기 관리','이번주 일정','알림 관리','활동 분석','풋살 현황판'].map((label) => (
                     <Tab 
                       key={label} 
                       fontSize="xs" 
@@ -257,13 +259,24 @@ export default function ManualModal({ isOpen, onClose, variant }: ManualModalPro
                       _selected={{ bg: 'blue.50', fontWeight: 'bold', borderColor: 'blue.300', color: 'blue.700', _dark: { bg: 'blue.900', color: 'blue.300' } }} 
                       transition="transform 0.15s ease"
                     >
-                      {label === '풋살 현황판' ? (
-                        <Box as="span" whiteSpace="pre-line">풋살{'\n'}현황판</Box>
-                      ) : label === '대시보드' ? (
-                        <Box as="span" whiteSpace="pre-line">대시{'\n'}보드</Box>
-                      ) : (
-                        label
-                      )}
+                      {(() => {
+                        const labelMap: { [key: string]: string } = {
+                          '대시보드': '대시\n보드',
+                          '회원 관리': '회원\n관리',
+                          '투표 결과': '투표\n결과',
+                          '투표 세션': '투표\n세션',
+                          '경기 관리': '경기\n관리',
+                          '이번주 일정': '이번주\n일정',
+                          '알림 관리': '알림\n관리',
+                          '활동 분석': '활동\n분석',
+                          '풋살 현황판': '풋살\n현황판'
+                        };
+                        return (
+                          <Box as="span" whiteSpace="pre-line">
+                            {labelMap[label] || label}
+                          </Box>
+                        );
+                      })()}
                     </Tab>
                   ))}
                 </TabList>
@@ -289,6 +302,16 @@ export default function ManualModal({ isOpen, onClose, variant }: ManualModalPro
                       <StepCard step={2} emoji="📈" title="결과 분석" description="요일별 득표수 및 참여율 분석" color="purple" />
                       <StepCard step={3} emoji="⏹️" title="투표 마감" description="투표 세션 수동 마감/재개" color="purple" />
                       <StepCard step={4} emoji="💾" title="결과 저장" description="투표 결과 집계 및 저장" color="purple" />
+                    </VStack>
+                  </TabPanel>
+                  <TabPanel px={0}>
+                    <VStack spacing={2} align="stretch">
+                      <StepCard step={1} emoji="➕" title="세션 수동 생성" description="특정 주간에 대한 투표 세션을 수동으로 생성" color="indigo" />
+                      <StepCard step={2} emoji="📅" title="주 시작일 설정" description="투표 대상 주간의 월요일 날짜 선택" color="indigo" />
+                      <StepCard step={3} emoji="⏰" title="투표 기간 설정" description="의견수렴 시작일시와 투표 마감일시 지정 (선택사항)" color="indigo" />
+                      <StepCard step={4} emoji="🚫" title="요일 차단 설정" description="특정 요일을 투표에서 제외하고 차단 사유 표시" color="indigo" />
+                      <StepCard step={5} emoji="🔄" title="활성 세션 관리" description="현재 활성 세션의 요일 차단 설정 수정 가능" color="indigo" />
+                      <StepCard step={6} emoji="📋" title="세션 정보 확인" description="세션 ID, 투표 기간, 참여자 수, 차단된 요일 확인" color="indigo" />
                     </VStack>
                   </TabPanel>
                   <TabPanel px={0}>

@@ -73,6 +73,7 @@ model VoteSession {
   isActive      Boolean  @default(false)
   isCompleted   Boolean  @default(false)
   gameId        Int?
+  disabledDays  String?  @default("[]") // JSON array: [{"day": "MON", "reason": "사유"}]
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   votes         Vote[]

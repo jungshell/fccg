@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, useLayoutEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -8,6 +8,7 @@ import {
   Button,
   useToast,
   Flex,
+  Grid,
   Modal,
   ModalOverlay,
   ModalContent,
@@ -151,6 +152,43 @@ export default function SchedulePageV2() {
   
   // 공휴일 데이터 상태
   const [holidays, setHolidays] = useState<Record<string, string>>({});
+  const gridContainerRef = useRef<HTMLDivElement | null>(null);
+  const [lockedCalendarWidth, setLockedCalendarWidth] = useState<number | null>(null);
+
+  useLayoutEffect(() => {
+    if (typeof window === 'undefined') return;
+    const container = gridContainerRef.current;
+    if (!container) return;
+
+    const GAP_PX = 6;
+    const SIDEBAR_WIDTH = 400;
+
+    const updateWidth = (totalWidth: number) => {
+      const calendarWidth = Math.max(totalWidth - SIDEBAR_WIDTH - GAP_PX, 1000);
+      setLockedCalendarWidth((prev) => {
+        if (prev === null || Math.abs(prev - calendarWidth) > 1) {
+          return calendarWidth;
+        }
+        return prev;
+      });
+    };
+
+    updateWidth(container.getBoundingClientRect().width);
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.target === container) {
+          updateWidth(entry.contentRect.width);
+        }
+      });
+    });
+
+    resizeObserver.observe(container);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, []);
   
   // 공휴일 데이터 가져오기
   useEffect(() => {
@@ -234,6 +272,83 @@ export default function SchedulePageV2() {
     // API에서 가져온 공휴일 데이터 확인
     return holidays[formattedDate] !== undefined;
   }, [holidays]);
+
+  // 공휴일 이름 가져오기
+  const getHolidayName = useCallback((dateString: string): string | null => {
+    if (!dateString || Object.keys(holidays).length === 0) {
+      return null;
+    }
+    
+    let formattedDate: string | null = null;
+    
+    // 형식 1: "2025. 11. 17.(월)" -> "2025-11-17"
+    const match1 = dateString.match(/(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})/);
+    if (match1) {
+      const year = match1[1];
+      const month = match1[2].padStart(2, '0');
+      const day = match1[3].padStart(2, '0');
+      formattedDate = `${year}-${month}-${day}`;
+    } else {
+      // 형식 2: "11월 17일(월)" -> "2025-11-17" (올해 기준)
+      const match2 = dateString.match(/(\d+)월\s*(\d+)일/);
+      if (match2) {
+        const currentYear = new Date().getFullYear();
+        const month = match2[1].padStart(2, '0');
+        const day = match2[2].padStart(2, '0');
+        formattedDate = `${currentYear}-${month}-${day}`;
+      }
+    }
+    
+    if (!formattedDate) {
+      return null;
+    }
+    
+    return holidays[formattedDate] || null;
+  }, [holidays]);
+
+  // 특정 요일이 disabledDays에 포함되어 있는지 확인
+  const isDayDisabled = useCallback((dayKey: string): { disabled: boolean; reason: string | null } => {
+    if (!unifiedVoteData?.activeSession?.disabledDays) {
+      return { disabled: false, reason: null };
+    }
+    
+    try {
+      // disabledDays가 문자열인 경우 파싱
+      let disabledDaysArray: Array<{ day: string; reason: string }> = [];
+      if (typeof unifiedVoteData.activeSession.disabledDays === 'string') {
+        disabledDaysArray = JSON.parse(unifiedVoteData.activeSession.disabledDays);
+      } else if (Array.isArray(unifiedVoteData.activeSession.disabledDays)) {
+        disabledDaysArray = unifiedVoteData.activeSession.disabledDays;
+      }
+      
+      const disabledDay = disabledDaysArray.find((d: any) => d.day === dayKey);
+      if (disabledDay) {
+        return { disabled: true, reason: disabledDay.reason || null };
+      }
+    } catch (e) {
+      console.warn('disabledDays 파싱 실패:', e);
+    }
+    
+    return { disabled: false, reason: null };
+  }, [unifiedVoteData]);
+
+  // disabledDays 디버깅
+  useEffect(() => {
+    if (unifiedVoteData?.activeSession?.disabledDays) {
+      console.log('🔍 활성 세션 disabledDays:', unifiedVoteData.activeSession.disabledDays);
+      console.log('🔍 타입:', typeof unifiedVoteData.activeSession.disabledDays);
+      try {
+        const parsed = typeof unifiedVoteData.activeSession.disabledDays === 'string' 
+          ? JSON.parse(unifiedVoteData.activeSession.disabledDays) 
+          : unifiedVoteData.activeSession.disabledDays;
+        console.log('🔍 파싱된 disabledDays:', parsed);
+      } catch (e) {
+        console.warn('🔍 disabledDays 파싱 실패:', e);
+      }
+    } else {
+      console.log('🔍 활성 세션에 disabledDays가 없음');
+    }
+  }, [unifiedVoteData?.activeSession?.disabledDays]);
 
   // 최근 로컬 투표 캐시 (백엔드 일시적 지연 대비)
   const localVotesRef = useRef<any[]>([]);
@@ -2319,9 +2434,22 @@ export default function SchedulePageV2() {
         `}
       </style>
       <Box minH="100vh" bg="gray.50" w="100%" overflowX="hidden" maxW="100vw" boxSizing="border-box">
-        <Flex direction="column" h="100vh" bg="gray.50" overflowX="hidden" maxW="100vw">
+        <Flex direction="column" minH="100vh" bg="gray.50" overflowX="hidden" maxW="100vw">
         {/* 메인 컨텐츠 */}
-          <Flex flex="1" overflow="hidden" direction={{ base: 'column', lg: 'row' }} w="100%" maxW="100vw" boxSizing="border-box">
+          <Grid
+            ref={gridContainerRef}
+            w="100%"
+            maxW="100vw"
+            boxSizing="border-box"
+            templateColumns={
+              lockedCalendarWidth
+                ? { base: '1fr', lg: `${lockedCalendarWidth}px 400px` }
+                : { base: '1fr', lg: 'minmax(0, 1fr) 400px' }
+            }
+            columnGap={{ base: 0, lg: 1 }}
+            rowGap={{ base: 4, lg: 0 }}
+            alignItems="stretch"
+          >
           {/* 정지된 회원 안내 */}
           {user && (user as any).status === 'SUSPENDED' && (
             <Box
@@ -2359,7 +2487,15 @@ export default function SchedulePageV2() {
           )}
 
           {/* 왼쪽: 달력 */}
-          <Box flex="1" p={{ base: 2, md: 4 }} overflow="auto" minW="0" w="100%" display="flex" flexDirection="column">
+          <Box
+            p={{ base: 2, md: 4 }}
+            pl={{ base: 'calc(0.5rem + 4mm)', md: 'calc(1rem + 4mm)' }}
+            minW="0"
+            w="100%"
+            display="flex"
+            flexDirection="column"
+            overflow="visible"
+          >
             {appData.isLoading ? (
               <CalendarSkeleton />
             ) : appData.error ? (
@@ -2387,7 +2523,14 @@ export default function SchedulePageV2() {
           </Box>
 
           {/* 오른쪽: 일정 정보 */}
-          <Box w={{ base: '100%', lg: '400px' }} p={{ base: 2, md: 4 }} pr={{ base: 2, md: 4, lg: 6 }} overflowX="hidden" boxSizing="border-box">
+          <Box
+            w={{ base: '100%', lg: '400px' }}
+            p={{ base: 2, md: 4 }}
+            pr={{ base: 2, md: 4, lg: 1 }}
+            overflowX="hidden"
+            boxSizing="border-box"
+            justifySelf={{ base: 'stretch', lg: 'end' }}
+          >
             <VStack spacing={{ base: 1, md: 1.5 }} align="stretch">
               {/* 이번주 일정 */}
               {renderThisWeekSchedule()}
@@ -2758,6 +2901,10 @@ export default function SchedulePageV2() {
                       const maxVoteCount = Math.max(...Object.values(results).map((r: any) => r.count || 0), 0);
                       const isMaxVote = voteCount === maxVoteCount && voteCount > 0;
                       const isHoliday = isHolidayDate(dateString);
+                      const holidayName = getHolidayName(dateString);
+                      const disabledInfo = isDayDisabled(dayKey);
+                      const isDisabled = isHoliday || disabledInfo.disabled;
+                      const disabledReason = isHoliday ? holidayName : (disabledInfo.reason || null);
                     
                       return (
                           <Box
@@ -2766,15 +2913,16 @@ export default function SchedulePageV2() {
                           borderRadius="lg"
                             border={selectedDays.includes(dateString) ? '1px solid' : 'none'}
                             borderColor={selectedDays.includes(dateString) ? 'purple.400' : 'transparent'}
-                            bg={selectedDays.includes(dateString) ? 'purple.50' : isHoliday ? 'red.50' : 'transparent'}
+                            bg={selectedDays.includes(dateString) ? 'purple.50' : isDisabled ? 'red.50' : 'transparent'}
                             px={{ base: 4, md: 6 }}
                             py={selectedDays.includes(dateString) ? '-8px' : 0}
                             minH="auto"
                             h="auto"
                             onClick={() => {
                               if (isVoteClosed) return;
-                              if (isHoliday) {
-                                toast({ title: '선택 불가', description: '공휴일은 선택할 수 없습니다.', status: 'warning', duration: 2000, isClosable: true });
+                              if (isDisabled) {
+                                const reasonText = disabledReason || '선택할 수 없는 날짜입니다.';
+                                toast({ title: '선택 불가', description: reasonText, status: 'warning', duration: 2000, isClosable: true });
                                 return;
                               }
                               const dateObj = new Date(dateString);
@@ -2791,10 +2939,10 @@ export default function SchedulePageV2() {
                                 setSelectedDays([...filteredDays, dateString]);
                               }
                             }}
-                            cursor={isHoliday ? 'not-allowed' : 'pointer'}
-                            opacity={isHoliday ? 0.7 : 1}
+                            cursor={isDisabled ? 'not-allowed' : 'pointer'}
+                            opacity={isDisabled ? 0.7 : 1}
                           _hover={{
-                              bg: isHoliday ? 'red.50' : (selectedDays.includes(dateString) ? 'purple.100' : 'gray.50'),
+                              bg: isDisabled ? 'red.50' : (selectedDays.includes(dateString) ? 'purple.100' : 'gray.50'),
                           }}
                           transition="all 0.2s ease-in-out"
                           >
@@ -2806,10 +2954,10 @@ export default function SchedulePageV2() {
                               lineHeight={1}
                         >
                               <Flex align="center" gap={{ base: 1, md: 1.5 }} flex="1" minW="0">
-                                <Text fontSize={{ base: 'xs', md: 'sm' }} fontWeight={isMaxVote ? 'bold' : (isHoliday ? 'semibold' : 'normal')} noOfLines={1} lineHeight={1} color={isHoliday ? 'red.500' : 'gray.700'} ml="-11px">
+                                <Text fontSize={{ base: 'xs', md: 'sm' }} fontWeight={isMaxVote ? 'bold' : (isDisabled ? 'semibold' : 'normal')} noOfLines={1} lineHeight={1} color={isDisabled ? 'red.500' : 'gray.700'} ml="-11px">
                               {dateString}
                             </Text>
-                            {isMaxVote && (
+                            {isMaxVote && !isDisabled && (
                               <Badge 
                                 colorScheme="purple" 
                                 variant="outline" 
@@ -2825,6 +2973,24 @@ export default function SchedulePageV2() {
                                   lineHeight={1.1}
                               >
                                 최다
+                              </Badge>
+                            )}
+                            {isDisabled && disabledReason && (
+                              <Badge 
+                                colorScheme="red" 
+                                variant="solid" 
+                                  fontSize={{ base: '2xs', md: 'xs' }}
+                                px={{ base: 1, md: 1.5 }} 
+                                py={{ base: 0.5, md: 0.5 }}
+                                borderRadius="full"
+                                  minW={{ base: '28px', md: '32px' }}
+                                textAlign="center"
+                                bg="red.500"
+                                color="white"
+                                flexShrink={0}
+                                  lineHeight={1.1}
+                              >
+                                {disabledReason}
                               </Badge>
                             )}
                           </Flex>
@@ -2866,7 +3032,7 @@ export default function SchedulePageV2() {
                                 lineHeight={1.1}
                                 mr="-11px"
                             >
-                              {isHolidayDate(dateString) ? '-' : `${voteCount}명`}
+                              {isDisabled ? '-' : `${voteCount}명`}
                             </Badge>
                           </Tooltip>
                         </Flex>
@@ -3072,7 +3238,7 @@ export default function SchedulePageV2() {
               </Box>
             </VStack>
           </Box>
-        </Flex>
+        </Grid>
       </Flex>
       </Box>
 

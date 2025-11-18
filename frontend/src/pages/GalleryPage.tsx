@@ -1054,19 +1054,19 @@ export default function GalleryPage() {
 
                 <Flex justify="space-between" align="center" mt={1}>
                   <HStack spacing={1} cursor="pointer"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleLike(item.id);
-                    }}
-                  >
-                    <Text fontSize="sm" color={item.isLiked ? 'red.500' : 'gray.400'}>♡</Text>
-                    <Text fontSize="sm">{item.likes}</Text>
-                  </HStack>
-                  <HStack spacing={1}>
-                    <Text fontSize="sm">💬</Text>
-                    <Text fontSize="sm">{item.comments}</Text>
-                  </HStack>
-                </Flex>
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleLike(item.id);
+                      }}
+                    >
+                      <Text fontSize="sm" color={item.isLiked ? 'red.500' : 'gray.400'}>♡</Text>
+                      <Text fontSize="sm">{item.likes}</Text>
+                    </HStack>
+                    <HStack spacing={1}>
+                      <Text fontSize="sm">💬</Text>
+                      <Text fontSize="sm">{item.comments}</Text>
+        </HStack>
+      </Flex>
               </VStack>
             </Box>
           ))}

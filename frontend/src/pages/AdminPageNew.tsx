@@ -54,6 +54,7 @@ import GameManagement from '../components/GameManagement';
 import ThisWeekScheduleManagement from '../components/ThisWeekScheduleManagement';
 import FootballFieldPage from './FootballFieldPage';
 import VoteResultsPage from './VoteResultsPage';
+import VoteSessionManagement from '../components/VoteSessionManagement';
 import { useAuthStore } from '../store/auth';
 import ManualModal from '../components/ManualModal';
 import FloatingHelpButton from '../components/FloatingHelpButton';
@@ -460,6 +461,7 @@ export default function AdminPageNew() {
       'dashboard': '전체 현황 및 통계 확인',
       'users': '회원 등록, 수정, 삭제 관리',
       'vote-results': '투표 결과 확인 및 관리',
+      'vote-sessions': '투표 세션 생성 및 관리',
       'games': '경기 일정 생성 및 관리',
       'this-week-schedules': '이번주 일정 관리',
       'notifications': '알림 발송 및 관리',
@@ -480,6 +482,37 @@ export default function AdminPageNew() {
   //   activeRate: 0,
   //   averageAttendanceRate: 0
   // });
+  
+  // 통합 투표 데이터 로드 함수
+  const loadUnifiedVoteData = useCallback(async () => {
+    try {
+      const baseUrl4 = await import('../constants').then(m => m.ensureApiBaseUrl()).catch(() => '/api/auth');
+      const unifiedResponse = await fetch(`${baseUrl4}/unified-vote-data`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      
+      if (unifiedResponse.ok) {
+        const unifiedData = await unifiedResponse.json();
+        const unifiedVoteDataToSet = {
+          activeSession: unifiedData.activeSession || null,
+          allMembers: unifiedData.allMembers || [],
+          lastWeekResults: unifiedData.lastWeekResults || null,
+          allSessions: unifiedData.allSessions || []
+        };
+        setUnifiedVoteData(unifiedVoteDataToSet);
+        console.log('✅ 통합 투표 데이터 로드 성공');
+        return unifiedVoteDataToSet;
+      } else {
+        console.log('❌ 통합 투표 데이터 로드 실패:', unifiedResponse.status);
+        return null;
+      }
+    } catch (error) {
+      console.error('통합 투표 데이터 로드 실패:', error);
+      return null;
+    }
+  }, [setUnifiedVoteData]);
   
   // 데이터 로드
   const loadData = useCallback(async () => {
@@ -634,35 +667,11 @@ export default function AdminPageNew() {
       }
       
       // 4. 통합 투표 데이터 로드
-      try {
-        console.log('🔄 통합 투표 데이터 로드 시작');
-        
-        const baseUrl4 = await import('../constants').then(m => m.ensureApiBaseUrl()).catch(() => '/api/auth');
-        const unifiedResponse = await fetch(`${baseUrl4}/unified-vote-data`, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
-        });
-        
-        if (unifiedResponse.ok) {
-          const unifiedData = await unifiedResponse.json();
-          console.log('✅ 통합 투표 데이터 로드 성공:', unifiedData);
-          
-          // 일정 페이지와 동일한 구조로 설정
-          const unifiedVoteDataToSet = {
-            activeSession: unifiedData.activeSession || null,
-            allMembers: unifiedData.allMembers || [],
-            lastWeekResults: unifiedData.lastWeekResults || null
-          };
-          setUnifiedVoteData(unifiedVoteDataToSet);
-          
-          // 통합 API 데이터를 사용하여 경기 데이터 업데이트
-          await updateGamesFromVoteData(unifiedData);
-        } else {
-          console.log('❌ 통합 투표 데이터 로드 실패:', unifiedResponse.status);
-        }
-      } catch (error) {
-        console.error('통합 투표 데이터 로드 실패:', error);
+      console.log('🔄 통합 투표 데이터 로드 시작');
+      const unifiedData = await loadUnifiedVoteData();
+      if (unifiedData) {
+        // 통합 API 데이터를 사용하여 경기 데이터 업데이트
+        await updateGamesFromVoteData(unifiedData);
       }
       
     } catch (error) {
@@ -678,7 +687,7 @@ export default function AdminPageNew() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [loadUnifiedVoteData]);
 
   // 투표 데이터 변경 시(마감/집계 후) 즉시 경기 목록 및 투표 데이터 새로고침
   useEffect(() => {
@@ -695,31 +704,16 @@ export default function AdminPageNew() {
           }
         }
         
-        // 통합 투표 데이터 새로고침 (일정 페이지와 동기화)
-        const baseUrl4 = await import('../constants').then(m => m.ensureApiBaseUrl()).catch(() => '/api/auth');
-        const unifiedResponse = await fetch(`${baseUrl4}/unified-vote-data`, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
-        });
-        
-        if (unifiedResponse.ok) {
-          const unifiedData = await unifiedResponse.json();
-          const unifiedVoteDataToSet = {
-            activeSession: unifiedData.activeSession || null,
-            allMembers: unifiedData.allMembers || [],
-            lastWeekResults: unifiedData.lastWeekResults || null
-          };
-          setUnifiedVoteData(unifiedVoteDataToSet);
-          console.log('✅ 투표 데이터 변경 후 통합 데이터 새로고침 완료');
-        }
+        // 통합 투표 데이터 새로고침
+        await loadUnifiedVoteData();
+        console.log('✅ 투표 데이터 변경 후 통합 데이터 새로고침 완료');
       } catch (e) {
         console.warn('데이터 새로고침 실패:', e);
       }
     };
     window.addEventListener('voteDataChanged', refreshData);
     return () => window.removeEventListener('voteDataChanged', refreshData);
-  }, []);
+  }, [loadUnifiedVoteData]);
 
   // 경기 관리 메뉴로 진입할 때도 즉시 새로고침
   useEffect(() => {
@@ -2968,6 +2962,26 @@ export default function AdminPageNew() {
               >
                 🗳️ 투표 결과
               </Button>
+
+              <Button
+                w="100%"
+                justifyContent="flex-start"
+                variant="ghost"
+                bg={selectedMenu === 'vote-sessions' ? 'white' : 'transparent'}
+                color={selectedMenu === 'vote-sessions' ? '#004ea8' : 'gray.700'}
+                border={selectedMenu === 'vote-sessions' ? '1px solid' : '1px solid'}
+                borderColor={selectedMenu === 'vote-sessions' ? '#004ea8' : 'transparent'}
+                borderRadius="md"
+                mt={1}
+                transition="all 0.15s ease"
+                _hover={{
+                  bg: selectedMenu === 'vote-sessions' ? 'white' : 'gray.50',
+                  borderColor: selectedMenu === 'vote-sessions' ? '#004ea8' : 'gray.300'
+                }}
+                onClick={() => handleMenuSelect('vote-sessions')}
+              >
+                📅 투표 세션 관리
+              </Button>
               
               <Button
                 w="100%"
@@ -3651,6 +3665,14 @@ export default function AdminPageNew() {
                 <Box w="100%">
                   <VoteResultsPage />
                 </Box>
+              )}
+
+              {/* 투표 세션 관리 */}
+              {selectedMenu === 'vote-sessions' && (
+                <VoteSessionManagement 
+                  unifiedVoteData={unifiedVoteData}
+                  onRefresh={loadUnifiedVoteData}
+                />
               )}
               
               {/* 이번주 일정 */}
