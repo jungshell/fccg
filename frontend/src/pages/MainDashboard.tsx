@@ -1194,7 +1194,12 @@ export default function MainDashboard() {
                   </Flex>
                   <Flex direction={{ base: 'column', md: 'row' }} gap={3}>
                     <Box flex={0.4} bg="white" px={3} py={2} borderRadius="md">
-                      <Text fontSize="sm" color="gray.600" mb={2}>투표 참여</Text>
+                      <Flex justify="space-between" align="center" mb={2}>
+                        <Text fontSize="sm" color="gray.600">투표 참여</Text>
+                        <Text fontSize="sm" fontWeight="semibold" color="blue.600">
+                          {(unifiedVoteData?.activeSession?.totalParticipants || 0)}/{unifiedVoteData?.allMembers?.length || 0}
+                        </Text>
+                      </Flex>
                       <Tooltip
                         label={(() => {
                           if (!unifiedVoteData?.activeSession) return '투표 세션이 없습니다.';
@@ -1221,8 +1226,8 @@ export default function MainDashboard() {
                         fontSize="sm"
                         whiteSpace="pre-line"
                       >
-                        <Text fontSize="md" fontWeight="bold" color="blue.600" cursor="default" textAlign="center">
-                          {unifiedVoteData?.activeSession?.totalParticipants || 0}/{unifiedVoteData?.allMembers?.length || 0}명
+                        <Text fontSize="xs" color="gray.500" textAlign="center" cursor="default">
+                          아래 pill은 실제 투표한 인원입니다.
                         </Text>
                       </Tooltip>
                       {(() => {
