@@ -1,4 +1,4 @@
-import { Box, Flex, Text, SimpleGrid, Stack, IconButton, Modal, ModalOverlay, ModalContent, ModalBody, ModalCloseButton, useDisclosure, Spinner, Alert, AlertIcon, VStack, Button, Badge, Tooltip } from '@chakra-ui/react';
+import { Box, Flex, Text, SimpleGrid, Stack, IconButton, Modal, ModalOverlay, ModalContent, ModalBody, ModalCloseButton, useDisclosure, Spinner, Alert, AlertIcon, VStack, Button, Badge, Tooltip, Wrap, WrapItem, Tag } from '@chakra-ui/react';
 import { ChevronLeftIcon, ChevronRightIcon } from '@chakra-ui/icons';
 import { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { useAuthStore } from '../store/auth';
@@ -1147,7 +1147,7 @@ export default function MainDashboard() {
                     <Text fontSize="lg" mr={2}>🗓️</Text>
                     <Text fontSize="lg" fontWeight="bold">투표 기간</Text>
                   </Flex>
-              <Box textAlign="center">
+              <Box textAlign="center" mt="-28px">
                     <Text fontSize="md" color="gray.700" fontWeight="medium">
                       {(() => {
                         const session = unifiedVoteData.activeSession;
@@ -1225,6 +1225,27 @@ export default function MainDashboard() {
                           {unifiedVoteData?.activeSession?.totalParticipants || 0}/{unifiedVoteData?.allMembers?.length || 0}명
                         </Text>
                       </Tooltip>
+                      {(() => {
+                        const participants = unifiedVoteData?.activeSession?.participants || [];
+                        if (participants.length === 0) {
+                          return (
+                            <Text fontSize="xs" color="gray.400" textAlign="center" mt={2}>
+                              아직 투표한 인원이 없습니다.
+                            </Text>
+                          );
+                        }
+                        return (
+                          <Wrap mt={2} spacing={1}>
+                            {participants.map((p: any) => (
+                              <WrapItem key={`${p.userId}-${p.votedAt || ''}`}>
+                                <Tag size="sm" variant="subtle" colorScheme="blue" borderRadius="full" px={2}>
+                                  {p.userName || '이름없음'}
+                                </Tag>
+                              </WrapItem>
+                            ))}
+                          </Wrap>
+                        );
+                      })()}
                     </Box>
                     <Box flex={0.6} bg="white" px={3} py={2} borderRadius="md">
                       <Text fontSize="sm" color="gray.600" mb={2}>최다투표일</Text>
