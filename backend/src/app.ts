@@ -68,7 +68,6 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
 
 // 보안 헤더 설정 (기존 기능에 영향 없음)
 app.use(securityHeaders);
