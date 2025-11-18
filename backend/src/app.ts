@@ -27,35 +27,6 @@ const prisma = new PrismaClient({
 
 console.log('서버 시작');
 
-// 보안 헤더 설정 (기존 기능에 영향 없음)
-app.use(securityHeaders);
-
-// Rate Limiting 적용 (기존 사용자에게는 영향 없음)
-app.use('/api', apiLimiter);
-
-// JWT 인증 미들웨어
-const authenticateToken = (req: any, res: any, next: any) => {
-  // OPTIONS 요청은 인증하지 않음 (CORS preflight)
-  if (req.method === 'OPTIONS') {
-    return next();
-  }
-  
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-
-  if (!token) {
-    return res.status(401).json({ message: '액세스 토큰이 필요합니다.' });
-  }
-
-  jwt.verify(token, process.env.JWT_SECRET || 'fc-chalggyeo-secret', (err: any, user: any) => {
-    if (err) {
-      return res.status(403).json({ message: '유효하지 않은 토큰입니다.' });
-    }
-    req.user = user;
-    next();
-  });
-};
-
 // 미들웨어 - CORS 설정 (프로덕션 환경 포함)
 const corsOptions = {
   origin: function (origin: string | undefined, callback: Function) {
@@ -97,6 +68,37 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
+
+// 보안 헤더 설정 (기존 기능에 영향 없음)
+app.use(securityHeaders);
+
+// Rate Limiting 적용 (기존 사용자에게는 영향 없음)
+app.use('/api', apiLimiter);
+
+// JWT 인증 미들웨어
+const authenticateToken = (req: any, res: any, next: any) => {
+  // OPTIONS 요청은 인증하지 않음 (CORS preflight)
+  if (req.method === 'OPTIONS') {
+    return next();
+  }
+  
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ message: '액세스 토큰이 필요합니다.' });
+  }
+
+  jwt.verify(token, process.env.JWT_SECRET || 'fc-chalggyeo-secret', (err: any, user: any) => {
+    if (err) {
+      return res.status(403).json({ message: '유효하지 않은 토큰입니다.' });
+    }
+    req.user = user;
+    next();
+  });
+};
+
 // app.use(express.json()); // 기존 코드 주석 처리
 app.use(bodyParser.json({ limit: '50mb' })); // body-parser로 대체, 업로드용 크기 제한 증가
 app.use(bodyParser.urlencoded({ extended: true, limit: '50mb' })); // multipart/form-data 지원
