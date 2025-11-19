@@ -43,9 +43,17 @@ import {
   Td,
   TableContainer,
   Progress,
-  Skeleton
+  Skeleton,
+  Drawer,
+  DrawerOverlay,
+  DrawerContent,
+  DrawerHeader,
+  DrawerCloseButton,
+  DrawerBody,
+  useBreakpointValue,
+  IconButton
 } from '@chakra-ui/react';
-import { ViewIcon, CalendarIcon, SettingsIcon, InfoIcon } from '@chakra-ui/icons';
+import { ViewIcon, CalendarIcon, SettingsIcon, InfoIcon, HamburgerIcon } from '@chakra-ui/icons';
 import { GameCardSkeleton, MemberListSkeleton } from '../components/common/SkeletonLoader';
 import { getValidToken, getMemberStats, type Game } from '../api/auth';
 import MemberManagement from '../components/MemberManagement';
@@ -453,6 +461,8 @@ export default function AdminPageNew() {
   }, [user]);
   
   const toast = useToast();
+  const isMobile = useBreakpointValue({ base: true, lg: false });
+  const mobileSidebar = useDisclosure();
   const adminManual = useDisclosure();
 
   // 메뉴별 설명 반환 함수
@@ -2878,244 +2888,162 @@ export default function AdminPageNew() {
     </VStack>
   ), []);
 
-  return (
-    <Box minH="100vh" bg="gray.50" pt={20}>
-      <Flex minH="calc(100vh - 80px)">
-        {/* 사이드바 */}
-        <Box
-          w="280px"
-          bg="white"
-          borderRight="1px"
-          borderColor="gray.200"
-          position="fixed"
-          top={20}
-          left={0}
-          h="calc(100vh - 80px)"
-          overflowY="auto"
-          zIndex={10}
-        >
-          <VStack spacing={0} align="stretch">
-            {/* 로고/헤더 */}
-            <Box p={6} borderBottom="1px" borderColor="gray.200">
-              <Text fontSize="3xl" fontWeight="black" color="#004ea8">
-                관리자 페이지
-              </Text>
-            </Box>
+  const commonMenuButtonProps = (menu: string) => ({
+    w: '100%',
+    justifyContent: 'flex-start' as const,
+    variant: 'ghost' as const,
+    bg: selectedMenu === menu ? 'white' : 'transparent',
+    color: selectedMenu === menu ? '#004ea8' : 'gray.700',
+    border: '1px solid',
+    borderColor: selectedMenu === menu ? '#004ea8' : 'transparent',
+    borderRadius: 'md',
+    transition: 'all 0.15s ease',
+    _hover: {
+      bg: selectedMenu === menu ? 'white' : 'gray.50',
+      borderColor: selectedMenu === menu ? '#004ea8' : 'gray.300'
+    }
+  });
 
-            {/* 메뉴 */}
-            <VStack spacing={0} p={4} flex={1}>
-              <Button
-                w="100%"
-                justifyContent="flex-start"
-                variant="ghost"
-                bg={selectedMenu === 'dashboard' ? 'white' : 'transparent'}
-                color={selectedMenu === 'dashboard' ? '#004ea8' : 'gray.700'}
-                border={selectedMenu === 'dashboard' ? '1px solid' : '1px solid'}
-                borderColor={selectedMenu === 'dashboard' ? '#004ea8' : 'transparent'}
-                borderRadius="md"
-                transition="all 0.15s ease"
-                _hover={{
-                  bg: selectedMenu === 'dashboard' ? 'white' : 'gray.50',
-                  borderColor: selectedMenu === 'dashboard' ? '#004ea8' : 'gray.300'
-                }}
-                onClick={() => handleMenuSelect('dashboard')}
-              >
-                📊 대시보드
-              </Button>
-              
-              <Button
-                w="100%"
-                justifyContent="flex-start"
-                variant="ghost"
-                bg={selectedMenu === 'users' ? 'white' : 'transparent'}
-                color={selectedMenu === 'users' ? '#004ea8' : 'gray.700'}
-                border={selectedMenu === 'users' ? '1px solid' : '1px solid'}
-                borderColor={selectedMenu === 'users' ? '#004ea8' : 'transparent'}
-                borderRadius="md"
-                mt={1}
-                transition="all 0.15s ease"
-                _hover={{
-                  bg: selectedMenu === 'users' ? 'white' : 'gray.50',
-                  borderColor: selectedMenu === 'users' ? '#004ea8' : 'gray.300'
-                }}
-                onClick={() => handleMenuSelect('users')}
-              >
-                👥 회원 관리
-              </Button>
+  const renderSidebarContent = (onNavigate?: () => void) => {
+    const handleClick = (menu: string) => {
+      handleMenuSelect(menu);
+      onNavigate?.();
+    };
 
-              <Button
-                w="100%"
-                justifyContent="flex-start"
-                variant="ghost"
-                bg={selectedMenu === 'vote-results' ? 'white' : 'transparent'}
-                color={selectedMenu === 'vote-results' ? '#004ea8' : 'gray.700'}
-                border={selectedMenu === 'vote-results' ? '1px solid' : '1px solid'}
-                borderColor={selectedMenu === 'vote-results' ? '#004ea8' : 'transparent'}
-                borderRadius="md"
-                mt={1}
-                transition="all 0.15s ease"
-                _hover={{
-                  bg: selectedMenu === 'vote-results' ? 'white' : 'gray.50',
-                  borderColor: selectedMenu === 'vote-results' ? '#004ea8' : 'gray.300'
-                }}
-                onClick={() => handleMenuSelect('vote-results')}
-              >
-                🗳️ 투표 결과
-              </Button>
-
-              <Button
-                w="100%"
-                justifyContent="flex-start"
-                variant="ghost"
-                bg={selectedMenu === 'vote-sessions' ? 'white' : 'transparent'}
-                color={selectedMenu === 'vote-sessions' ? '#004ea8' : 'gray.700'}
-                border={selectedMenu === 'vote-sessions' ? '1px solid' : '1px solid'}
-                borderColor={selectedMenu === 'vote-sessions' ? '#004ea8' : 'transparent'}
-                borderRadius="md"
-                mt={1}
-                transition="all 0.15s ease"
-                _hover={{
-                  bg: selectedMenu === 'vote-sessions' ? 'white' : 'gray.50',
-                  borderColor: selectedMenu === 'vote-sessions' ? '#004ea8' : 'gray.300'
-                }}
-                onClick={() => handleMenuSelect('vote-sessions')}
-              >
-                📅 투표 세션 관리
-              </Button>
-              
-              <Button
-                w="100%"
-                justifyContent="flex-start"
-                variant="ghost"
-                bg={selectedMenu === 'games' ? 'white' : 'transparent'}
-                color={selectedMenu === 'games' ? '#004ea8' : 'gray.700'}
-                border={selectedMenu === 'games' ? '1px solid' : '1px solid'}
-                borderColor={selectedMenu === 'games' ? '#004ea8' : 'transparent'}
-                borderRadius="md"
-                mt={1}
-                transition="all 0.15s ease"
-                _hover={{
-                  bg: selectedMenu === 'games' ? 'white' : 'gray.50',
-                  borderColor: selectedMenu === 'games' ? '#004ea8' : 'gray.300'
-                }}
-                onClick={() => handleMenuSelect('games')}
-              >
-                ⚽ 경기 관리
-              </Button>
-              
-
-
-
-              
-              <Button
-                w="100%"
-                justifyContent="flex-start"
-                variant="ghost"
-                bg={selectedMenu === 'notifications' ? 'white' : 'transparent'}
-                color={selectedMenu === 'notifications' ? '#004ea8' : 'gray.700'}
-                border={selectedMenu === 'notifications' ? '1px solid' : '1px solid'}
-                borderColor={selectedMenu === 'notifications' ? '#004ea8' : 'transparent'}
-                borderRadius="md"
-                mt={1}
-                transition="all 0.15s ease"
-                _hover={{
-                  bg: selectedMenu === 'notifications' ? 'white' : 'gray.50',
-                  borderColor: selectedMenu === 'notifications' ? '#004ea8' : 'gray.300'
-                }}
-                onClick={() => handleMenuSelect('notifications')}
-              >
-                🔔 알림 관리
-              </Button>
-
-
-
-                                      {hasPermission('all') && (
-                                      <Button
-                          w="100%"
-                          justifyContent="flex-start"
-                          variant="ghost"
-                          bg={selectedMenu === 'analytics' ? 'white' : 'transparent'}
-                          color={selectedMenu === 'analytics' ? '#004ea8' : 'gray.700'}
-                          border={selectedMenu === 'analytics' ? '1px solid' : '1px solid'}
-                          borderColor={selectedMenu === 'analytics' ? '#004ea8' : 'transparent'}
-                          borderRadius="md"
-                          mt={1}
-                          transition="all 0.15s ease"
-                          _hover={{
-                            bg: selectedMenu === 'analytics' ? 'white' : 'gray.50',
-                            borderColor: selectedMenu === 'analytics' ? '#004ea8' : 'gray.300'
-                          }}
-                          onClick={() => handleMenuSelect('analytics')}
-                        >
-                          📈 활동 분석
-                        </Button>
-                      )}
-
-                        <Button
-                          w="100%"
-                          justifyContent="flex-start"
-                          variant="ghost"
-                          bg={selectedMenu === 'football' ? 'white' : 'transparent'}
-                          color={selectedMenu === 'football' ? '#004ea8' : 'gray.700'}
-                          border={selectedMenu === 'football' ? '1px solid' : '1px solid'}
-                          borderColor={selectedMenu === 'football' ? '#004ea8' : 'transparent'}
-                          borderRadius="md"
-                          mt={1}
-                          transition="all 0.15s ease"
-                          _hover={{
-                            bg: selectedMenu === 'football' ? 'white' : 'gray.50',
-                            borderColor: selectedMenu === 'football' ? '#004ea8' : 'gray.300'
-                          }}
-                          onClick={() => handleMenuSelect('football')}
-                        >
-                          🏟️ 풋살 현황판
-                        </Button>
-
-            </VStack>
-
-            {/* 관리자 설명서 배너 */}
-            <Box px={3} py={2} borderTop="1px" borderColor="gray.200" _dark={{ borderColor: "gray.600" }}>
-              <Box
-                bgGradient="linear(to-r, blue.50, purple.50)"
-                px={2}
-                py={1.5}
-                rounded="md"
-                border="1px"
-                borderColor="blue.200"
-                _dark={{ bgGradient: "linear(to-r, blue.900, purple.900)", borderColor: "blue.700" }}
-                cursor="pointer"
-                onClick={adminManual.onOpen}
-                _hover={{ transform: "translateY(-1px)", shadow: "sm" }}
-                transition="all 0.2s"
-              >
-                <HStack spacing={1.5} align="center">
-                  <Text fontSize="sm">📚</Text>
-                  <VStack align="start" spacing={0} flex={1}>
-                    <Text fontSize="xs" fontWeight="semibold" color="blue.600" _dark={{ color: "blue.300" }} lineHeight="1.2">
-                      관리자 가이드
-                    </Text>
-                    <Text fontSize="10px" color="blue.500" _dark={{ color: "blue.400" }} lineHeight="1.1" mt="1px">
-                      {getMenuDescription(selectedMenu)}
-                    </Text>
-                  </VStack>
-                  <Text fontSize="10px" color="blue.500" _dark={{ color: "blue.400" }}>
-                    →
-                  </Text>
-                </HStack>
-              </Box>
-            </Box>
-          </VStack>
+    return (
+      <VStack spacing={0} align="stretch">
+        <Box p={6} borderBottom="1px" borderColor="gray.200">
+          <Text fontSize="3xl" fontWeight="black" color="#004ea8">
+            관리자 페이지
+          </Text>
         </Box>
+        <VStack spacing={0} p={4} flex={1} align="stretch">
+          <Button {...commonMenuButtonProps('dashboard')} onClick={() => handleClick('dashboard')}>
+            📊 대시보드
+          </Button>
+          <Button mt={1} {...commonMenuButtonProps('users')} onClick={() => handleClick('users')}>
+            👥 회원 관리
+          </Button>
+          <Button mt={1} {...commonMenuButtonProps('vote-results')} onClick={() => handleClick('vote-results')}>
+            🗳️ 투표 결과
+          </Button>
+          <Button mt={1} {...commonMenuButtonProps('vote-sessions')} onClick={() => handleClick('vote-sessions')}>
+            📅 투표 세션 관리
+          </Button>
+          <Button mt={1} {...commonMenuButtonProps('games')} onClick={() => handleClick('games')}>
+            ⚽ 경기 관리
+          </Button>
+          <Button mt={1} {...commonMenuButtonProps('notifications')} onClick={() => handleClick('notifications')}>
+            🔔 알림 관리
+          </Button>
+          {hasPermission('all') && (
+            <Button mt={1} {...commonMenuButtonProps('analytics')} onClick={() => handleClick('analytics')}>
+              📈 활동 분석
+            </Button>
+          )}
+          <Button mt={1} {...commonMenuButtonProps('football')} onClick={() => handleClick('football')}>
+            🏟️ 풋살 현황판
+          </Button>
+        </VStack>
+        <Box px={3} py={2} borderTop="1px" borderColor="gray.200" _dark={{ borderColor: 'gray.600' }}>
+          <Box
+            bgGradient="linear(to-r, blue.50, purple.50)"
+            px={2}
+            py={1.5}
+            rounded="md"
+            border="1px"
+            borderColor="blue.200"
+            _dark={{ bgGradient: 'linear(to-r, blue.900, purple.900)', borderColor: 'blue.700' }}
+            cursor="pointer"
+            onClick={() => {
+              onNavigate?.();
+              adminManual.onOpen();
+            }}
+            _hover={{ transform: 'translateY(-1px)', shadow: 'sm' }}
+            transition="all 0.2s"
+          >
+            <HStack spacing={1.5} align="center">
+              <Text fontSize="sm">📚</Text>
+              <VStack align="start" spacing={0} flex={1}>
+                <Text fontSize="xs" fontWeight="semibold" color="blue.600" _dark={{ color: 'blue.300' }} lineHeight="1.2">
+                  관리자 가이드
+                </Text>
+                <Text fontSize="10px" color="blue.500" _dark={{ color: 'blue.400' }} lineHeight="1.1" mt="1px">
+                  {getMenuDescription(selectedMenu)}
+                </Text>
+              </VStack>
+              <Text fontSize="10px" color="blue.500" _dark={{ color: 'blue.400' }}>
+                →
+              </Text>
+            </HStack>
+          </Box>
+        </Box>
+      </VStack>
+    );
+  };
+
+  return (
+    <Box minH="100vh" bg="gray.50" pt={isMobile ? 16 : 20}>
+      {isMobile && (
+        <>
+          <Flex
+            position="sticky"
+            top="80px"
+            zIndex={5}
+            bg="gray.50"
+            px={4}
+            py={3}
+            borderBottom="1px solid"
+            borderColor="gray.200"
+            align="center"
+            justify="space-between"
+          >
+            <Text fontSize="xl" fontWeight="bold" color="#004ea8">
+              관리자 페이지
+            </Text>
+            <IconButton
+              aria-label="관리자 메뉴 열기"
+              icon={<HamburgerIcon />}
+              variant="outline"
+              onClick={mobileSidebar.onOpen}
+            />
+          </Flex>
+          <Drawer placement="left" onClose={mobileSidebar.onClose} isOpen={mobileSidebar.isOpen} size="xs">
+            <DrawerOverlay />
+            <DrawerContent>
+              <DrawerCloseButton />
+              <DrawerHeader>관리자 메뉴</DrawerHeader>
+              <DrawerBody p={0}>{renderSidebarContent(mobileSidebar.onClose)}</DrawerBody>
+            </DrawerContent>
+          </Drawer>
+        </>
+      )}
+      <Flex minH="calc(100vh - 80px)">
+        {!isMobile && (
+          <Box
+            w="280px"
+            bg="white"
+            borderRight="1px"
+            borderColor="gray.200"
+            position="fixed"
+            top={20}
+            left={0}
+            h="calc(100vh - 80px)"
+            overflowY="auto"
+            zIndex={10}
+          >
+            {renderSidebarContent()}
+          </Box>
+        )}
 
         {/* 메인 콘텐츠 */}
-        <Box 
-          flex={1} 
-          ml="280px"
-          p={8} 
-          pt={8}
-          w="calc(100vw - 280px)"
-          minW="calc(100vw - 280px)"
-          maxW="calc(100vw - 280px)"
+        <Box
+          flex={1}
+          ml={isMobile ? 0 : '280px'}
+          p={{ base: 4, md: 6, lg: 8 }}
+          pt={{ base: 4, md: 6, lg: 8 }}
+          w="100%"
+          minW="0"
         >
           {loading ? (
             <VStack spacing={2} align="stretch" w="100%" p={4}>

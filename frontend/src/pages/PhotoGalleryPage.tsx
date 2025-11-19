@@ -1334,8 +1334,15 @@ export default function PhotoGalleryPage() {
   }, [instagramPosts, sortBy]);
 
   // 상대시간 포맷팅 (분/시간/일 단위)
+  const parseDate = (value?: string | null): Date | null => {
+    if (!value) return null;
+    const date = new Date(value);
+    return isNaN(date.getTime()) ? null : date;
+  };
+
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
+    const date = parseDate(dateString);
+    if (!date) return '방금 전';
     const now = new Date();
     const diffInMs = now.getTime() - date.getTime();
     const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
@@ -1353,10 +1360,17 @@ export default function PhotoGalleryPage() {
   };
 
   // ko-KR 날짜 + 요일 포맷
-  const formatKoDate = (dateString: string) => new Date(dateString).toLocaleDateString('ko-KR');
+  const formatKoDate = (dateString: string, fallback: string = '날짜 미정') => {
+    const date = parseDate(dateString);
+    if (!date) return fallback;
+    return date.toLocaleDateString('ko-KR');
+  };
+
   const getWeekdayKo = (dateString: string) => {
+    const date = parseDate(dateString);
+    if (!date) return '-';
     const days = ['일', '월', '화', '수', '목', '금', '토'];
-    return days[new Date(dateString).getDay()];
+    return days[date.getDay()];
   };
 
   return (
