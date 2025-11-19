@@ -2509,15 +2509,15 @@ export default function SchedulePageV2() {
               </VStack>
             ) : (
               <Box w="100%" flex="1" minW="0" display="flex" flexDirection="column">
-                <NewCalendarV2
-                  gameDataForCalendar={gameDataForCalendar}
-                  allDates={allDates}
-                  onGameClick={handleShowGameModal}
-                  voteResults={voteResults}
-                  nextWeekVoteData={nextWeekVoteData}
-                  allMembers={allMembers}
-                  unifiedVoteData={unifiedVoteData}
-                />
+              <NewCalendarV2
+                gameDataForCalendar={gameDataForCalendar}
+                allDates={allDates}
+                onGameClick={handleShowGameModal}
+                voteResults={voteResults}
+                nextWeekVoteData={nextWeekVoteData}
+                allMembers={allMembers}
+                unifiedVoteData={unifiedVoteData}
+              />
               </Box>
             )}
           </Box>

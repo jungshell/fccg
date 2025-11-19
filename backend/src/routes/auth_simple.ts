@@ -3,6 +3,8 @@ import { authenticateToken } from '../middlewares/authMiddleware';
 import { PrismaClient } from '@prisma/client';
 import { v2 as cloudinary } from 'cloudinary';
 import { authLimiter } from '../middlewares/security';
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
 import { 
   getKoreaTime, 
   getThisWeekMonday, 
@@ -218,8 +220,6 @@ router.post('/login', authLimiter, async (req, res) => {
     console.log('✅ 사용자 발견:', user.email, '비밀번호 해시 존재:', !!user.password);
 
     // 비밀번호 확인 (bcrypt로 해시 비교)
-    const bcrypt = require('bcrypt');
-    
     // 비밀번호 해시가 없으면 오류
     if (!user.password) {
       console.log('❌ 사용자 비밀번호 해시 없음');
@@ -389,21 +389,21 @@ router.post('/votes', async (req, res) => {
 
       // 트랜잭션으로 기존 투표 삭제 및 새 투표 생성
       const result = await prisma.$transaction(async (tx) => {
-        // 기존 투표 삭제 (재투표 방지)
+      // 기존 투표 삭제 (재투표 방지)
         await tx.vote.deleteMany({
-          where: { 
-            userId: userId,
-            voteSessionId: voteSession.id
-          }
-        });
+        where: { 
+          userId: userId,
+          voteSessionId: voteSession.id
+        }
+      });
 
-        // 새 투표 생성
+      // 새 투표 생성
         const vote = await tx.vote.create({
-          data: {
-            userId: userId,
-            voteSessionId: voteSession.id,
-            selectedDays: JSON.stringify(convertedSelectedDays)
-          }
+        data: {
+          userId: userId,
+          voteSessionId: voteSession.id,
+          selectedDays: JSON.stringify(convertedSelectedDays)
+        }
         });
 
         return vote;
@@ -707,7 +707,6 @@ router.post('/members', async (req, res) => {
     }
     
     // 비밀번호 해시화
-    const bcrypt = require('bcrypt');
     const hashedPassword = await bcrypt.hash(password || 'password123', 10);
     
     // 새 회원 생성
@@ -744,11 +743,36 @@ router.post('/members', async (req, res) => {
 // 회원가입 API (Rate Limiting 및 비밀번호 해시화 적용)
 router.post('/register', authLimiter, async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    console.log('🔍 회원가입 요청 받음:', {
+      body: req.body,
+      headers: req.headers['content-type'],
+      bodyType: typeof req.body,
+      bodyKeys: Object.keys(req.body || {})
+    });
     
-    if (!name || !email || !password) {
+    const { name, email, password, phone } = req.body;
+    
+    console.log('🔍 파싱된 데이터:', { name, email, password: password ? '***' : undefined, phone });
+    
+    // 필수 필드 검증
+    if (!name || (typeof name === 'string' && !name.trim())) {
+      console.log('❌ 이름 검증 실패:', name);
       return res.status(400).json({ 
-        error: '모든 필드를 입력해주세요.' 
+        error: '이름을 입력해주세요.' 
+      });
+    }
+    
+    if (!email || (typeof email === 'string' && !email.trim())) {
+      console.log('❌ 이메일 검증 실패:', email);
+      return res.status(400).json({ 
+        error: '이메일을 입력해주세요.' 
+      });
+    }
+    
+    if (!password || (typeof password === 'string' && !password.trim())) {
+      console.log('❌ 비밀번호 검증 실패:', password ? '***' : undefined);
+      return res.status(400).json({ 
+        error: '비밀번호를 입력해주세요.' 
       });
     }
 
@@ -779,33 +803,49 @@ router.post('/register', authLimiter, async (req, res) => {
     }
 
     // 비밀번호 해시화
-    const bcrypt = require('bcrypt');
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // 사용자 생성
+    // 사용자 생성 (phone은 선택사항)
     const user = await prisma.user.create({
       data: {
         name: name.trim(),
         email: email.toLowerCase().trim(),
         password: hashedPassword, // 해시화된 비밀번호 저장
+        phone: phone && phone.trim() ? phone.trim() : null,
         role: 'MEMBER'
       }
     });
 
+    // JWT 토큰 생성 (로그인과 동일하게)
+    const token = jwt.sign(
+      { userId: user.id, email: user.email, role: user.role },
+      process.env.JWT_SECRET || 'fc-chalggyeo-secret',
+      { expiresIn: '7d' }
+    );
+
     res.status(201).json({
       message: '회원가입 성공',
+      token,
       user: {
         id: user.id,
         name: user.name,
         email: user.email,
-        role: user.role
+        role: user.role,
+        phone: user.phone
       }
     });
 
-  } catch (error) {
-    console.error('회원가입 오류:', error);
+  } catch (error: any) {
+    console.error('❌ 회원가입 오류 발생:', error);
+    console.error('❌ 에러 스택:', error?.stack);
+    console.error('❌ 에러 메시지:', error?.message);
+    console.error('❌ 에러 이름:', error?.name);
+    console.error('❌ 전체 에러 객체:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
+    
     res.status(500).json({ 
-      error: '서버 오류가 발생했습니다.' 
+      error: '서버 오류가 발생했습니다.',
+      message: process.env.NODE_ENV === 'development' ? error?.message : undefined,
+      details: process.env.NODE_ENV === 'development' ? error?.stack : undefined
     });
   }
 });
@@ -991,7 +1031,7 @@ router.post('/games', async (req, res) => {
             name: { in: uniqueMemberNames }
           },
           select: { id: true, name: true }
-        });
+            });
         
         // 이름으로 매핑
         const nameToUserMap = new Map(memberUsers.map(u => [u.name, u.id]));
@@ -1000,7 +1040,7 @@ router.post('/games', async (req, res) => {
         const attendanceData = uniqueMemberNames
           .filter(name => nameToUserMap.has(name))
           .map(name => ({
-            gameId: game.id,
+                  gameId: game.id,
             userId: nameToUserMap.get(name)!,
             status: 'YES' as const
           }));
@@ -2356,7 +2396,7 @@ router.get('/unified-vote-data', async (req, res) => {
     const thisWeekMonday = getThisWeekMonday(koreaTime);
     const nextWeekMonday = getNextWeekMonday(koreaTime);
     const nextWeekFriday = getWeekFriday(nextWeekMonday);
-
+    
     // 활성 세션 조회 (안전한 조회)
     const activeSession = await getActiveSession(true);
     
@@ -2420,19 +2460,19 @@ router.get('/unified-vote-data', async (req, res) => {
           ? participant.selectedDays 
           : parseVoteDays(participant.selectedDays);
         
-        selectedDaysArray.forEach(day => {
-          // 한국어 날짜 형식을 영어 요일로 변환
+          selectedDaysArray.forEach(day => {
+            // 한국어 날짜 형식을 영어 요일로 변환
           const dayKey = convertKoreanDateToDayCode(day);
           
           if (results[dayKey as keyof typeof results]) {
             results[dayKey as keyof typeof results].count++;
             results[dayKey as keyof typeof results].participants.push({
-              userId: participant.userId,
-              userName: participant.userName,
-              votedAt: participant.votedAt
-            });
-          }
-        });
+                userId: participant.userId,
+                userName: participant.userName,
+                votedAt: participant.votedAt
+              });
+            }
+          });
       });
 
       // disabledDays 파싱
@@ -2538,17 +2578,17 @@ router.get('/unified-vote-data', async (req, res) => {
       lastCompletedSession.votes.forEach(vote => {
         const selectedDaysArray = parseVoteDays(vote.selectedDays);
         
-        selectedDaysArray.forEach((day: string) => {
+          selectedDaysArray.forEach((day: string) => {
           const dayKey = convertKoreanDateToDayCode(day);
-          if (dayKey && dayVotes[dayKey as keyof typeof dayVotes]) {
-            dayVotes[dayKey as keyof typeof dayVotes].count++;
-            dayVotes[dayKey as keyof typeof dayVotes].participants.push({
-              userId: vote.userId,
-              userName: vote.user.name,
-              votedAt: vote.createdAt
-            });
-          }
-        });
+            if (dayKey && dayVotes[dayKey as keyof typeof dayVotes]) {
+              dayVotes[dayKey as keyof typeof dayVotes].count++;
+              dayVotes[dayKey as keyof typeof dayVotes].participants.push({
+                userId: vote.userId,
+                userName: vote.user.name,
+                votedAt: vote.createdAt
+              });
+            }
+          });
       });
       
       lastWeekResults = {
@@ -2958,7 +2998,6 @@ router.put('/members/:id', authenticateToken, async (req, res) => {
 router.put('/change-password', authenticateToken, async (req, res) => {
   
   try {
-    const bcrypt = require('bcrypt');
     
     const { newPassword } = req.body;
     const userId = req.user?.userId;

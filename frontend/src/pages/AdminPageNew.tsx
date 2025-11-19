@@ -667,11 +667,11 @@ export default function AdminPageNew() {
       }
       
       // 4. 통합 투표 데이터 로드
-      console.log('🔄 통합 투표 데이터 로드 시작');
+        console.log('🔄 통합 투표 데이터 로드 시작');
       const unifiedData = await loadUnifiedVoteData();
       if (unifiedData) {
-        // 통합 API 데이터를 사용하여 경기 데이터 업데이트
-        await updateGamesFromVoteData(unifiedData);
+          // 통합 API 데이터를 사용하여 경기 데이터 업데이트
+          await updateGamesFromVoteData(unifiedData);
       }
       
     } catch (error) {
@@ -706,7 +706,7 @@ export default function AdminPageNew() {
         
         // 통합 투표 데이터 새로고침
         await loadUnifiedVoteData();
-        console.log('✅ 투표 데이터 변경 후 통합 데이터 새로고침 완료');
+          console.log('✅ 투표 데이터 변경 후 통합 데이터 새로고침 완료');
       } catch (e) {
         console.warn('데이터 새로고침 실패:', e);
       }

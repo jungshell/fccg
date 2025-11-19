@@ -2,7 +2,7 @@ name: Render Keepalive
 
 on:
   schedule:
-    - cron: "*/10 * * * *"
+    - cron: "*/10 * * * *"  # 10분마다 실행 (rate limit 부담 감소)
   workflow_dispatch:
 
 jobs:
@@ -11,5 +11,6 @@ jobs:
     steps:
       - name: Ping Render backend
         run: |
-          curl --silent --show-error --fail https://fccgfirst.onrender.com/api/auth/health || true
+          # /health 엔드포인트 사용 (rate limit 제외)
+          curl --silent --show-error --fail --max-time 30 https://fccgfirst.onrender.com/health || true
 

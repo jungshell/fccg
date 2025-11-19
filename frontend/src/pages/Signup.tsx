@@ -38,36 +38,69 @@ const Signup: FC<SignupProps> = ({ onSwitch, onClose }) => {
     
     setLoading(true);
     try {
-      const { token, user } = await register({ email, password, name, phone });
-      setUser(user);
-      setToken(token);
-      toast({ title: '회원가입 성공', status: 'success', duration: 2000, isClosable: true });
-      if (onClose) onClose();
-      navigate('/');
+      const registerData = { email, password, name, phone };
+      console.log('🔍 회원가입 데이터 전송:', { 
+        email, 
+        password: password ? '***' : undefined, 
+        name, 
+        phone,
+        hasEmail: !!email,
+        hasPassword: !!password,
+        hasName: !!name
+      });
+      
+      const result = await register(registerData);
+      console.log('✅ 회원가입 응답:', result);
+      const user = result.user;
+      const token = result.token;
+      
+      if (user) {
+        setUser(user);
+        if (token) {
+          setToken(token);
+        }
+        toast({ title: '회원가입 성공', status: 'success', duration: 2000, isClosable: true });
+        if (onClose) onClose();
+        navigate('/');
+      } else {
+        throw new Error('회원가입 응답에 사용자 정보가 없습니다.');
+      }
     } catch (err: unknown) {
+      console.error('❌ 회원가입 오류:', err);
       let errorMsg = '오류 발생';
       
       if (err && typeof err === 'object' && 'response' in err) {
-        const axiosError = err as { response?: { data?: { error?: string; message?: string }; status?: number } };
+        const fetchError = err as { response?: { data?: { error?: string; message?: string }; status?: number }; message?: string };
         
-        if (axiosError.response?.status === 400) {
-          errorMsg = axiosError.response.data?.error || axiosError.response.data?.message || '입력 정보를 확인해주세요.';
-        } else if (axiosError.response?.status === 409) {
+        // 타임아웃 또는 네트워크 오류
+        if (fetchError.response?.status === 0 || fetchError.response?.status === 408) {
+          errorMsg = fetchError.message || '네트워크 연결을 확인해주세요.';
+        } else if (fetchError.response?.status === 400) {
+          errorMsg = fetchError.response.data?.error || fetchError.response.data?.message || '입력 정보를 확인해주세요.';
+        } else if (fetchError.response?.status === 409) {
           errorMsg = '이미 존재하는 이메일입니다.';
-        } else if (axiosError.response?.status === 404) {
+        } else if (fetchError.response?.status === 404) {
           errorMsg = '회원가입 서비스를 찾을 수 없습니다. 잠시 후 다시 시도해주세요.';
-        } else if (axiosError.response?.status === 500) {
+        } else if (fetchError.response?.status === 500) {
           errorMsg = '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
-        } else if (axiosError.response?.data?.error) {
-          errorMsg = axiosError.response.data.error;
-        } else if (axiosError.response?.data?.message) {
-          errorMsg = axiosError.response.data.message;
+        } else if (fetchError.response?.data?.error) {
+          errorMsg = fetchError.response.data.error;
+        } else if (fetchError.response?.data?.message) {
+          errorMsg = fetchError.response.data.message;
+        } else if (fetchError.message) {
+          errorMsg = fetchError.message;
         }
       } else if (err && typeof err === 'object' && 'message' in err) {
         errorMsg = (err as { message: string }).message;
       }
       
-      toast({ title: '회원가입 실패', description: errorMsg, status: 'error', duration: 5000, isClosable: true });
+      toast({ 
+        title: '회원가입 실패', 
+        description: errorMsg, 
+        status: 'error', 
+        duration: 5000, 
+        isClosable: true 
+      });
     } finally {
       setLoading(false);
     }

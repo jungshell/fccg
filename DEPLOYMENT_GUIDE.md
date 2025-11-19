@@ -262,7 +262,7 @@ VITE_API_BASE_URL=https://your-backend.onrender.com
 해결 방법:
 1. Render에서 "Shell" 탭 열기
 2. 다음 명령어 실행:
-   cd backend
+cd backend
    npx prisma migrate deploy
 ```
 

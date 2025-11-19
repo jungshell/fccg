@@ -39,6 +39,11 @@ export const apiLimiter = isProduction
       message: '너무 많은 요청이 발생했습니다. 잠시 후 다시 시도해주세요.',
       standardHeaders: true,
       legacyHeaders: false,
+      skip: (req) => {
+        // 헬스체크 엔드포인트는 rate limit 제외 (keepalive용)
+        const path = req.path || req.url?.split('?')[0] || '';
+        return path === '/health' || path === '/api/auth/health' || path.startsWith('/health');
+      },
     })
   : noopLimiter;
 

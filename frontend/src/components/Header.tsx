@@ -362,23 +362,23 @@ export default function Header() {
             const Icon = item.icon;
             const isActive = location.pathname === item.path;
             return (
-              <Button 
+          <Button 
                 key={item.label}
                 variant={isActive ? "outline" : "ghost"} 
-                bg="transparent"
-                color="#004ea8" 
-                border="0.5px solid" 
+            bg="transparent"
+            color="#004ea8" 
+            border="0.5px solid" 
                 borderColor={isActive ? "#004ea8" : "transparent"} 
-                _hover={{ 
+            _hover={{ 
                   bg: isActive ? 'transparent' : 'gray.50',
-                  borderColor: "#004ea8"
-                }} 
+              borderColor: "#004ea8"
+            }} 
                 leftIcon={<Icon />}
                 onClick={() => handleNavigate(item.path)}
-                flexShrink={1}
-              >
+            flexShrink={1}
+          >
                 {item.label}
-              </Button>
+          </Button>
             );
           })}
         </HStack>

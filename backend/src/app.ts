@@ -72,6 +72,15 @@ app.use(cors(corsOptions));
 // 보안 헤더 설정 (기존 기능에 영향 없음)
 app.use(securityHeaders);
 
+// 헬스체크 엔드포인트 (rate limiter 적용 전에 등록 - keepalive용)
+app.get('/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'OK', 
+    message: 'Server is healthy',
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Rate Limiting 적용 (기존 사용자에게는 영향 없음)
 app.use('/api', apiLimiter);
 
@@ -1436,15 +1445,6 @@ app.get('/', (req, res) => {
   res.status(200).json({ 
     status: 'OK', 
     message: 'FC CHALGGYEO API 서버 동작 중',
-    timestamp: new Date().toISOString()
-  });
-});
-
-// 헬스체크 엔드포인트
-app.get('/health', (req, res) => {
-  res.status(200).json({ 
-    status: 'OK', 
-    message: 'Server is healthy',
     timestamp: new Date().toISOString()
   });
 });

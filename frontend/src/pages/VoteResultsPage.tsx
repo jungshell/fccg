@@ -109,7 +109,7 @@ export default function VoteResultsPage() {
       let summaryData;
       try {
         summaryData = await getAdminVoteSessionsSummary();
-        console.log('투표 세션 요약 데이터:', summaryData);
+      console.log('투표 세션 요약 데이터:', summaryData);
       } catch (apiError: any) {
         console.error('API 호출 실패:', apiError);
         throw new Error(`투표 세션 데이터를 불러오는데 실패했습니다: ${apiError.message || '알 수 없는 오류'}`);

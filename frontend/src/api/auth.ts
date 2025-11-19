@@ -46,21 +46,83 @@ const authHeaders = () => {
 
 const request = async <T = any>(path: string, init: RequestInit = {}): Promise<T> => {
   const url = await getApiUrl(path);
-  const res = await fetch(url, {
-    headers: { 'Content-Type': 'application/json', ...authHeaders(), ...(init.headers || {}) },
-    ...init,
-  });
-  if (!res.ok) throw new Error(await res.text());
-  const ct = res.headers.get('content-type') || '';
-  return (ct.includes('application/json') ? (await res.json()) : (await res.text())) as T;
+  
+  // 타임아웃 설정 (30초)
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000);
+  
+  try {
+    const res = await fetch(url, {
+      headers: { 'Content-Type': 'application/json', ...authHeaders(), ...(init.headers || {}) },
+      ...init,
+      signal: controller.signal,
+    });
+    
+    clearTimeout(timeoutId);
+    
+    if (!res.ok) {
+      const errorText = await res.text();
+      let errorData;
+      try {
+        errorData = JSON.parse(errorText);
+      } catch {
+        errorData = { error: errorText || '요청 처리 중 오류가 발생했습니다.' };
+      }
+      const error = new Error(errorData.error || errorData.message || '요청 처리 중 오류가 발생했습니다.');
+      (error as any).response = { status: res.status, data: errorData };
+      throw error;
+    }
+    const ct = res.headers.get('content-type') || '';
+    return (ct.includes('application/json') ? (await res.json()) : (await res.text())) as T;
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    
+    // 네트워크 오류 또는 타임아웃 처리
+    if (error.name === 'AbortError' || error.message.includes('aborted')) {
+      const timeoutError = new Error('요청 시간이 초과되었습니다. 네트워크 연결을 확인해주세요.');
+      (timeoutError as any).response = { status: 408, data: { error: '요청 시간 초과' } };
+      throw timeoutError;
+    }
+    
+    // 네트워크 오류
+    if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+      const networkError = new Error('네트워크 오류가 발생했습니다. 서버 연결을 확인해주세요.');
+      (networkError as any).response = { status: 0, data: { error: '네트워크 오류' } };
+      throw networkError;
+    }
+    
+    // 기타 오류는 그대로 throw
+    throw error;
+  }
 };
 
 // ===== 인증 =====
 export const login = (email: string, password: string) =>
-  request<{ token: string }>('/login', { method: 'POST', body: JSON.stringify({ email, password }) });
+  request<{ token: string; user: any }>('/login', { method: 'POST', body: JSON.stringify({ email, password }) });
 
-export const register = (name: string, email: string, password: string) =>
-  request('/register', { method: 'POST', body: JSON.stringify({ name, email, password }) });
+export const register = async (data: { name: string; email: string; password: string; phone?: string }) => {
+  const body = { name: data.name, email: data.email, password: data.password, phone: data.phone || null };
+  console.log('🔍 register API 호출 시작:', { 
+    url: '/register', 
+    body: { ...body, password: body.password ? '***' : undefined }
+  });
+  
+  try {
+    const url = await getApiUrl('/register');
+    console.log('🔍 register API URL:', url);
+    
+    const result = await request<{ token?: string; user: any; message?: string }>('/register', { 
+      method: 'POST', 
+      body: JSON.stringify(body) 
+    });
+    
+    console.log('✅ register API 응답 성공:', result);
+    return result;
+  } catch (error) {
+    console.error('❌ register API 오류:', error);
+    throw error;
+  }
+};
 
 export const updateProfile = (data: Partial<Member>) =>
   request('/profile', { method: 'PUT', body: JSON.stringify(data) });
