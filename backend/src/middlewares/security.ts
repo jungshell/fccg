@@ -35,8 +35,8 @@ const isProduction = process.env.NODE_ENV === 'production';
 export const apiLimiter = isProduction
   ? rateLimit({
       windowMs: 15 * 60 * 1000, // 15분
-      max: 100, // 최대 100 요청
-      message: '너무 많은 요청이 발생했습니다. 잠시 후 다시 시도해주세요.',
+      max: 300, // 최대 300 요청
+      message: '요청이 너무 자주 발생하고 있습니다. 잠시 후 다시 시도해주세요.',
       standardHeaders: true,
       legacyHeaders: false,
       skip: (req) => {
@@ -53,8 +53,8 @@ export const apiLimiter = isProduction
 export const authLimiter = isProduction
   ? rateLimit({
       windowMs: 15 * 60 * 1000, // 15분
-      max: 5, // 최대 5회 시도
-      message: '너무 많은 로그인 시도가 발생했습니다. 15분 후 다시 시도해주세요.',
+      max: 15, // 최대 15회 시도
+      message: '로그인 시도가 너무 많습니다. 잠시 후 다시 시도해주세요.',
       standardHeaders: true,
       legacyHeaders: false,
       skipSuccessfulRequests: true, // 성공한 요청은 카운트에서 제외
