@@ -72,6 +72,10 @@ app.use(cors(corsOptions));
 // 보안 헤더 설정 (기존 기능에 영향 없음)
 app.use(securityHeaders);
 
+// Body parser는 미들웨어 체인 초기에 설정 (요청 본문 파싱을 위해)
+app.use(bodyParser.json({ limit: '50mb' })); // body-parser로 대체, 업로드용 크기 제한 증가
+app.use(bodyParser.urlencoded({ extended: true, limit: '50mb' })); // multipart/form-data 지원
+
 // 헬스체크 엔드포인트 (rate limiter 적용 전에 등록 - keepalive용)
 app.get('/health', (req, res) => {
   res.status(200).json({ 
@@ -106,10 +110,6 @@ const authenticateToken = (req: any, res: any, next: any) => {
     next();
   });
 };
-
-// app.use(express.json()); // 기존 코드 주석 처리
-app.use(bodyParser.json({ limit: '50mb' })); // body-parser로 대체, 업로드용 크기 제한 증가
-app.use(bodyParser.urlencoded({ extended: true, limit: '50mb' })); // multipart/form-data 지원
 
 // 정적 파일 서빙 (업로드된 이미지)
 app.use('/uploads', express.static('uploads'));

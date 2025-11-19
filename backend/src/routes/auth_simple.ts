@@ -745,14 +745,33 @@ router.post('/register', authLimiter, async (req, res) => {
   try {
     console.log('🔍 회원가입 요청 받음:', {
       body: req.body,
-      headers: req.headers['content-type'],
+      rawBody: JSON.stringify(req.body),
+      headers: req.headers,
+      contentType: req.headers['content-type'],
       bodyType: typeof req.body,
-      bodyKeys: Object.keys(req.body || {})
+      bodyKeys: Object.keys(req.body || {}),
+      bodyIsEmpty: !req.body || Object.keys(req.body).length === 0
     });
+    
+    // req.body가 비어있는 경우 처리
+    if (!req.body || Object.keys(req.body).length === 0) {
+      console.error('❌ 요청 본문이 비어있습니다.');
+      return res.status(400).json({ 
+        error: '요청 데이터가 없습니다. Content-Type이 application/json인지 확인해주세요.' 
+      });
+    }
     
     const { name, email, password, phone } = req.body;
     
-    console.log('🔍 파싱된 데이터:', { name, email, password: password ? '***' : undefined, phone });
+    console.log('🔍 파싱된 데이터:', { 
+      name, 
+      email, 
+      password: password ? '***' : undefined, 
+      phone,
+      nameType: typeof name,
+      emailType: typeof email,
+      passwordType: typeof password
+    });
     
     // 필수 필드 검증
     if (!name || (typeof name === 'string' && !name.trim())) {
