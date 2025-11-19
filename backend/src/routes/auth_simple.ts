@@ -5281,8 +5281,15 @@ router.get('/profile', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
     }
 
+    const memberSince = user.createdAt;
+
     // 투표 참여 상세 정보 계산 (직접 구현)
     const voteSessions = await prisma.voteSession.findMany({
+      where: {
+        weekStartDate: {
+          gte: memberSince
+        }
+      },
       include: {
         votes: {
           where: { userId: userId }
@@ -5296,12 +5303,17 @@ router.get('/profile', authenticateToken, async (req, res) => {
     
     const voteDetails = {
       participated: participatedSessions,
-      total: totalSessions || 1
+      total: totalSessions
     };
     
     // 경기 참여 상세 정보 계산 (직접 구현)
     const games = await prisma.game.findMany({
-      where: { confirmed: true },
+      where: { 
+        confirmed: true,
+        date: {
+          gte: memberSince
+        }
+      },
       include: {
         attendances: {
           where: { userId: userId }
@@ -5314,7 +5326,7 @@ router.get('/profile', authenticateToken, async (req, res) => {
     
     const gameDetails = {
       participated: participatedGames,
-      total: totalGames || 1
+      total: totalGames
     };
 
     console.log('✅ 프로필 조회 완료:', {

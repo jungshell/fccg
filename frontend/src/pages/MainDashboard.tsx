@@ -327,25 +327,38 @@ export default function MainDashboard() {
         // 투표 현황 요약 계산 (실제 회원 정보 기준)
         const membersSnapshot = realTimeMembersRef.current;
         const totalMembers = membersSnapshot.length;
+        const normalizeId = (value: any): number => {
+          if (typeof value === 'string') {
+            const parsed = Number(value);
+            return Number.isNaN(parsed) ? -1 : parsed;
+          }
+          if (typeof value === 'number') return value;
+          return -1;
+        };
         
         // 실제 회원 중에서만 투표한 인원 계산
-        const memberIds = membersSnapshot.map(member => member.id);
+        const memberIdSet = new Set<number>(
+          membersSnapshot
+            .map(member => normalizeId(member.id))
+            .filter(id => id > -1)
+        );
         const participants = new Set<number>();
         data.forEach((vote: any) => {
-          if (memberIds.includes(vote.userId)) {
-            participants.add(vote.userId);
+          const voteUserId = normalizeId(vote.userId);
+          if (voteUserId > -1 && memberIdSet.has(voteUserId)) {
+            participants.add(voteUserId);
           }
         });
         
         // 투표한 회원 이름들 (실제 회원 정보에서 가져오기)
         const votedMemberNames = Array.from(participants).map((userId: number) => {
-          const member = membersSnapshot.find(m => m.id === userId);
+          const member = membersSnapshot.find(m => normalizeId(m.id) === userId);
           return member ? member.name : `회원${userId}`;
         }).filter(Boolean);
         
         console.log('🔍 MainDashboard 투표 데이터 분석:', {
           totalMembers,
-          memberIds,
+          memberIds: Array.from(memberIdSet),
           dataLength: data.length,
           participants: Array.from(participants),
           votedMemberNames
@@ -354,7 +367,8 @@ export default function MainDashboard() {
         // 최다 투표일 계산 (실제 회원의 투표만)
         const dateVoteCount: { [key: string]: number } = {};
         data.forEach((vote: any) => {
-          if (memberIds.includes(vote.userId) && vote.selectedDays && Array.isArray(vote.selectedDays)) {
+          const voteUserId = normalizeId(vote.userId);
+          if (voteUserId > -1 && memberIdSet.has(voteUserId) && vote.selectedDays && Array.isArray(vote.selectedDays)) {
             vote.selectedDays.forEach((date: string) => {
               if (date !== '불참') { // 불참은 제외
                 // 날짜 형식 처리: "9월 24일(수)" 형태인지 확인
