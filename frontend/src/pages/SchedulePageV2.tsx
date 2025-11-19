@@ -137,6 +137,71 @@ export default function SchedulePageV2() {
   } | null>(null);
   const [allMembers, setAllMembers] = useState<Array<{id: number, name: string}>>([]);
   const [games, setGames] = useState<GameData[]>([]);
+
+  const voteParticipationInfo = useMemo(() => {
+    if (!unifiedVoteData?.allMembers || unifiedVoteData.allMembers.length === 0) {
+      return null;
+    }
+
+    const normalizeId = (value: any): number => {
+      if (typeof value === 'number') return value;
+      if (typeof value === 'string') {
+        const parsed = Number(value);
+        return Number.isNaN(parsed) ? -1 : parsed;
+      }
+      return -1;
+    };
+
+    const votedUserIds = new Set<number>();
+    const collectIds = (participants?: any[]) => {
+      if (!participants || !Array.isArray(participants)) return;
+      participants.forEach((participant: any) => {
+        const id = normalizeId(participant?.userId ?? participant?.id);
+        if (id > -1) votedUserIds.add(id);
+      });
+    };
+
+    collectIds(unifiedVoteData.activeSession?.participants);
+
+    if (Array.isArray(unifiedVoteData.activeSession?.votes)) {
+      unifiedVoteData.activeSession.votes.forEach((vote: any) => {
+        const id = normalizeId(vote.userId);
+        if (id > -1) votedUserIds.add(id);
+      });
+    }
+
+    if (unifiedVoteData.activeSession?.results) {
+      Object.values(unifiedVoteData.activeSession.results).forEach((dayResult: any) => {
+        collectIds(dayResult?.participants);
+      });
+    }
+
+    if (Array.isArray(unifiedVoteData.allSessions)) {
+      unifiedVoteData.allSessions.forEach((session: any) => {
+        collectIds(session?.participants);
+      });
+    }
+
+    const allMembers = unifiedVoteData.allMembers;
+    const votedMembers = allMembers
+      .filter((member: any) => votedUserIds.has(normalizeId(member.id)))
+      .map((member: any) => member.name);
+    const nonVotedMembers = allMembers
+      .filter((member: any) => !votedUserIds.has(normalizeId(member.id)))
+      .map((member: any) => member.name);
+
+    const uniqueVoters = votedMembers.length;
+    const totalMembers = allMembers.length;
+    const participationRate = totalMembers > 0 ? Math.round((uniqueVoters / totalMembers) * 100) : 0;
+
+    return {
+      totalMembers,
+      uniqueVoters,
+      participationRate,
+      votedMembers,
+      nonVotedMembers
+    };
+  }, [unifiedVoteData]);
   
   // UI 상태 (데이터와 분리)
   const [selectedDays, setSelectedDays] = useState<string[]>([]);
@@ -2571,66 +2636,19 @@ export default function SchedulePageV2() {
                   {/* 투표참여율 - 오른쪽 끝에 배치 */}
                   <Tooltip 
                     label={(() => {
-                      console.log('🔍 툴팁 데이터 확인:', {
-                        unifiedVoteData: unifiedVoteData ? '있음' : '없음',
-                        activeSession: unifiedVoteData?.activeSession ? '있음' : '없음',
-                        lastWeekResults: unifiedVoteData?.lastWeekResults ? '있음' : '없음',
-                        allMembers: unifiedVoteData?.allMembers?.length || 0
-                      });
-                      
-                      if (!unifiedVoteData?.allMembers || unifiedVoteData.allMembers.length === 0) {
+                      const participationInfo = voteParticipationInfo;
+                      if (!participationInfo) {
                         return '투표 데이터를 불러오는 중...';
                       }
-                      
-                      const allMembers = unifiedVoteData.allMembers;
-                      let votedUserIds = new Set();
-                      
-                      // 방법 1: activeSession.participants에서 계산 (가장 정확한 방법)
-                      if (unifiedVoteData.activeSession?.participants && Array.isArray(unifiedVoteData.activeSession.participants)) {
-                        console.log('🔍 activeSession.participants 사용:', unifiedVoteData.activeSession.participants);
-                        unifiedVoteData.activeSession.participants.forEach((participant: any) => {
-                          votedUserIds.add(participant.userId);
-                        });
-                      }
-                      // 방법 2: activeSession.results에서 계산 (fallback)
-                      else if (unifiedVoteData.activeSession?.results) {
-                        console.log('🔍 activeSession.results 사용:', unifiedVoteData.activeSession.results);
-                        Object.values(unifiedVoteData.activeSession.results).forEach((dayResult: any) => {
-                          if (dayResult.participants && Array.isArray(dayResult.participants)) {
-                            dayResult.participants.forEach((participant: any) => {
-                              votedUserIds.add(participant.userId);
-                            });
-                          }
-                        });
-                      }
-                      // 방법 3: allSessions에서 계산 (fallback)
-                      else if (unifiedVoteData.allSessions && Array.isArray(unifiedVoteData.allSessions) && unifiedVoteData.allSessions.length > 0) {
-                        console.log('🔍 allSessions 사용:', unifiedVoteData.allSessions[0]);
-                        const latestSession = unifiedVoteData.allSessions[0];
-                        if (latestSession.participants && Array.isArray(latestSession.participants)) {
-                          latestSession.participants.forEach((participant: any) => {
-                            votedUserIds.add(participant.userId);
-                          });
-                        }
-                      }
-                      
-                      console.log('🔍 투표한 사용자 IDs:', Array.from(votedUserIds));
-                      
-                      const votedMembers = allMembers.filter((member: any) => votedUserIds.has(member.id));
-                      const nonVotedMembers = allMembers.filter((member: any) => !votedUserIds.has(member.id));
-                      
-                      console.log('🔍 투표 참여자:', votedMembers.map((m: any) => m.name));
-                      console.log('🔍 투표 미참여자:', nonVotedMembers.map((m: any) => m.name));
-                      
-                      let tooltipText = '';
+                      const { votedMembers, nonVotedMembers } = participationInfo;
+                      const segments = [];
                       if (votedMembers.length > 0) {
-                        tooltipText += `참여: ${votedMembers.map((m: any) => m.name).join(', ')}\n`;
+                        segments.push(`참여: ${votedMembers.join(', ')}`);
                       }
                       if (nonVotedMembers.length > 0) {
-                        tooltipText += `미참여: ${nonVotedMembers.map((m: any) => m.name).join(', ')}`;
+                        segments.push(`미참여: ${nonVotedMembers.join(', ')}`);
                       }
-                      
-                      return tooltipText || '투표 데이터 없음';
+                      return segments.join('\n') || '투표 데이터 없음';
                     })()}
                     placement="bottom"
                     hasArrow
@@ -2641,50 +2659,9 @@ export default function SchedulePageV2() {
                   >
                     <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600" fontWeight="medium" cursor="default">
                       투표참여율: {(() => {
-                        console.log('🔍 투표참여율 계산 상세:', {
-                          unifiedVoteData: unifiedVoteData ? '있음' : '없음',
-                          activeSession: unifiedVoteData?.activeSession ? '있음' : '없음',
-                          allMembers: unifiedVoteData?.allMembers?.length || 0,
-                          totalParticipants: unifiedVoteData?.activeSession?.totalParticipants || 0,
-                          allMembersData: unifiedVoteData?.allMembers,
-                          activeSessionData: unifiedVoteData?.activeSession
-                        });
-                        
-                        if (!unifiedVoteData?.activeSession || !unifiedVoteData.allMembers || unifiedVoteData.allMembers.length === 0) {
-                          console.log('⚠️ 투표참여율 계산 실패: 데이터 부족');
-                          return "0%";
-                        }
-                        
-                        const totalMembers = unifiedVoteData.allMembers.length;
-                        
-                        // 투표 데이터에서 고유한 사용자 수 계산 (다양한 데이터 구조 지원)
-                        let uniqueVoters = 0;
-                        
-                        // 방법 1: activeSession.votes에서 계산
-                        if (unifiedVoteData.activeSession.votes) {
-                          uniqueVoters = new Set(unifiedVoteData.activeSession.votes.map(vote => vote.userId)).size;
-                        }
-                        // 방법 2: lastWeekResults에서 계산 (세션이 마감된 경우)
-                        else if (unifiedVoteData.lastWeekResults?.results) {
-                          const allParticipants = new Set();
-                          Object.values(unifiedVoteData.lastWeekResults.results).forEach((dayResult: any) => {
-                            if (dayResult.participants) {
-                              dayResult.participants.forEach((participant: any) => {
-                                allParticipants.add(participant.userId);
-                              });
-                            }
-                          });
-                          uniqueVoters = allParticipants.size;
-                        }
-                        // 방법 3: totalParticipants 사용
-                        else if (unifiedVoteData.activeSession.totalParticipants) {
-                          uniqueVoters = unifiedVoteData.activeSession.totalParticipants;
-                        }
-                        
-                        const participationRate = totalMembers > 0 ? Math.round((uniqueVoters / totalMembers) * 100) : 0;
-                        
-                        console.log('✅ 투표참여율 계산 성공:', { totalMembers, uniqueVoters, participationRate });
-                        return `${participationRate}%`;
+                        const participationInfo = voteParticipationInfo;
+                        if (!participationInfo) return '0%';
+                        return `${participationInfo.participationRate}%`;
                       })()}
                     </Text>
                   </Tooltip>
