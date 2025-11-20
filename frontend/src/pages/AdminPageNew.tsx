@@ -3042,8 +3042,9 @@ export default function AdminPageNew() {
           ml={isMobile ? 0 : '280px'}
           p={{ base: 4, md: 6, lg: 8 }}
           pt={{ base: 4, md: 6, lg: 8 }}
-          w="100%"
+          w={isMobile ? '100%' : 'calc(100vw - 280px)'}
           minW="0"
+          maxW={isMobile ? '100%' : 'calc(100vw - 280px)'}
         >
           {loading ? (
             <VStack spacing={2} align="stretch" w="100%" p={4}>

@@ -5,6 +5,7 @@ import {
   Card,
   CardBody,
   Table,
+  TableContainer,
   Thead,
   Tbody,
   Tr,
@@ -39,6 +40,7 @@ import { AddIcon, EditIcon, DeleteIcon, SearchIcon, ViewIcon, RepeatIcon } from 
 import { updateMember, deleteMember, resetMemberPassword } from '../api/auth';
 import { useAuthStore } from '../store/auth';
 import { API_ENDPOINTS } from '../constants';
+import { getApiUrl } from '../config/api';
 import { eventBus, EVENT_TYPES, emitMemberAdded, emitDataRefreshNeeded, emitLoadingStart, emitLoadingEnd, emitAlert } from '../utils/eventBus';
 
 interface Member {
@@ -262,7 +264,8 @@ export default function MemberManagement({ userList, onUserListChange }: MemberM
         
         // 직접 백엔드 API 호출
         try {
-          const response = await fetch(`${API_ENDPOINTS.BASE_URL}/members/${editingMember.id}`, {
+          const apiUrl = await getApiUrl(`/members/${editingMember.id}`);
+          const response = await fetch(apiUrl, {
             method: 'PUT',
             headers: {
               'Content-Type': 'application/json',
@@ -277,11 +280,22 @@ export default function MemberManagement({ userList, onUserListChange }: MemberM
           });
           
           if (!response.ok) {
-            const errorData = await response.json();
+            let errorData;
+            try {
+              errorData = await response.json();
+            } catch (e) {
+              errorData = { error: `서버 오류 (${response.status})` };
+            }
             throw new Error(errorData.error || '회원 정보 수정 실패');
           }
           
-          const result = await response.json();
+          let result;
+          try {
+            result = await response.json();
+          } catch (e) {
+            console.error('JSON 파싱 오류:', e);
+            throw new Error('서버 응답을 파싱할 수 없습니다.');
+          }
           console.log('API 응답:', result);
           
           // API 응답으로 업데이트된 회원 정보로 목록 갱신
@@ -502,7 +516,8 @@ export default function MemberManagement({ userList, onUserListChange }: MemberM
           borderRadius="lg"
           overflow="hidden"
         >
-          <Table variant="simple" size="sm">
+          <TableContainer overflowX="auto" maxW="100%">
+            <Table variant="simple" size="sm" minW="600px">
             <Thead>
               <Tr>
                 <Th textAlign="center">이름</Th>
@@ -610,6 +625,7 @@ export default function MemberManagement({ userList, onUserListChange }: MemberM
               ))}
             </Tbody>
           </Table>
+          </TableContainer>
         </Box>
       </VStack>
 
