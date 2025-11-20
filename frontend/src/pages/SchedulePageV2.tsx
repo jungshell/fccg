@@ -176,70 +176,7 @@ export default function SchedulePageV2() {
   const [allMembers, setAllMembers] = useState<Array<{id: number, name: string}>>([]);
   const [games, setGames] = useState<GameData[]>([]);
 
-  const voteParticipationInfo = useMemo(() => {
-    if (!unifiedVoteData?.allMembers || unifiedVoteData.allMembers.length === 0) {
-      return null;
-    }
-
-    const normalizeId = (value: any): number => {
-      if (typeof value === 'number') return value;
-      if (typeof value === 'string') {
-        const parsed = Number(value);
-        return Number.isNaN(parsed) ? -1 : parsed;
-      }
-      return -1;
-    };
-
-    const votedUserIds = new Set<number>();
-    const collectIds = (participants?: any[]) => {
-      if (!participants || !Array.isArray(participants)) return;
-      participants.forEach((participant: any) => {
-        const id = normalizeId(participant?.userId ?? participant?.id);
-        if (id > -1) votedUserIds.add(id);
-      });
-    };
-
-    collectIds(unifiedVoteData.activeSession?.participants);
-
-    if (Array.isArray(unifiedVoteData.activeSession?.votes)) {
-      unifiedVoteData.activeSession.votes.forEach((vote: any) => {
-        const id = normalizeId(vote.userId);
-        if (id > -1) votedUserIds.add(id);
-      });
-    }
-
-    if (unifiedVoteData.activeSession?.results) {
-      Object.values(unifiedVoteData.activeSession.results).forEach((dayResult: any) => {
-        collectIds(dayResult?.participants);
-      });
-    }
-
-    if (Array.isArray(unifiedVoteData.allSessions)) {
-      unifiedVoteData.allSessions.forEach((session: any) => {
-        collectIds(session?.participants);
-      });
-    }
-
-    const allMembers = unifiedVoteData.allMembers;
-    const votedMembers = allMembers
-      .filter((member: any) => votedUserIds.has(normalizeId(member.id)))
-      .map((member: any) => member.name);
-    const nonVotedMembers = allMembers
-      .filter((member: any) => !votedUserIds.has(normalizeId(member.id)))
-      .map((member: any) => member.name);
-
-    const uniqueVoters = votedMembers.length;
-    const totalMembers = allMembers.length;
-    const participationRate = totalMembers > 0 ? Math.round((uniqueVoters / totalMembers) * 100) : 0;
-
-    return {
-      totalMembers,
-      uniqueVoters,
-      participationRate,
-      votedMembers,
-      nonVotedMembers
-    };
-  }, [unifiedVoteData]);
+  // (moved below after isVoteClosed)
   
   // UI 상태 (데이터와 분리)
   const [selectedDays, setSelectedDays] = useState<string[]>([]);
@@ -1623,6 +1560,72 @@ export default function SchedulePageV2() {
     return false;
   }, [unifiedVoteData, voteResults]);
 
+  const effectiveVoteResults = useMemo(() => {
+    if (isVoteClosed && unifiedVoteData?.lastWeekResults?.results) {
+      return unifiedVoteData.lastWeekResults.results;
+    }
+    return unifiedVoteData?.activeSession?.results || null;
+  }, [isVoteClosed, unifiedVoteData]);
+
+  const voteParticipationInfo = useMemo(() => {
+    if (!unifiedVoteData?.allMembers || unifiedVoteData.allMembers.length === 0) return null;
+
+    const normalizeId = (value: any): number => {
+      if (typeof value === 'number') return value;
+      if (typeof value === 'string') {
+        const parsed = Number(value);
+        return Number.isNaN(parsed) ? -1 : parsed;
+      }
+      return -1;
+    };
+
+    const votedUserIds = new Set<number>();
+    const collectIds = (participants?: any[]) => {
+      if (!participants || !Array.isArray(participants)) return;
+      participants.forEach((participant: any) => {
+        const id = normalizeId(participant?.userId ?? participant?.id);
+        if (id > -1) votedUserIds.add(id);
+      });
+    };
+
+    const sessionParticipants = isVoteClosed
+      ? unifiedVoteData?.lastWeekResults?.participants
+      : unifiedVoteData?.activeSession?.participants;
+    collectIds(sessionParticipants);
+
+    if (effectiveVoteResults) {
+      Object.values(effectiveVoteResults).forEach((dayResult: any) => {
+        collectIds(dayResult?.participants);
+      });
+    }
+
+    if (Array.isArray(unifiedVoteData.allSessions)) {
+      unifiedVoteData.allSessions.forEach((session: any) => {
+        collectIds(session?.participants);
+      });
+    }
+
+    const allMembers = unifiedVoteData.allMembers;
+    const votedMembers = allMembers
+      .filter((member: any) => votedUserIds.has(normalizeId(member.id)))
+      .map((member: any) => member.name);
+    const nonVotedMembers = allMembers
+      .filter((member: any) => !votedUserIds.has(normalizeId(member.id)))
+      .map((member: any) => member.name);
+
+    const uniqueVoters = votedMembers.length;
+    const totalMembers = allMembers.length;
+    const participationRate = totalMembers > 0 ? Math.round((uniqueVoters / totalMembers) * 100) : 0;
+
+    return {
+      totalMembers,
+      uniqueVoters,
+      participationRate,
+      votedMembers,
+      nonVotedMembers
+    };
+  }, [unifiedVoteData, effectiveVoteResults, isVoteClosed]);
+
   // 투표 버튼 텍스트 결정
   const getVoteButtonText = () => {
     if (isVoteClosed) return '투표 마감';
@@ -2745,10 +2748,10 @@ export default function SchedulePageV2() {
                         // activeSession의 results에서 투표 수 가져오기
                         let voteCount = 0;
                         let maxVoteCount = 0;
-                        if (unifiedVoteData?.activeSession?.results && dayKey) {
-                          voteCount = unifiedVoteData.activeSession.results[dayKey]?.count || 0;
+        if (effectiveVoteResults && dayKey) {
+          voteCount = effectiveVoteResults[dayKey]?.count || 0;
                           // maxVoteCount도 activeSession.results에서 계산
-                          const results = unifiedVoteData.activeSession.results;
+          const results = effectiveVoteResults;
                           maxVoteCount = Math.max(
                             results.MON?.count || 0,
                             results.TUE?.count || 0,
