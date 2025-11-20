@@ -1853,8 +1853,8 @@ export default function AdminPageNew() {
     // 정확한 시간 체크 (15분 이내에만 실행)
     if (currentMinute > 15) return;
     
-    // 1. 경기 전 알림 체크 (15시에 발송)
-    if (notificationSettings.gameReminder.enabled && currentHour === 15) {
+    // 1. 경기 전 알림 체크 (전날 15시, 당일 10시에 발송)
+    if (notificationSettings.gameReminder.enabled && (currentHour === 15 || currentHour === 10)) {
       checkGameReminders(now);
     }
 
@@ -1889,12 +1889,12 @@ export default function AdminPageNew() {
                          now.getFullYear() === dayBeforeGame.getFullYear() &&
                          now.getHours() === 15;
       
-      // 경기 당일 15시 알림
-      const dayOfGame = new Date(gameYear, gameMonth, gameDay, 15, 0, 0);
+      // 경기 당일 10시 알림
+      const dayOfGame = new Date(gameYear, gameMonth, gameDay, 10, 0, 0);
       const isDayOfGame = now.getDate() === dayOfGame.getDate() && 
                          now.getMonth() === dayOfGame.getMonth() && 
                          now.getFullYear() === dayOfGame.getFullYear() &&
-                         now.getHours() === 15;
+                         now.getHours() === 10;
       
       if (isDayBefore || isDayOfGame) {
         // 이미 발송된 알림인지 체크
@@ -1951,8 +1951,8 @@ export default function AdminPageNew() {
       }
     }
     
-    // 매주 화/수요일 10시, 14시, 16시: 투표하지 않은 회원에게 투표 독려
-    if ((currentDay === 2 || currentDay === 3) && (currentHour === 10 || currentHour === 14 || currentHour === 16)) {
+    // 매주 목요일 10시: 투표하지 않은 회원에게 투표 독려
+    if (currentDay === 4 && currentHour === 10) {
       const voteDeadline = getVoteDeadline();
       const nonVoters = getNonVoters();
       
