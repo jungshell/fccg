@@ -1605,29 +1605,6 @@ export default function PhotoGalleryPage() {
                       {post.eventType?.includes('ì') || post.eventType?.includes('자체') ? '자체' : post.eventType}
                     </Badge>
 
-                    {/* 클릭수 배지 */}
-                    <Box
-                      position="absolute"
-                      bottom={2}
-                      right={2}
-                      bgGradient={getClickBadgeStyle(post.clicks || 0).gradient}
-                      color="white"
-                      px={3}
-                      py={1}
-                      borderRadius="full"
-                      display="flex"
-                      alignItems="center"
-                      gap={1.5}
-                      fontSize="xs"
-                      fontWeight="bold"
-                      boxShadow={getClickBadgeStyle(post.clicks || 0).shadow}
-                      letterSpacing="0.02em"
-                    >
-                      <Text fontSize="sm">
-                        {getClickBadgeStyle(post.clicks || 0).emoji}
-                      </Text>
-                      <Text>{formatViewCountDisplay(post.clicks || 0)} 클릭</Text>
-                    </Box>
                   </Box>
 
                   {/* 포스트 정보 */}
@@ -1650,12 +1627,23 @@ export default function PhotoGalleryPage() {
                               <Text fontSize="sm">💬</Text>
                               <Text fontSize="sm" color="gray.600">{post.comments.length}</Text>
                             </HStack>
-                          <HStack spacing={1}>
-                            <Text fontSize="sm">⚡</Text>
-                            <Text fontSize="sm" color="gray.600">
-                              {formatViewCountDisplay(post.clicks || 0)} 클릭
-                            </Text>
-                          </HStack>
+                          <Tooltip
+                            label={`좋아요 ${post.likes}개 · 댓글 ${post.comments.length}개 · 클릭 ${formatViewCountDisplay(post.clicks || 0)}회`}
+                            fontSize="10px"
+                            placement="top"
+                            bg="gray.800"
+                            color="white"
+                            borderRadius="md"
+                            px={2}
+                            py={1}
+                          >
+                            <HStack spacing={1} cursor="default">
+                              <Text fontSize="sm">⚡</Text>
+                              <Text fontSize="sm" color="gray.600">
+                                {formatViewCountDisplay(post.clicks || 0)}
+                              </Text>
+                            </HStack>
+                          </Tooltip>
                           </HStack>
                         </Flex>
 
@@ -2070,93 +2058,75 @@ export default function PhotoGalleryPage() {
                     </Flex>
 
                     {/* 액션 버튼: 좋아요, 다운로드, 편집/삭제 및 좋아요/댓글 수 */}
-                    <Flex w="full" justify="space-between" align="center" mt="-1">
+                    <Flex w="full" justify="flex-end" align="center" mt="-1">
                       <HStack spacing={1.5}>
                         <Tooltip label="좋아요" placement="top">
-                      <IconButton 
-                        aria-label="좋아요" 
+                          <IconButton 
+                            aria-label="좋아요" 
                             icon={selectedPost.isLiked ? <Text fontSize="xs" color="white" fontWeight="bold">♥</Text> : <Text fontSize="xs" color="white">♡</Text>} 
                             size="xs" 
                             bg={selectedPost.isLiked ? "#e53e3e" : "#004ea8"}
                             color="white"
                             _hover={{ bg: selectedPost.isLiked ? "#c53030" : "#00397a" }}
-                        onClick={() => toggleLike(selectedPost.id)} 
+                            onClick={() => toggleLike(selectedPost.id)} 
                             h="24px"
                             minW="24px"
-                      />
+                          />
                         </Tooltip>
                         <Tooltip label="다운로드" placement="top">
-                      <IconButton 
-                        aria-label="다운로드" 
+                          <IconButton 
+                            aria-label="다운로드" 
                             icon={<Text fontSize="xs" color="white">↓</Text>} 
                             size="xs" 
                             bg="#004ea8"
                             color="white"
                             _hover={{ bg: "#00397a" }}
-                        onClick={() => handleDownload(selectedPost)} 
+                            onClick={() => handleDownload(selectedPost)} 
                             h="24px"
                             minW="24px"
-                      />
+                          />
                         </Tooltip>
-                      {((user?.id && user?.id === selectedPost.author.id) || user?.role === 'SUPER_ADMIN') && (
-                        <>
+                        {((user?.id && user?.id === selectedPost.author.id) || user?.role === 'SUPER_ADMIN') && (
+                          <>
                             <Tooltip label="수정" placement="top">
-                          <IconButton 
-                            aria-label="수정" 
+                              <IconButton 
+                                aria-label="수정" 
                                 icon={<Text fontSize="xs" color="white">✎</Text>} 
                                 size="xs" 
                                 bg="#004ea8"
                                 color="white"
                                 _hover={{ bg: "#00397a" }}
-                            onClick={() => openEditModal(selectedPost)} 
+                                onClick={() => openEditModal(selectedPost)} 
                                 h="24px"
                                 minW="24px"
-                          />
+                              />
                             </Tooltip>
                             <Tooltip label="삭제" placement="top">
-                          <IconButton 
-                            aria-label="삭제" 
+                              <IconButton 
+                                aria-label="삭제" 
                                 icon={<DeleteIcon color="white" boxSize="10px" />} 
                                 size="xs" 
                                 bg="#004ea8"
                                 color="white"
                                 _hover={{ bg: "#00397a" }}
-                            onClick={() => deletePost(selectedPost.id)} 
+                                onClick={() => deletePost(selectedPost.id)} 
                                 h="24px"
                                 minW="24px"
-                          />
+                              />
                             </Tooltip>
-                        </>
-                      )}
-                    </HStack>
-
-                      {/* 좋아요 및 댓글 수 - 우측 정렬 */}
-                    <HStack spacing={4}>
-                      <Tooltip
-                        label={selectedPost.likedBy.length > 0 
-                          ? selectedPost.likedBy.map(like => like.name).join(', ')
-                          : '아직 좋아요가 없습니다'
-                        }
-                        placement="top"
-                        hasArrow
-                      >
-                          <Text fontSize="xs" color="gray.800" cursor="pointer">
-                          좋아요 {selectedPost.likes}개
+                          </>
+                        )}
+                      </HStack>
+                    </Flex>
+                    <Flex w="full" justify="flex-end" mt={1}>
+                      <VStack spacing={0} align="flex-end">
+                        <Text fontSize="xs" color="gray.800">
+                          좋아요 {selectedPost.likes}개 · 댓글 {selectedPost.comments.length}개
                         </Text>
-                      </Tooltip>
-                      <Tooltip
-                        label={selectedPost.comments.length > 0 
-                          ? `${selectedPost.comments.length}개의 댓글`
-                          : '아직 댓글이 없습니다'
-                        }
-                        placement="top"
-                        hasArrow
-                      >
-                          <Text fontSize="xs" color="gray.800" cursor="pointer">
-                          댓글 {selectedPost.comments.length}개
+                        <Text fontSize="xs" color="gray.600">
+                          클릭 {formatViewCountDisplay(selectedPost.clicks || 0)}회
                         </Text>
-                      </Tooltip>
-                    </HStack>
+                      </VStack>
                     </Flex>
 
                     {/* 댓글 목록: 댓글 내용, 업로드시점, 이름, 수정/삭제 버튼을 같은 행에 표시 */}
