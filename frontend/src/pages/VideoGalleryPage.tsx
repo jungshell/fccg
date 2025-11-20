@@ -458,25 +458,6 @@ export default function VideoGalleryPage() {
                   h="200px" 
                   objectFit="cover" 
                 />
-                <Box
-                  position="absolute"
-                  bottom={2}
-                  right={2}
-                  bgGradient={getVideoClickBadgeStyle(item.viewCount || 0).gradient}
-                  color="white"
-                  px={3}
-                  py={1}
-                  borderRadius="full"
-                  display="flex"
-                  alignItems="center"
-                  gap={1.5}
-                  fontSize="xs"
-                  fontWeight="bold"
-                  boxShadow={getVideoClickBadgeStyle(item.viewCount || 0).shadow}
-                >
-                  <Text fontSize="sm">{getVideoClickBadgeStyle(item.viewCount || 0).emoji}</Text>
-                  <Text>{formatVideoViewCount(item.viewCount || 0)} 클릭</Text>
-                </Box>
               </Box>
 
               {/* 정보 영역 */}
@@ -490,20 +471,26 @@ export default function VideoGalleryPage() {
                         {item.date || item.description || '날짜 없음'}
                       </Text>
                       <HStack spacing={4} ml="auto">
-                        <HStack spacing={1}>
-                          <AiFillHeart color="#e53e3e" size={16} />
-                          <Text fontSize="sm" color="gray.600">{item.likes}</Text>
-                        </HStack>
-                        <HStack spacing={1}>
-                          <Text fontSize="sm">💬</Text>
-                          <Text fontSize="sm" color="gray.600">{item.comments}</Text>
-                        </HStack>
-                        <HStack spacing={1}>
-                          <Text fontSize="sm">⚡</Text>
-                          <Text fontSize="sm" color="gray.600">
-                            {formatVideoViewCount(item.viewCount || 0)} 클릭
-                          </Text>
-                        </HStack>
+                        <Tooltip label={`좋아요 ${item.likes}개`} fontSize="10px" bg="gray.800" color="white" borderRadius="md" px={2} py={1}>
+                          <HStack spacing={1} cursor="default">
+                            <AiFillHeart color="#e53e3e" size={16} />
+                            <Text fontSize="sm" color="gray.600">{item.likes}</Text>
+                          </HStack>
+                        </Tooltip>
+                        <Tooltip label={`댓글 ${item.comments}개`} fontSize="10px" bg="gray.800" color="white" borderRadius="md" px={2} py={1}>
+                          <HStack spacing={1} cursor="default">
+                            <Text fontSize="sm">💬</Text>
+                            <Text fontSize="sm" color="gray.600">{item.comments}</Text>
+                          </HStack>
+                        </Tooltip>
+                        <Tooltip label={`클릭 ${formatVideoViewCount(item.viewCount || 0)}회`} fontSize="10px" bg="gray.800" color="white" borderRadius="md" px={2} py={1}>
+                          <HStack spacing={1} cursor="default">
+                            <Text fontSize="sm">⚡</Text>
+                            <Text fontSize="sm" color="gray.600">
+                              {formatVideoViewCount(item.viewCount || 0)}
+                            </Text>
+                          </HStack>
+                        </Tooltip>
                       </HStack>
                     </Flex>
                   </VStack>
@@ -585,14 +572,16 @@ export default function VideoGalleryPage() {
                         <AiFillHeart color="#e53e3e" size={16} />
                         <Text fontSize="sm">{selectedItem.likes}</Text>
                       </HStack>
+                      <Text fontSize="sm" color="gray.400">·</Text>
                       <HStack spacing={1}>
                         <Text fontSize="sm">💬</Text>
                         <Text fontSize="sm">{selectedItem.comments}</Text>
                       </HStack>
+                      <Text fontSize="sm" color="gray.400">·</Text>
                       <HStack spacing={1}>
                         <Text fontSize="sm">⚡</Text>
                         <Text fontSize="sm">
-                          {formatVideoViewCount(selectedItem.viewCount || 0)} 클릭
+                          {formatVideoViewCount(selectedItem.viewCount || 0)}
                         </Text>
                       </HStack>
                     </HStack>
