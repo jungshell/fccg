@@ -11,6 +11,7 @@ import axios from 'axios';
 import jwt from 'jsonwebtoken';
 import { PrismaClient } from '@prisma/client';
 import { securityHeaders, apiLimiter } from './middlewares/security';
+import { monitoring } from './utils/monitoring';
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -78,10 +79,30 @@ app.use(bodyParser.urlencoded({ extended: true, limit: '50mb' })); // multipart/
 
 // 헬스체크 엔드포인트 (rate limiter 적용 전에 등록 - keepalive용)
 app.get('/health', (req, res) => {
+  const healthStatus = monitoring.getHealthStatus();
   res.status(200).json({ 
-    status: 'OK', 
+    status: healthStatus.status === 'healthy' ? 'OK' : 'DEGRADED',
     message: 'Server is healthy',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    ...healthStatus
+  });
+});
+
+// 모니터링 엔드포인트 (관리자용)
+app.get('/api/monitoring/status', authenticateToken, (req: any, res: any) => {
+  // 관리자만 접근 가능
+  const user = (req as any).user;
+  if (user?.role !== 'SUPER_ADMIN' && user?.role !== 'ADMIN') {
+    return res.status(403).json({ error: '권한이 없습니다.' });
+  }
+
+  const healthStatus = monitoring.getHealthStatus();
+  const errorStats = monitoring.getErrorStats();
+  
+  res.json({
+    health: healthStatus,
+    errors: errorStats,
+    recentErrors: monitoring.getRecentErrors(20)
   });
 });
 

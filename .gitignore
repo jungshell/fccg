@@ -28,6 +28,7 @@ backend/dev.db
 backend/prisma/dev.db
 backend/voteData.json
 voteData.json
+backend/backups/
 
 # Editor/tooling caches
 .vscode/

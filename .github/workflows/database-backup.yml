@@ -1,0 +1,48 @@
+name: Database Backup
+
+on:
+  schedule:
+    # 매일 오전 3시 (한국시간 기준) 자동 백업
+    - cron: '0 18 * * *'  # UTC 18:00 = KST 03:00
+  workflow_dispatch:  # 수동 실행 가능
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Create backup directory
+        run: mkdir -p backups
+
+      - name: Backup database
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          node backend/scripts/backup-database.js
+
+      - name: Upload backup to GitHub Actions artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: database-backup-${{ github.run_number }}
+          path: backups/*.sql
+          retention-days: 30
+
+      - name: Upload to external storage (optional)
+        if: false  # 필요시 활성화
+        run: |
+          # AWS S3, Google Cloud Storage 등으로 업로드하는 코드 추가 가능
+          echo "외부 스토리지 업로드는 설정되지 않았습니다."
+
