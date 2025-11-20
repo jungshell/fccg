@@ -4075,6 +4075,8 @@ router.get('/gallery', async (req, res) => {
         imageUrl: fixedImageUrl,
         likesCount: item.likes.length,
         commentsCount: item.comments.length,
+        viewCount: item.viewCount ?? 0,
+        clickCount: item.clickCount ?? item.viewCount ?? 0,
         isLiked: currentUserId ? item.likes.some(like => like.userId === currentUserId) : false
       };
     });
@@ -4349,6 +4351,42 @@ router.put('/gallery/:id', authenticateToken, async (req, res) => {
   }
 });
 
+// 갤러리 아이템 클릭(조회수) 기록 API
+router.post('/gallery/:id/view', async (req, res) => {
+  try {
+    const galleryId = parseInt(req.params.id);
+    if (isNaN(galleryId)) {
+      return res.status(400).json({
+        success: false,
+        error: '유효하지 않은 갤러리 ID입니다.'
+      });
+    }
+
+    const updated = await prisma.gallery.update({
+      where: { id: galleryId },
+      data: { 
+        viewCount: { increment: 1 },
+        clickCount: { increment: 1 }
+      },
+      select: { id: true, viewCount: true, clickCount: true }
+    });
+
+    res.json({
+      success: true,
+      data: updated
+    });
+  } catch (error: any) {
+    if (error.code === 'P2025') {
+      return res.status(404).json({
+        success: false,
+        error: '갤러리 아이템을 찾을 수 없습니다.'
+      });
+    }
+    console.error('갤러리 조회수 업데이트 오류:', error);
+    handleError(error, res, '갤러리 조회수 업데이트');
+  }
+});
+
 // 갤러리 아이템 좋아요/좋아요 취소 API
 router.post('/gallery/:id/like', authenticateToken, async (req, res) => {
   try {
@@ -4602,6 +4640,75 @@ router.delete('/gallery/:id', authenticateToken, async (req, res) => {
       error: '갤러리 삭제 중 오류가 발생했습니다.',
       details: error.message
     });
+  }
+});
+
+// 동영상 조회수 여러 개 조회 API
+router.get('/videos/view-stats', async (req, res) => {
+  try {
+    const idsParam = req.query.ids;
+    if (!idsParam) {
+      return res.json({ success: true, data: {} });
+    }
+
+    const idsArray = Array.isArray(idsParam) ? idsParam : String(idsParam).split(',');
+    const videoKeys = Array.from(new Set(idsArray.map(id => id.trim()).filter(Boolean)));
+
+    if (videoKeys.length === 0) {
+      return res.json({ success: true, data: {} });
+    }
+
+    const stats = await prisma.videoViewStat.findMany({
+      where: { videoKey: { in: videoKeys } }
+    });
+
+    const result: Record<string, number> = {};
+    stats.forEach(stat => {
+      result[stat.videoKey] = stat.viewCount;
+    });
+
+    res.json({ success: true, data: result });
+  } catch (error) {
+    console.error('동영상 조회수 조회 오류:', error);
+    handleError(error, res, '동영상 조회수 조회');
+  }
+});
+
+// 동영상 조회수 증가 API
+router.post('/videos/:videoKey/view', async (req, res) => {
+  try {
+    const { videoKey } = req.params;
+    if (!videoKey || !videoKey.trim()) {
+      return res.status(400).json({
+        success: false,
+        error: '유효한 동영상 ID가 필요합니다.'
+      });
+    }
+
+    const updated = await prisma.videoViewStat.upsert({
+      where: { videoKey },
+      update: { 
+        viewCount: { increment: 1 },
+        lastViewedAt: new Date()
+      },
+      create: {
+        videoKey,
+        viewCount: 1,
+        lastViewedAt: new Date()
+      },
+      select: {
+        videoKey: true,
+        viewCount: true
+      }
+    });
+
+    res.json({
+      success: true,
+      data: updated
+    });
+  } catch (error) {
+    console.error('동영상 조회수 증가 오류:', error);
+    handleError(error, res, '동영상 조회수 증가');
   }
 });
 

@@ -25,7 +25,8 @@ import {
   useState, 
   useEffect,
   useMemo,
-  useCallback
+  useCallback,
+  useRef
 } from 'react';
 import { 
   EditIcon,
@@ -36,10 +37,51 @@ import {
 } from '@chakra-ui/icons';
 import { AiFillHeart } from 'react-icons/ai';
 import { useAuthStore } from '../store/auth';
+import { getApiUrl } from '../config/api';
 
 // YouTube API 설정
 const YT_API_KEY = 'AIzaSyC7M5KrtdL8ChfVCX0M2CZfg7GWGaExMTk';
 const PLAYLIST_ID = 'PLQ5o2f7efzlZ-RDG64h4Oj_5pXt0g6q3b';
+
+const videoViewFormatter = new Intl.NumberFormat('ko-KR');
+const formatVideoViewCount = (value: number = 0) =>
+  videoViewFormatter.format(Math.max(0, value));
+
+const VIDEO_BADGE_PRESETS = [
+  {
+    threshold: 400,
+    emoji: '🎬',
+    gradient: 'linear-gradient(120deg, rgba(0,210,255,0.95), rgba(146,141,255,0.92))',
+    shadow: '0 10px 24px rgba(0,210,255,0.35)'
+  },
+  {
+    threshold: 120,
+    emoji: '🔥',
+    gradient: 'linear-gradient(120deg, rgba(255,94,98,0.95), rgba(255,149,0,0.9))',
+    shadow: '0 8px 20px rgba(255,94,98,0.35)'
+  },
+  {
+    threshold: 40,
+    emoji: '⚡',
+    gradient: 'linear-gradient(120deg, rgba(76,81,191,0.92), rgba(115,103,240,0.9))',
+    shadow: '0 6px 18px rgba(76,81,191,0.3)'
+  },
+  {
+    threshold: 0,
+    emoji: '✨',
+    gradient: 'linear-gradient(120deg, rgba(15,23,42,0.85), rgba(30,41,59,0.78))',
+    shadow: '0 4px 12px rgba(15,23,42,0.35)'
+  }
+] as const;
+
+const getVideoClickBadgeStyle = (count: number) => {
+  for (const preset of VIDEO_BADGE_PRESETS) {
+    if (count >= preset.threshold) return preset;
+  }
+  return VIDEO_BADGE_PRESETS[VIDEO_BADGE_PRESETS.length - 1];
+};
+
+const getVideoKey = (item: any) => item?.videoId || item?.id;
 
 export default function VideoGalleryPage() {
   const { user } = useAuthStore();
@@ -51,6 +93,7 @@ export default function VideoGalleryPage() {
   const [editCommentText, setEditCommentText] = useState('');
   const [newComment, setNewComment] = useState('');
   const toast = useToast();
+  const fetchedVideoKeysRef = useRef<Set<string>>(new Set());
 
   const saveItemsToStorage = useCallback((list: any[]) => {
     try {
@@ -60,6 +103,85 @@ export default function VideoGalleryPage() {
     }
   }, []);
 
+  const fetchVideoViewStats = useCallback(async (videoKeys: string[]) => {
+    if (!videoKeys || videoKeys.length === 0) return;
+    try {
+      const sanitizedKeys = Array.from(new Set(videoKeys.filter(Boolean)));
+      if (sanitizedKeys.length === 0) return;
+      const url = await getApiUrl(`/videos/view-stats?ids=${encodeURIComponent(sanitizedKeys.join(','))}`);
+      const response = await fetch(url);
+      if (!response.ok) return;
+      const payload = await response.json();
+      const stats: Record<string, number> = payload?.data || {};
+      setItems(prev => {
+        const updated = prev.map(item => {
+          const key = getVideoKey(item);
+          if (key && typeof stats[key] === 'number') {
+            return { ...item, viewCount: stats[key] };
+          }
+          return item;
+        });
+        saveItemsToStorage(updated);
+        return updated;
+      });
+      setSelectedItem(prev => {
+        if (!prev) return prev;
+        const key = getVideoKey(prev);
+        if (key && typeof stats[key] === 'number') {
+          return { ...prev, viewCount: stats[key] };
+        }
+        return prev;
+      });
+    } catch (error) {
+      console.error('동영상 클릭수 동기화 실패:', error);
+    }
+  }, [saveItemsToStorage]);
+
+  const incrementVideoView = useCallback(async (videoKey?: string) => {
+    if (!videoKey) return;
+    setItems(prev => {
+      const updated = prev.map(item => {
+        if (getVideoKey(item) === videoKey) {
+          const nextCount = (item.viewCount || 0) + 1;
+          return { ...item, viewCount: nextCount };
+        }
+        return item;
+      });
+      saveItemsToStorage(updated);
+      return updated;
+    });
+    setSelectedItem(prev => {
+      if (prev && getVideoKey(prev) === videoKey) {
+        return { ...prev, viewCount: (prev.viewCount || 0) + 1 };
+      }
+      return prev;
+    });
+
+    try {
+      const url = await getApiUrl(`/videos/${videoKey}/view`);
+      const response = await fetch(url, { method: 'POST' });
+      if (response.ok) {
+        const payload = await response.json();
+        const confirmed = payload?.data?.viewCount;
+        if (typeof confirmed === 'number') {
+          setItems(prev => {
+            const updated = prev.map(item => getVideoKey(item) === videoKey ? { ...item, viewCount: confirmed } : item);
+            saveItemsToStorage(updated);
+            return updated;
+          });
+          setSelectedItem(prev => {
+            if (prev && getVideoKey(prev) === videoKey) {
+              return { ...prev, viewCount: confirmed };
+            }
+            return prev;
+          });
+        }
+      }
+    } catch (error) {
+      console.error('동영상 클릭수 업데이트 실패:', error);
+    }
+  }, [saveItemsToStorage]);
+
   // 초기 로드: localStorage 우선, 없으면 YouTube에서 생성
   useEffect(() => {
     const stored = localStorage.getItem('videoItems');
@@ -67,7 +189,11 @@ export default function VideoGalleryPage() {
       try {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          setItems(parsed);
+          const normalized = parsed.map(item => ({
+            ...item,
+            viewCount: typeof item.viewCount === 'number' ? item.viewCount : 0
+          }));
+          setItems(normalized);
           return;
         }
       } catch (e) { console.warn('videoItems 파싱 실패:', e); }
@@ -123,7 +249,8 @@ export default function VideoGalleryPage() {
                 eventType: eventType,
                 thumbnail: `https://img.youtube.com/vi/${item.snippet.resourceId.videoId}/maxresdefault.jpg`,
                 isLiked: false,
-                commentsList: []
+                commentsList: [],
+                viewCount: 0
               };
             });
           
@@ -168,7 +295,8 @@ export default function VideoGalleryPage() {
   const handleItemClick = useCallback((item: any) => {
     setSelectedItem(item);
     setIsDetailModalOpen(true);
-  }, []);
+    incrementVideoView(getVideoKey(item));
+  }, [incrementVideoView]);
 
   // 좋아요 토글
   const handleLikeToggle = useCallback((item: any) => {
@@ -190,6 +318,16 @@ export default function VideoGalleryPage() {
       setSelectedItem(updatedItems.find(i => i.id === item.id));
     }
   }, [items, selectedItem]);
+
+  useEffect(() => {
+    if (!items || items.length === 0) return;
+    const pendingKeys = items
+      .map(item => getVideoKey(item))
+      .filter((key): key is string => !!key && !fetchedVideoKeysRef.current.has(key));
+    if (pendingKeys.length === 0) return;
+    pendingKeys.forEach(key => fetchedVideoKeysRef.current.add(key));
+    fetchVideoViewStats(pendingKeys);
+  }, [items, fetchVideoViewStats]);
 
   // 댓글 추가
   const handleAddComment = useCallback((text: string) => {
@@ -320,7 +458,25 @@ export default function VideoGalleryPage() {
                   h="200px" 
                   objectFit="cover" 
                 />
-
+                <Box
+                  position="absolute"
+                  bottom={2}
+                  right={2}
+                  bgGradient={getVideoClickBadgeStyle(item.viewCount || 0).gradient}
+                  color="white"
+                  px={3}
+                  py={1}
+                  borderRadius="full"
+                  display="flex"
+                  alignItems="center"
+                  gap={1.5}
+                  fontSize="xs"
+                  fontWeight="bold"
+                  boxShadow={getVideoClickBadgeStyle(item.viewCount || 0).shadow}
+                >
+                  <Text fontSize="sm">{getVideoClickBadgeStyle(item.viewCount || 0).emoji}</Text>
+                  <Text>{formatVideoViewCount(item.viewCount || 0)} 클릭</Text>
+                </Box>
               </Box>
 
               {/* 정보 영역 */}
@@ -341,6 +497,12 @@ export default function VideoGalleryPage() {
                         <HStack spacing={1}>
                           <Text fontSize="sm">💬</Text>
                           <Text fontSize="sm" color="gray.600">{item.comments}</Text>
+                        </HStack>
+                        <HStack spacing={1}>
+                          <Text fontSize="sm">⚡</Text>
+                          <Text fontSize="sm" color="gray.600">
+                            {formatVideoViewCount(item.viewCount || 0)} 클릭
+                          </Text>
                         </HStack>
                       </HStack>
                     </Flex>
@@ -426,6 +588,12 @@ export default function VideoGalleryPage() {
                       <HStack spacing={1}>
                         <Text fontSize="sm">💬</Text>
                         <Text fontSize="sm">{selectedItem.comments}</Text>
+                      </HStack>
+                      <HStack spacing={1}>
+                        <Text fontSize="sm">⚡</Text>
+                        <Text fontSize="sm">
+                          {formatVideoViewCount(selectedItem.viewCount || 0)} 클릭
+                        </Text>
                       </HStack>
                     </HStack>
                   </Flex>

@@ -22,21 +22,14 @@ import {
   Textarea,
   FormControl,
   FormLabel,
-  AspectRatio,
   Center,
   Tooltip,
-  Menu,
-  MenuButton,
-  MenuList,
-  MenuItem,
-  MenuDivider,
   Card,
   CardBody
 } from '@chakra-ui/react';
-import { AiFillHeart, AiOutlineHeart, AiOutlineShareAlt, AiOutlineMore } from 'react-icons/ai';
-import { FiDownload, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
-import { ViewIcon, AddIcon, AttachmentIcon, ArrowUpIcon } from '@chakra-ui/icons';
-import { EditIcon, DeleteIcon, CheckIcon, CloseIcon } from '@chakra-ui/icons';
+import { AiFillHeart } from 'react-icons/ai';
+import { FiChevronLeft, FiChevronRight } from 'react-icons/fi';
+import { AddIcon, AttachmentIcon, ArrowUpIcon, DeleteIcon, CheckIcon, CloseIcon } from '@chakra-ui/icons';
 import { useAuthStore } from '../store/auth';
 import { API_ENDPOINTS } from '../constants';
 import { getApiBaseUrl, getApiUrl } from '../config/api';
@@ -62,7 +55,7 @@ interface InstagramPost {
   comments: Comment[];
   tags: string[];
   location: string;
-  views: number;
+  clicks: number;
 }
 
 interface Comment {
@@ -78,6 +71,46 @@ interface Comment {
   isLiked: boolean;
   replies?: Comment[];
 }
+
+const viewCountFormatter = new Intl.NumberFormat('ko-KR');
+const formatViewCountDisplay = (value: number = 0) =>
+  viewCountFormatter.format(Math.max(0, value));
+
+const CLICK_BADGE_PRESETS = [
+  {
+    threshold: 500,
+    emoji: '👑',
+    gradient: 'linear-gradient(120deg, rgba(255,111,145,0.95), rgba(255,215,0,0.92))',
+    shadow: '0 10px 25px rgba(255,170,51,0.35)'
+  },
+  {
+    threshold: 120,
+    emoji: '🔥',
+    gradient: 'linear-gradient(120deg, rgba(255,94,98,0.95), rgba(255,149,0,0.9))',
+    shadow: '0 8px 20px rgba(255,94,98,0.35)'
+  },
+  {
+    threshold: 30,
+    emoji: '⚡',
+    gradient: 'linear-gradient(120deg, rgba(76,81,191,0.92), rgba(115,103,240,0.9))',
+    shadow: '0 6px 18px rgba(76,81,191,0.3)'
+  },
+  {
+    threshold: 0,
+    emoji: '✨',
+    gradient: 'linear-gradient(120deg, rgba(15,23,42,0.85), rgba(30,41,59,0.78))',
+    shadow: '0 4px 12px rgba(15,23,42,0.35)'
+  }
+] as const;
+
+const getClickBadgeStyle = (count: number) => {
+  for (const preset of CLICK_BADGE_PRESETS) {
+    if (count >= preset.threshold) {
+      return preset;
+    }
+  }
+  return CLICK_BADGE_PRESETS[CLICK_BADGE_PRESETS.length - 1];
+};
 
 // 하드코딩된 더미 데이터 제거 - 실제 API에서만 데이터를 가져옵니다
 
@@ -108,7 +141,7 @@ export default function PhotoGalleryPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const toast = useToast();
 
-  const buildGalleryUrl = (path: string = '') => getApiUrl(`${API_ENDPOINTS.GALLERY}${path}`);
+  const buildGalleryUrl = useCallback((path: string = '') => getApiUrl(`${API_ENDPOINTS.GALLERY}${path}`), []);
 
   const getBaseApiUrl = () => getApiBaseUrl();
 
@@ -191,7 +224,10 @@ export default function PhotoGalleryPage() {
     groupedMap.forEach((items, groupKey) => {
       if (items.length === 1) {
         // 단일 이미지인 경우
-        convertedPosts.push(items[0]);
+        convertedPosts.push({
+          ...items[0],
+          clicks: items[0].clicks ?? 0
+        });
       } else {
         // 여러 이미지인 경우 - 첫 번째 아이템을 기준으로 그룹화
         const firstItem = items[0];
@@ -229,6 +265,8 @@ export default function PhotoGalleryPage() {
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         )[0];
         
+        const totalClicks = items.reduce((sum, item) => sum + (item.clicks || 0), 0);
+
         convertedPosts.push({
           ...firstItem,
           id: latestItem.id, // 가장 최근 아이템의 ID 사용
@@ -241,7 +279,8 @@ export default function PhotoGalleryPage() {
             new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
           ),
           tags: allTags,
-          createdAt: latestItem.createdAt // 가장 최근 업로드 시간
+          createdAt: latestItem.createdAt, // 가장 최근 업로드 시간
+          clicks: totalClicks
         });
       }
     });
@@ -337,6 +376,10 @@ export default function PhotoGalleryPage() {
             // eventType 정규화 (공백 제거)
             const eventType = (item.eventType || '기타').trim();
             
+            const normalizedClickCount = typeof item.clickCount === 'number'
+              ? item.clickCount
+              : (item.viewCount ?? 0);
+
             return {
               id: item.id,
               type: 'photo',
@@ -364,7 +407,7 @@ export default function PhotoGalleryPage() {
               })) : [],
               tags: item.tags ? item.tags.map((tag: any) => tag.name) : [],
               location: '구장',
-              views: 0
+              clicks: normalizedClickCount
             };
           }).filter((post: any) => post !== null); // null인 항목 제거
           
@@ -402,6 +445,50 @@ export default function PhotoGalleryPage() {
       return false;
     }
   };
+
+  const incrementGalleryClick = useCallback(async (postId: number) => {
+    let optimisticCount = 0;
+    setInstagramPosts(prev => {
+      const updated = prev.map(post => {
+        if (post.id === postId) {
+          optimisticCount = (post.clicks || 0) + 1;
+          return { ...post, clicks: optimisticCount };
+        }
+        return post;
+      });
+      return updated;
+    });
+    setSelectedPost(prev => prev && prev.id === postId ? { ...prev, clicks: optimisticCount } : prev);
+
+    try {
+      const url = await buildGalleryUrl(`/${postId}/view`);
+      const token = localStorage.getItem('token') || localStorage.getItem('auth_token_backup') || sessionStorage.getItem('token');
+      const headers: HeadersInit = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      const response = await fetch(url, {
+        method: 'POST',
+        headers
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const confirmed = data?.data?.clickCount ?? data?.data?.viewCount;
+        if (typeof confirmed === 'number') {
+          setInstagramPosts(prev => prev.map(post => post.id === postId ? { ...post, clicks: confirmed } : post));
+          setSelectedPost(prev => prev && prev.id === postId ? { ...prev, clicks: confirmed } : prev);
+        }
+      }
+    } catch (error) {
+      console.error('갤러리 조회수 증가 실패:', error);
+    }
+  }, [buildGalleryUrl]);
+
+  const handleOpenPost = useCallback((post: InstagramPost) => {
+    setSelectedPost(post);
+    setIsModalOpen(true);
+    incrementGalleryClick(post.id);
+  }, [incrementGalleryClick]);
 
   // 폼 데이터 상태
   const [formData, setFormData] = useState({
@@ -933,7 +1020,7 @@ export default function PhotoGalleryPage() {
                 comments: [],
                 tags: data.data[0].tags.map((tag: any) => tag.name),
                 location: '장소 미정',
-                views: 0
+                clicks: data.data[0].clickCount ?? data.data[0].viewCount ?? 0
               };
               
               uploadedPosts.push(uploadedPost);
@@ -1229,7 +1316,7 @@ export default function PhotoGalleryPage() {
             caption: editingPost.caption,
             eventDate: editingPost.eventDate,
             eventType: editingPost.eventType,
-            tags: editingPost.tags.join(', ')
+            tags: editingPost.tags
           } : null);
         }
 
@@ -1431,10 +1518,20 @@ export default function PhotoGalleryPage() {
             const currentIndex = hoveredImageIndex[post.id] || 0;
             const images = post.multiplePhotos && post.multiplePhotos.length > 0 ? post.multiplePhotos : [post.src];
             const currentImage = images[currentIndex];
-            const badgeBg = getEventTypeColor(post.eventType);
-
             return (
-              <Card key={post.id} w="100%" overflow="hidden" borderRadius="lg" bg="white" shadow="md">
+              <Card
+                key={post.id}
+                w="100%"
+                overflow="hidden"
+                borderRadius="lg"
+                bg="white"
+                shadow="md"
+                cursor="pointer"
+                role="group"
+                transition="all 0.2s ease"
+                _hover={{ shadow: 'xl', transform: 'translateY(-4px)' }}
+                onClick={() => handleOpenPost(post)}
+              >
                 <CardBody p={0}>
                   {/* 이미지 영역 */}
                   <Box
@@ -1460,11 +1557,6 @@ export default function PhotoGalleryPage() {
                         w="100%"
                         h="200px"
                         objectFit="cover"
-                        cursor="pointer"
-                        onClick={() => {
-                          setSelectedPost(post);
-                          setIsModalOpen(true);
-                        }}
                         onError={(e: any) => {
                           console.error('❌ 이미지 로드 실패:', currentImage, e);
                           e.target.style.display = 'none';
@@ -1512,6 +1604,30 @@ export default function PhotoGalleryPage() {
                     >
                       {post.eventType?.includes('ì') || post.eventType?.includes('자체') ? '자체' : post.eventType}
                     </Badge>
+
+                    {/* 클릭수 배지 */}
+                    <Box
+                      position="absolute"
+                      bottom={2}
+                      right={2}
+                      bgGradient={getClickBadgeStyle(post.clicks || 0).gradient}
+                      color="white"
+                      px={3}
+                      py={1}
+                      borderRadius="full"
+                      display="flex"
+                      alignItems="center"
+                      gap={1.5}
+                      fontSize="xs"
+                      fontWeight="bold"
+                      boxShadow={getClickBadgeStyle(post.clicks || 0).shadow}
+                      letterSpacing="0.02em"
+                    >
+                      <Text fontSize="sm">
+                        {getClickBadgeStyle(post.clicks || 0).emoji}
+                      </Text>
+                      <Text>{formatViewCountDisplay(post.clicks || 0)} 클릭</Text>
+                    </Box>
                   </Box>
 
                   {/* 포스트 정보 */}
@@ -1534,6 +1650,12 @@ export default function PhotoGalleryPage() {
                               <Text fontSize="sm">💬</Text>
                               <Text fontSize="sm" color="gray.600">{post.comments.length}</Text>
                             </HStack>
+                          <HStack spacing={1}>
+                            <Text fontSize="sm">⚡</Text>
+                            <Text fontSize="sm" color="gray.600">
+                              {formatViewCountDisplay(post.clicks || 0)} 클릭
+                            </Text>
+                          </HStack>
                           </HStack>
                         </Flex>
 
@@ -1901,6 +2023,25 @@ export default function PhotoGalleryPage() {
                         {`${formatKoDate(selectedPost.eventDate)} (${getWeekdayKo(selectedPost.eventDate)})`}
                       </Text>
                       <Text fontSize="sm" color="gray.800" mt="-3" lineHeight="1.2">{selectedPost.author.name}</Text>
+                      <Box
+                        mt={1}
+                        bgGradient={getClickBadgeStyle(selectedPost.clicks || 0).gradient}
+                        px={3}
+                        py={1}
+                        borderRadius="full"
+                        display="inline-flex"
+                        alignItems="center"
+                        gap={1.5}
+                        color="white"
+                        fontSize="xs"
+                        fontWeight="bold"
+                        boxShadow={getClickBadgeStyle(selectedPost.clicks || 0).shadow}
+                      >
+                        <Text fontSize="sm">
+                          {getClickBadgeStyle(selectedPost.clicks || 0).emoji}
+                        </Text>
+                        <Text>{formatViewCountDisplay(selectedPost.clicks || 0)} 클릭</Text>
+                      </Box>
                     </VStack>
 
                     {/* 캡션 */}

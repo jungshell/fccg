@@ -113,6 +113,8 @@ model Gallery {
   eventType  String?
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
+  viewCount  Int       @default(0)
+  clickCount Int       @default(0)
   comments   Comment[]
   schedule   Schedule? @relation(fields: [scheduleId], references: [id])
   uploader   User      @relation("UploaderGallery", fields: [uploaderId], references: [id])
@@ -155,4 +157,13 @@ model Notice {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   author    User     @relation("AuthorNotice", fields: [authorId], references: [id])
+}
+
+model VideoViewStat {
+  id           Int      @id @default(autoincrement())
+  videoKey     String   @unique
+  viewCount    Int      @default(0)
+  lastViewedAt DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
