@@ -110,7 +110,7 @@ app.get('/api/monitoring/status', authenticateToken, (req: any, res: any) => {
 app.use('/api', apiLimiter);
 
 // JWT 인증 미들웨어
-const authenticateToken = (req: any, res: any, next: any) => {
+function authenticateToken(req: any, res: any, next: any) {
   // OPTIONS 요청은 인증하지 않음 (CORS preflight)
   if (req.method === 'OPTIONS') {
     return next();
@@ -130,7 +130,7 @@ const authenticateToken = (req: any, res: any, next: any) => {
     req.user = user;
     next();
   });
-};
+}
 
 // 정적 파일 서빙 (업로드된 이미지)
 app.use('/uploads', express.static('uploads'));
