@@ -1479,7 +1479,26 @@ export default function MainDashboard() {
                   <Box position="absolute" top={2} right={2}>
                     {(() => {
                       // 실제 투표 세션 데이터 사용
-                      if (!unifiedVoteData?.activeSession) {
+                      const hasActiveSession = !!unifiedVoteData?.activeSession;
+                      const hasClosedSession = !!unifiedVoteData?.lastWeekResults;
+                      
+                      if (!hasActiveSession) {
+                        if (hasClosedSession) {
+                          return (
+                            <Badge
+                              bg="red.500"
+                              color="white"
+                              px={1}
+                              py={0}
+                              borderRadius="sm"
+                              fontSize="10px"
+                              fontWeight="bold"
+                              boxShadow="sm"
+                            >
+                              투표종료
+                            </Badge>
+                          );
+                        }
                         return (
                           <Badge colorScheme="gray" variant="solid" fontSize="xs">
                             세션 없음
@@ -1488,7 +1507,7 @@ export default function MainDashboard() {
                       }
                       
                       const session = unifiedVoteData.activeSession;
-                      const isVoteClosed = !session.isActive;
+                      const isVoteClosed = session.isCompleted || !session.isActive;
                       
                       if (isVoteClosed) {
                         return (

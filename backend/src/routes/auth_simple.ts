@@ -2567,17 +2567,10 @@ router.get('/unified-vote-data', async (req, res) => {
       };
     });
 
-    // 이번주 금요일 계산
-    const thisWeekFriday = getWeekFriday(thisWeekMonday);
-    
-    // 이번주 주간에 해당하는 완료된 세션 조회
+    // 가장 최근에 완료된 세션 조회 (주차와 무관하게 최신 데이터 사용)
     const lastCompletedSession = await prisma.voteSession.findFirst({
       where: { 
         isCompleted: true,
-        weekStartDate: {
-          gte: thisWeekMonday,
-          lte: thisWeekFriday
-        },
         votes: {
           some: {}
         }
@@ -2605,6 +2598,13 @@ router.get('/unified-vote-data', async (req, res) => {
         FRI: { count: 0, participants: [] }
       };
       
+      const participants = lastCompletedSession.votes.map(vote => ({
+        userId: vote.userId,
+        userName: vote.user.name,
+        selectedDays: parseVoteDays(vote.selectedDays),
+        votedAt: vote.createdAt
+      }));
+      
       lastCompletedSession.votes.forEach(vote => {
         const selectedDaysArray = parseVoteDays(vote.selectedDays);
         
@@ -2629,6 +2629,7 @@ router.get('/unified-vote-data', async (req, res) => {
         isActive: lastCompletedSession.isActive,
         isCompleted: lastCompletedSession.isCompleted,
         totalParticipants: lastCompletedSession.votes.length,
+        participants,
         results: dayVotes
       };
     }
