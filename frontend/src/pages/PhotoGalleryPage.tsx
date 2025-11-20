@@ -1619,31 +1619,53 @@ export default function PhotoGalleryPage() {
                             {`${formatKoDate(post.eventDate)} (${getWeekdayKo(post.eventDate)})`}
                           </Text>
                           <HStack spacing={4} ml="auto">
-                            <HStack spacing={1}>
-                              <AiFillHeart color="#e53e3e" size={16} />
-                              <Text fontSize="sm" color="gray.600">{post.likes}</Text>
-                            </HStack>
-                            <HStack spacing={1}>
-                              <Text fontSize="sm">💬</Text>
-                              <Text fontSize="sm" color="gray.600">{post.comments.length}</Text>
-                            </HStack>
-                          <Tooltip
-                            label={`좋아요 ${post.likes}개 · 댓글 ${post.comments.length}개 · 클릭 ${formatViewCountDisplay(post.clicks || 0)}회`}
-                            fontSize="10px"
-                            placement="top"
-                            bg="gray.800"
-                            color="white"
-                            borderRadius="md"
-                            px={2}
-                            py={1}
-                          >
-                            <HStack spacing={1} cursor="default">
-                              <Text fontSize="sm">⚡</Text>
-                              <Text fontSize="sm" color="gray.600">
-                                {formatViewCountDisplay(post.clicks || 0)}
-                              </Text>
-                            </HStack>
-                          </Tooltip>
+                            <Tooltip
+                              label={`좋아요 ${post.likes}개`}
+                              fontSize="10px"
+                              placement="top"
+                              bg="gray.800"
+                              color="white"
+                              borderRadius="md"
+                              px={2}
+                              py={1}
+                            >
+                              <HStack spacing={1} cursor="default">
+                                <AiFillHeart color="#e53e3e" size={16} />
+                                <Text fontSize="sm" color="gray.600">{post.likes}</Text>
+                              </HStack>
+                            </Tooltip>
+                            <Tooltip
+                              label={`댓글 ${post.comments.length}개`}
+                              fontSize="10px"
+                              placement="top"
+                              bg="gray.800"
+                              color="white"
+                              borderRadius="md"
+                              px={2}
+                              py={1}
+                            >
+                              <HStack spacing={1} cursor="default">
+                                <Text fontSize="sm">💬</Text>
+                                <Text fontSize="sm" color="gray.600">{post.comments.length}</Text>
+                              </HStack>
+                            </Tooltip>
+                            <Tooltip
+                              label={`클릭 ${formatViewCountDisplay(post.clicks || 0)}회`}
+                              fontSize="10px"
+                              placement="top"
+                              bg="gray.800"
+                              color="white"
+                              borderRadius="md"
+                              px={2}
+                              py={1}
+                            >
+                              <HStack spacing={1} cursor="default">
+                                <Text fontSize="sm">⚡</Text>
+                                <Text fontSize="sm" color="gray.600">
+                                  {formatViewCountDisplay(post.clicks || 0)}
+                                </Text>
+                              </HStack>
+                            </Tooltip>
                           </HStack>
                         </Flex>
 
@@ -2011,25 +2033,6 @@ export default function PhotoGalleryPage() {
                         {`${formatKoDate(selectedPost.eventDate)} (${getWeekdayKo(selectedPost.eventDate)})`}
                       </Text>
                       <Text fontSize="sm" color="gray.800" mt="-3" lineHeight="1.2">{selectedPost.author.name}</Text>
-                      <Box
-                        mt={1}
-                        bgGradient={getClickBadgeStyle(selectedPost.clicks || 0).gradient}
-                        px={3}
-                        py={1}
-                        borderRadius="full"
-                        display="inline-flex"
-                        alignItems="center"
-                        gap={1.5}
-                        color="white"
-                        fontSize="xs"
-                        fontWeight="bold"
-                        boxShadow={getClickBadgeStyle(selectedPost.clicks || 0).shadow}
-                      >
-                        <Text fontSize="sm">
-                          {getClickBadgeStyle(selectedPost.clicks || 0).emoji}
-                        </Text>
-                        <Text>{formatViewCountDisplay(selectedPost.clicks || 0)} 클릭</Text>
-                      </Box>
                     </VStack>
 
                     {/* 캡션 */}
@@ -2118,15 +2121,18 @@ export default function PhotoGalleryPage() {
                         )}
                       </HStack>
                     </Flex>
-                    <Flex w="full" justify="flex-end" mt={1}>
-                      <VStack spacing={0} align="flex-end">
-                        <Text fontSize="xs" color="gray.800">
-                          좋아요 {selectedPost.likes}개 · 댓글 {selectedPost.comments.length}개
-                        </Text>
-                        <Text fontSize="xs" color="gray.600">
-                          클릭 {formatViewCountDisplay(selectedPost.clicks || 0)}회
-                        </Text>
-                      </VStack>
+                    <Flex w="full" justify="flex-end" mt={1} align="center" gap={1}>
+                      <Text fontSize="xs" color="gray.800">
+                        좋아요 {selectedPost.likes}개
+                      </Text>
+                      <Text fontSize="xs" color="gray.400">·</Text>
+                      <Text fontSize="xs" color="gray.800">
+                        댓글 {selectedPost.comments.length}개
+                      </Text>
+                      <Text fontSize="xs" color="gray.400">·</Text>
+                      <Text fontSize="xs" color="gray.800">
+                        클릭 {formatViewCountDisplay(selectedPost.clicks || 0)}회
+                      </Text>
                     </Flex>
 
                     {/* 댓글 목록: 댓글 내용, 업로드시점, 이름, 수정/삭제 버튼을 같은 행에 표시 */}
