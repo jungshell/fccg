@@ -1054,59 +1054,7 @@ console.log('✅ authRoutes 테스트 라우트 등록 완료: /api/auth-test');
 
 // 주석 처리된 중복 API 제거됨
 
-// 카카오맵 장소 검색 API - 직접 등록
-app.get('/api/auth/search-location', async (req, res) => {
-  try {
-    const { query } = req.query;
-    
-    console.log('🔍 장소 검색 요청:', query);
-    
-    if (!query || typeof query !== 'string' || query.trim().length === 0) {
-      console.log('❌ 유효하지 않은 검색어:', query);
-      return res.status(400).json({ error: '유효한 검색어가 필요합니다.' });
-    }
-    
-    // 검색어 길이 제한 (너무 긴 요청 방지)
-    if (query.length > 100) {
-      console.log('❌ 검색어가 너무 김:', query.length);
-      return res.status(400).json({ error: '검색어는 100자 이하여야 합니다.' });
-    }
-
-    // 카카오맵 API 키 (환경변수에서 읽기, 없으면 기본값 사용)
-    const KAKAO_API_KEY = process.env.KAKAO_API_KEY || '4413813ca702d0fb6239ae38d9202d7e';
-    
-    if (!KAKAO_API_KEY) {
-      console.log('❌ 카카오맵 API 키가 설정되지 않음');
-      return res.status(500).json({ error: 'API 키가 설정되지 않았습니다.' });
-    }
-    
-    console.log('🌐 카카오맵 API 호출 시작...');
-    console.log('📡 요청 URL:', 'https://dapi.kakao.com/v2/local/search/keyword.json');
-    console.log('📝 검색어:', query.toString());
-    
-    // 카카오맵 API 호출
-    const response = await axios.get('https://dapi.kakao.com/v2/local/search/keyword.json', {
-      headers: {
-        'Authorization': `KakaoAK ${KAKAO_API_KEY}`
-      },
-      params: {
-        query: query.toString(),
-        size: 10
-      }
-    });
-
-    console.log('✅ 카카오맵 API 응답 성공:', response.status);
-    console.log('📊 검색 결과 수:', response.data.documents?.length || 0);
-    
-    res.json(response.data);
-  } catch (error: any) {
-    console.error('❌ 장소 검색 오류:', error);
-    if (error.response) {
-      console.error('🚫 API 응답 오류:', error.response.status, error.response.data);
-    }
-    res.status(500).json({ error: '장소 검색 중 오류가 발생했습니다.' });
-  }
-});
+// 카카오맵 장소 검색 API는 auth_simple.ts의 router에서 처리됨 (중복 제거)
 
 // 경기 관리 API
 // 중복된 경기 생성 API 제거 - authRoutes에서 제공됨

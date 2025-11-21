@@ -1260,82 +1260,52 @@ router.get('/search-location', async (req, res) => {
   try {
     const { query } = req.query;
     
-    if (!query) {
-      return res.status(400).json({ error: '검색어가 필요합니다.' });
+    if (!query || typeof query !== 'string' || query.trim().length === 0) {
+      return res.status(400).json({ error: '유효한 검색어가 필요합니다.' });
     }
 
-    // 카카오맵 API 키 확인
-    const kakaoApiKey = process.env.KAKAO_MAP_API_KEY;
+    // 검색어 길이 제한
+    if (query.length > 100) {
+      return res.status(400).json({ error: '검색어는 100자 이하여야 합니다.' });
+    }
+
+    // 카카오맵 API 키 확인 (여러 환경변수 이름 지원)
+    const kakaoApiKey = process.env.KAKAO_API_KEY || 
+                        process.env.KAKAO_MAP_API_KEY || 
+                        '4413813ca702d0fb6239ae38d9202d7e';
     
-    if (!kakaoApiKey) {
-      console.log('⚠️ 카카오맵 API 키가 설정되지 않음 - 더미 데이터 반환');
-      
-      // 더미 데이터 반환 (개발용)
-      const mockResults = [
-        {
-          place_name: `매치업풋살파크 천안아산점`,
-          address_name: '충청남도 천안시 동남구',
-          x: '127.123456',
-          y: '36.789012'
-        },
-        {
-          place_name: `풋살장 ${query}`,
-          address_name: '서울특별시 강남구',
-          x: '127.027619',
-          y: '37.497953'
-        },
-        {
-          place_name: `체육관 ${query}`,
-          address_name: '서울특별시 서초구',
-          x: '127.032668',
-          y: '37.500000'
-        }
-      ];
-
-      return res.json({
-        documents: mockResults
-      });
-    }
-
+    console.log('🔍 장소 검색 요청:', query);
+    console.log('🔑 카카오맵 API 키 사용:', kakaoApiKey ? '설정됨' : '없음');
+    
     // 실제 카카오맵 API 호출
     const queryString = typeof query === 'string' ? query : String(query || '');
-    const response = await fetch(`https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(queryString)}`, {
+    const response = await fetch(`https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(queryString)}&size=10`, {
       headers: {
         'Authorization': `KakaoAK ${kakaoApiKey}`
       }
     });
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ 카카오맵 API 오류:', response.status, errorText);
       throw new Error(`카카오맵 API 오류: ${response.status}`);
     }
 
     const data = await response.json();
+    console.log('✅ 카카오맵 API 응답 성공:', response.status);
+    console.log('📊 검색 결과 수:', data.documents?.length || 0);
     
     res.json({
       documents: data.documents || []
     });
     
-  } catch (error) {
-    console.error('장소 검색 오류:', error);
+  } catch (error: any) {
+    console.error('❌ 장소 검색 오류:', error);
     
-    // 오류 시에도 더미 데이터 반환
-    const fallbackResults = [
-      {
-        place_name: `매치업풋살파크 천안아산점`,
-        address_name: '충청남도 천안시 동남구',
-        x: '127.123456',
-        y: '36.789012'
-      },
-      {
-        place_name: `풋살장 ${req.query.query}`,
-        address_name: '서울특별시 강남구',
-        x: '127.027619',
-        y: '37.497953'
-      }
-    ];
-
-    res.json({
-      documents: fallbackResults
+    // 오류 시 빈 결과 반환 (더미 데이터 대신)
+    res.status(500).json({ 
+      error: '장소 검색 중 오류가 발생했습니다.',
+      documents: []
     });
   }
 });
