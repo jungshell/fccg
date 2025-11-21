@@ -595,11 +595,16 @@ export default function MainDashboard() {
       const baseUrl = await import('../constants').then(m => m.ensureApiBaseUrl()).catch(() => '/api/auth');
     
     // 통계 데이터, 멤버 데이터, 경기 데이터, 투표 데이터를 모두 fetch
+    const token = localStorage.getItem('token') || localStorage.getItem('auth_token_backup');
     Promise.all([
-      // 통계 API 호출
-        fetch(`${baseUrl}/members/stats`)
-        .then(res => res.json())
-        .catch(() => null),
+      // 통계 API 호출 (로그인 시에만)
+      token 
+        ? fetch(`${baseUrl}/members/stats`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          })
+          .then(res => res.json())
+          .catch(() => null)
+        : Promise.resolve(null),
       fetchRealTimeMembers(),
       // 경기 데이터 가져오기
       fetchRealTimeGames(),

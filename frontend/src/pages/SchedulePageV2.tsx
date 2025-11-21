@@ -1635,6 +1635,18 @@ export default function SchedulePageV2() {
 
   // 투표 버튼 클릭 핸들러
   const handleVoteButtonClick = () => {
+    if (!user) {
+      toast({
+        title: '로그인 필요',
+        description: '투표하려면 로그인이 필요합니다.',
+        status: 'warning',
+        duration: 3000,
+        isClosable: true,
+      });
+      navigate('/login');
+      return;
+    }
+
     if (isVoteClosed) {
       toast({
         title: '투표 마감',
@@ -3240,18 +3252,18 @@ export default function SchedulePageV2() {
                       ) : (
                         <Button
                           size={{ base: "xs", md: "sm" }}
-                          bg={isVoteClosed ? "gray.400" : "purple.600"}
+                          bg={isVoteClosed || !user ? "gray.400" : "purple.600"}
                           color="white"
                           onClick={handleVoteButtonClick}
                           fontSize={{ base: "2xs", md: "xs" }}
                           px={{ base: 1, md: 2 }}
                           h={{ base: "20px", md: "22px" }}
-                          isDisabled={isVoteClosed}
+                          isDisabled={isVoteClosed || !user}
                           flex="1"
                           _hover={{
-                            bg: isVoteClosed ? "gray.400" : (selectedDays.length > 0 ? "purple.700" : "purple.600"),
-                            transform: isVoteClosed ? "none" : (selectedDays.length > 0 ? "translateY(-1px)" : "none"),
-                            boxShadow: isVoteClosed ? "none" : (selectedDays.length > 0 ? "md" : "none")
+                            bg: isVoteClosed || !user ? "gray.400" : (selectedDays.length > 0 ? "purple.700" : "purple.600"),
+                            transform: isVoteClosed || !user ? "none" : (selectedDays.length > 0 ? "translateY(-1px)" : "none"),
+                            boxShadow: isVoteClosed || !user ? "none" : (selectedDays.length > 0 ? "md" : "none")
                           }}
                           transition="all 0.2s ease-in-out"
                         >

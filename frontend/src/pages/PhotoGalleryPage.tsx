@@ -953,6 +953,17 @@ export default function PhotoGalleryPage() {
 
   // 업로드 핸들러
   const handleUpload = async () => {
+    if (!user) {
+      toast({
+        title: '로그인 필요',
+        description: '사진을 업로드하려면 로그인이 필요합니다.',
+        status: 'warning',
+        duration: 2000,
+        isClosable: true,
+      });
+      return;
+    }
+
     if (formData.images.length === 0) {
       toast({
         title: '파일 선택 필요',
@@ -1477,15 +1488,17 @@ export default function PhotoGalleryPage() {
             <option value="likes">좋아요순</option>
             <option value="comments">댓글순</option>
           </Select>
-          <IconButton
-            aria-label="사진 업로드"
-            icon={<AddIcon />}
-            colorScheme="blue"
-            bg="#004ea8"
-            _hover={{ bg: "#003d7a" }}
-            onClick={() => setIsUploadModalOpen(true)}
-            size="sm"
-          />
+          {user && (
+            <IconButton
+              aria-label="사진 업로드"
+              icon={<AddIcon />}
+              colorScheme="blue"
+              bg="#004ea8"
+              _hover={{ bg: "#003d7a" }}
+              onClick={() => setIsUploadModalOpen(true)}
+              size="sm"
+            />
+          )}
           </HStack>
         </Flex>
       </Box>
@@ -1501,14 +1514,16 @@ export default function PhotoGalleryPage() {
         <Center py={20}>
           <VStack spacing={4}>
             <Text fontSize="lg" color="gray.500">아직 업로드된 사진이 없습니다</Text>
-            <Button
-              colorScheme="blue"
-              bg="#004ea8"
-              _hover={{ bg: "#003d7a" }}
-              onClick={() => setIsUploadModalOpen(true)}
-            >
-              첫 번째 사진 업로드하기
-            </Button>
+            {user && (
+              <Button
+                colorScheme="blue"
+                bg="#004ea8"
+                _hover={{ bg: "#003d7a" }}
+                onClick={() => setIsUploadModalOpen(true)}
+              >
+                첫 번째 사진 업로드하기
+              </Button>
+            )}
           </VStack>
         </Center>
       ) : (
