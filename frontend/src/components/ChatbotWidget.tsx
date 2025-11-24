@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Box,
   IconButton,
@@ -29,9 +29,20 @@ export default function ChatbotWidget() {
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   const bg = useColorModeValue('white', 'gray.800');
   const buttonColor = useColorModeValue('purple.600', 'purple.300');
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setInput('');
+    }
+  }, [isOpen]);
 
   const handleSend = async () => {
     const trimmed = input.trim();
@@ -60,6 +71,7 @@ export default function ChatbotWidget() {
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
+      if ((e.nativeEvent as any).isComposing) return;
       e.preventDefault();
       handleSend();
     }
@@ -96,6 +108,15 @@ export default function ChatbotWidget() {
             overflowY="auto"
             pr={1}
             mb={3}
+            sx={{
+              '&::-webkit-scrollbar': {
+                width: '4px'
+              },
+              '&::-webkit-scrollbar-thumb': {
+                backgroundColor: 'rgba(0,0,0,0.2)',
+                borderRadius: 'full'
+              }
+            }}
           >
             {messages.map((msg, idx) => (
               <Box
@@ -113,6 +134,7 @@ export default function ChatbotWidget() {
                 {msg.text}
               </Box>
             ))}
+            <div ref={messagesEndRef} />
             {loading && (
               <HStack spacing={2} color="gray.500" fontSize="sm">
                 <Spinner size="sm" />

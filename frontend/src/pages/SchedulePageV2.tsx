@@ -3501,7 +3501,8 @@ export default function SchedulePageV2() {
                         key={index} 
                         justify="space-between" 
                         align="center" 
-                        p={2} 
+                        px={2}
+                        py={{ base: 1, md: 1.5 }} 
                         border={isMaxVote ? "1px solid" : "0 0 1px 0 solid"}
                         borderColor={isMaxVote ? "purple.600" : "gray.200"}
                         bg={isMaxVote ? "purple.50" : "transparent"}
@@ -3523,10 +3524,10 @@ export default function SchedulePageV2() {
                           variant="solid" 
                           borderRadius="full" 
                           px={{ base: 1, md: 2 }} 
-                          py={{ base: 0.5, md: 1 }} 
+                          py={{ base: 0.25, md: 0.5 }} 
                           fontSize={{ base: "2xs", md: "xs" }}
-                          w={{ base: "32px", md: "36px" }}
-                          h={{ base: "20px", md: "22px" }}
+                          w={{ base: "30px", md: "34px" }}
+                          h={{ base: "18px", md: "20px" }}
                           display="flex"
                           alignItems="center"
                           justifyContent="center"
@@ -3568,16 +3569,17 @@ export default function SchedulePageV2() {
                   })}
                   
                   {/* 불참 항목 - 0명이어도 항상 표시 */}
-                    <Flex 
-                      justify="space-between" 
-                      align="center" 
-                      p={2} 
-                      borderBottom="1px solid" 
-                      borderColor="gray.200"
-                      bg="red.50"
-                      borderRadius="md"
-                      _hover={{ bg: "red.100" }}
-                    >
+                  <Flex 
+                    justify="space-between" 
+                    align="center" 
+                    px={2}
+                    py={{ base: 1, md: 1.5 }} 
+                    borderBottom="1px solid" 
+                    borderColor="gray.200"
+                    bg="red.50"
+                    borderRadius="md"
+                    _hover={{ bg: "red.100" }}
+                  >
                     <Text fontSize={{ base: "xs", md: "sm" }} textAlign="center" w="20%" fontWeight="normal">불참</Text>
                     <Badge 
                       bg="red.500"
@@ -3585,10 +3587,10 @@ export default function SchedulePageV2() {
                       variant="solid" 
                       borderRadius="full" 
                       px={{ base: 1, md: 2 }} 
-                      py={{ base: 0.5, md: 1 }} 
+                      py={{ base: 0.25, md: 0.5 }} 
                       fontSize={{ base: "2xs", md: "xs" }}
-                      w={{ base: "32px", md: "36px" }}
-                      h={{ base: "20px", md: "22px" }}
+                      w={{ base: "30px", md: "34px" }}
+                      h={{ base: "18px", md: "20px" }}
                       display="flex"
                       alignItems="center"
                       justifyContent="center"
