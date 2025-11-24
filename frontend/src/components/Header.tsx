@@ -161,12 +161,17 @@ export default function Header() {
     setNameLoading(true);
     setNameError(null);
     try {
-      const updated = await import('../api/auth').then(m => m.updateProfile(editName));
-      setUser(updated.user);
+      const { updateProfile } = await import('../api/auth');
+      const response = await updateProfile({ name: editName });
+      // 백엔드 응답 형식: { success: true, message: '...', user: {...} }
+      const updatedUser = response.user || response;
+      setUser(updatedUser);
       setIsNameModalOpen(false);
       toast({ title: '이름이 수정되었습니다.', status: 'success', duration: 2000 });
-    } catch {
-      setNameError('이름 수정 실패');
+    } catch (error: any) {
+      console.error('프로필 업데이트 오류:', error);
+      const errorMessage = error?.response?.data?.message || error?.message || '이름 수정 실패';
+      setNameError(errorMessage);
     } finally {
       setNameLoading(false);
     }

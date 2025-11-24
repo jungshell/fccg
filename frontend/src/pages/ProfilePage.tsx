@@ -18,11 +18,15 @@ export default function ProfilePage() {
   const handleSave = async () => {
     setLoading(true);
     try {
-      const updated = await updateProfile(token, { name });
-      setUser(updated);
+      const response = await updateProfile({ name });
+      // 백엔드 응답 형식: { success: true, message: '...', user: {...} }
+      const updatedUser = response.user || response;
+      setUser(updatedUser);
       toast({ title: '이름이 수정되었습니다.', status: 'success', duration: 2000 });
-    } catch {
-      toast({ title: '이름 수정 실패', status: 'error', duration: 2000 });
+    } catch (error: any) {
+      console.error('프로필 업데이트 오류:', error);
+      const errorMessage = error?.response?.data?.message || error?.message || '이름 수정 실패';
+      toast({ title: errorMessage, status: 'error', duration: 2000 });
     } finally {
       setLoading(false);
     }
