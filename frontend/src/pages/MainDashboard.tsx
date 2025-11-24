@@ -1215,40 +1215,37 @@ export default function MainDashboard() {
                     <Box flex={0.4} bg="white" px={3} py={2} borderRadius="md">
                       <Flex justify="space-between" align="center" mb={2}>
                         <Text fontSize="sm" color="gray.600">투표 참여</Text>
-                        <Text fontSize="sm" fontWeight="semibold" color="blue.600">
-                          {(unifiedVoteData?.activeSession?.totalParticipants || 0)}/{unifiedVoteData?.allMembers?.length || 0}
-                        </Text>
+                        <Tooltip
+                          label={(() => {
+                            if (!unifiedVoteData?.activeSession) return '투표 세션이 없습니다.';
+                            
+                            const session = unifiedVoteData.activeSession;
+                            const participants = session.participants || [];
+                            const allMembers = unifiedVoteData.allMembers || [];
+                            
+                            // 참여자 이름들
+                            const participantNames = participants.map((p: any) => p.userName).join(', ');
+                            
+                            // 미참여자 이름들
+                            const participantIds = participants.map((p: any) => p.userId);
+                            const nonParticipantNames = allMembers
+                              .filter((member: any) => !participantIds.includes(member.id))
+                              .map((member: any) => member.name);
+                            
+                            return `참여자: ${participantNames}\n미참여자: ${nonParticipantNames.join(', ')}`;
+                          })()}
+                          placement="top"
+                          hasArrow
+                          bg="blue.600"
+                          color="white"
+                          fontSize="sm"
+                          whiteSpace="pre-line"
+                        >
+                          <Text fontSize="sm" fontWeight="semibold" color="blue.600" cursor="pointer">
+                            {(unifiedVoteData?.activeSession?.totalParticipants || 0)}/{unifiedVoteData?.allMembers?.length || 0}
+                          </Text>
+                        </Tooltip>
                       </Flex>
-                      <Tooltip
-                        label={(() => {
-                          if (!unifiedVoteData?.activeSession) return '투표 세션이 없습니다.';
-                          
-                          const session = unifiedVoteData.activeSession;
-                          const participants = session.participants || [];
-                          const allMembers = unifiedVoteData.allMembers || [];
-                          
-                          // 참여자 이름들
-                          const participantNames = participants.map((p: any) => p.userName).join(', ');
-                          
-                          // 미참여자 이름들
-                          const participantIds = participants.map((p: any) => p.userId);
-                          const nonParticipantNames = allMembers
-                            .filter((member: any) => !participantIds.includes(member.id))
-                            .map((member: any) => member.name);
-                          
-                          return `참여자: ${participantNames}\n미참여자: ${nonParticipantNames.join(', ')}`;
-                        })()}
-                        placement="top"
-                        hasArrow
-                        bg="blue.600"
-                        color="white"
-                        fontSize="sm"
-                        whiteSpace="pre-line"
-                      >
-                        <Text fontSize="xs" color="gray.500" textAlign="center" cursor="default">
-                          아래 pill은 실제 투표한 인원입니다.
-                        </Text>
-                      </Tooltip>
                       {(() => {
                         const participants = unifiedVoteData?.activeSession?.participants || [];
                         if (participants.length === 0) {
