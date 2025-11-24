@@ -3076,6 +3076,69 @@ router.put('/change-password', authenticateToken, async (req, res) => {
   }
 });
 
+const generateTempPassword = (length = 10) => {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%';
+  let result = '';
+  for (let i = 0; i < length; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+};
+
+// 관리자용 비밀번호 초기화 API
+router.post('/members/:id/reset-password', authenticateToken, async (req, res) => {
+  try {
+    const requesterRole = req.user?.role;
+    if (!requesterRole || !['ADMIN', 'SUPER_ADMIN'].includes(requesterRole)) {
+      return res.status(403).json({
+        success: false,
+        message: '비밀번호 초기화 권한이 없습니다.'
+      });
+    }
+
+    const memberId = parseInt(req.params.id, 10);
+    if (Number.isNaN(memberId)) {
+      return res.status(400).json({
+        success: false,
+        message: '유효한 회원 ID가 필요합니다.'
+      });
+    }
+
+    const { newPassword } = req.body || {};
+    const passwordToSet =
+      typeof newPassword === 'string' && newPassword.trim().length >= 6
+        ? newPassword.trim()
+        : generateTempPassword();
+
+    const hashedPassword = await bcrypt.hash(passwordToSet, 10);
+
+    const updatedMember = await prisma.user.update({
+      where: { id: memberId },
+      data: { password: hashedPassword },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        status: true
+      }
+    });
+
+    res.json({
+      success: true,
+      message: '비밀번호가 초기화되었습니다.',
+      member: updatedMember,
+      newPassword: passwordToSet
+    });
+  } catch (error) {
+    console.error('비밀번호 초기화 오류:', error);
+    res.status(500).json({
+      success: false,
+      message: '비밀번호 초기화 중 오류가 발생했습니다.'
+    });
+  }
+});
+
 // 프로필 업데이트 API
 router.put('/profile', authenticateToken, async (req, res) => {
   try {
