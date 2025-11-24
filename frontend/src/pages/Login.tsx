@@ -151,7 +151,7 @@ const Login: FC<LoginProps> = ({ onSwitch, onClose }) => {
         if (axiosError.response?.status === 401) {
           errorMsg = '이메일 또는 비밀번호가 올바르지 않습니다.';
         } else if (axiosError.response?.status === 403) {
-          errorMsg = '비활성화된 계정입니다. 관리자에게 문의하세요.';
+          errorMsg = '비활성화된 계정입니다. 관리자에게 문의하세요. (관리자 : 강병우, 정성인)';
         } else if (axiosError.response?.status === 400) {
           errorMsg = axiosError.response.data?.error || axiosError.response.data?.message || '입력 정보를 확인해주세요.';
         } else if (axiosError.response?.status === 404) {

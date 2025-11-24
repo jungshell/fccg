@@ -229,7 +229,7 @@ export default function ManualModal({ isOpen, onClose, variant }: ManualModalPro
                     </Text>
                   </HStack>
                   <VStack align="stretch" spacing={1.5}>
-                    <StepCard step={1} emoji="📞" title="업로드 문의" description="관리자에게 문의" color="red" />
+                    <StepCard step={1} emoji="📞" title="업로드 문의" description="관리자에게 문의 (관리자 : 강병우, 정성인)" color="red" />
                   </VStack>
                 </Box>
               </SimpleGrid>
@@ -237,7 +237,7 @@ export default function ManualModal({ isOpen, onClose, variant }: ManualModalPro
               {/* 문의 섹션 */}
               <Box textAlign="center" p={2} bg="gray.50" _dark={{ bg: "gray.700" }} rounded="md">
                 <Text fontSize="sm" color="gray.600" _dark={{ color: "gray.400" }}>
-                  💬 문의사항이 있으시면 관리자에게 DM 주세요!
+                  💬 문의사항이 있으시면 관리자에게 DM 주세요! (관리자 : 강병우, 정성인)
                 </Text>
               </Box>
             </VStack>
