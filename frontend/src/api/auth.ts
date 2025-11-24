@@ -147,6 +147,9 @@ export const deleteMember = (memberId: number) =>
 export const resetMemberPassword = (memberId: number) =>
   request(`/members/${memberId}/reset-password`, { method: 'POST' });
 
+export const askChatbot = (question: string) =>
+  request('/chatbot/query', { method: 'POST', body: JSON.stringify({ question }) });
+
 // ===== 투표/일정 =====
 export const getUnifiedVoteDataNew = () => request('/unified-vote-data');
 

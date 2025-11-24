@@ -2,7 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Box } from '@chakra-ui/react';
 import { useAuthStore } from './store/auth';
-import { Header } from './components';
+import { Header, ChatbotWidget } from './components';
 import ErrorBoundary from './components/ErrorBoundary';
 import { AccessibilityProvider } from './components/AccessibilityProvider';
 import { PWAInstallPrompt, PWAStatus } from './components/PWAInstallPrompt';
@@ -97,6 +97,9 @@ function AppLayout() {
       
       {/* 전역 알림 시스템 */}
       <GlobalNotification />
+      
+      {/* 챗봇 */}
+      {!hideHeader && <ChatbotWidget />}
     </Box>
   );
 }

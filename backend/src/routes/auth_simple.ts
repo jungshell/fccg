@@ -3085,6 +3085,100 @@ const generateTempPassword = (length = 10) => {
   return result;
 };
 
+const chatbotFaqs = [
+  {
+    keywords: ['사진', '업로드', '갤러리'],
+    answer:
+      '사진 올리기는 사진 페이지 우측 상단 "+ 업로드" 버튼을 눌러 진행할 수 있습니다. 로그인한 회원만 업로드가 가능하며, 업로드 후 목록에 표시되기까지 약간의 시간이 걸릴 수 있어요.'
+  },
+  {
+    keywords: ['동영상', '유튜브', '영상'],
+    answer:
+      '동영상 갤러리는 FC CHAL-GGYEO 유튜브 재생목록과 연동됩니다. 새 영상을 올리면 자동으로 동기화되어 별도 업로드 없이도 확인할 수 있어요.'
+  },
+  {
+    keywords: ['로그인', '회원가입', '계정'],
+    answer:
+      '상단 우측의 "로그인" 버튼을 눌러 이메일과 비밀번호로 로그인하세요. 신규 계정이 필요하면 관리자에게 문의해 가입 안내를 받으시면 됩니다.'
+  },
+  {
+    keywords: ['투표', '참여', '다음주', '경기'],
+    answer:
+      '다음 주 경기 투표는 메인 대시보드 또는 일정 페이지의 "다음주 경기 투표하기" 카드에서 할 수 있습니다. 로그인 후 가능한 요일을 선택하고 제출하면 참여 완료!'
+  },
+  {
+    keywords: ['일정', '확인', '캘린더', '스케줄'],
+    answer:
+      '이번 주 확정 일정은 메인 대시보드와 일정 페이지 캘린더에서 확인해주세요. 보라색 태그는 확정 경기, 연한 태그는 투표 진행 중인 날짜를 의미합니다.'
+  }
+];
+
+const matchFaqAnswer = (question: string) => {
+  const cleaned = question.toLowerCase();
+  for (const faq of chatbotFaqs) {
+    if (faq.keywords.some((keyword) => cleaned.includes(keyword))) {
+      return faq.answer;
+    }
+  }
+  return null;
+};
+
+const buildScheduleAnswer = async () => {
+  const now = new Date();
+
+  const nextGame = await prisma.game.findFirst({
+    where: {
+      date: {
+        gte: now
+      }
+    },
+    orderBy: { date: 'asc' },
+    select: {
+      date: true,
+      location: true,
+      gameType: true,
+      eventType: true
+    }
+  });
+
+  const activeVote = await prisma.voteSession.findFirst({
+    where: { isActive: true },
+    orderBy: { createdAt: 'desc' },
+    include: {
+      votes: {
+        select: {
+          userId: true
+        }
+      }
+    }
+  });
+
+  const parts: string[] = [];
+  if (nextGame) {
+    parts.push(
+      `다음 경기: ${nextGame.date.toLocaleDateString('ko-KR')} ${nextGame.date.toLocaleTimeString('ko-KR', {
+        hour: '2-digit',
+        minute: '2-digit'
+      })} ${nextGame.location || ''} (${nextGame.gameType || nextGame.eventType || '경기'})`
+    );
+  } else {
+    parts.push('다음으로 확정된 경기가 아직 없습니다.');
+  }
+
+  if (activeVote) {
+    parts.push(
+      `현재 다음 주 투표가 진행 중입니다. 참여자 ${activeVote.votes.length}명, 투표 기간은 ${new Date(
+        activeVote.startTime
+      ).toLocaleDateString('ko-KR')} ~ ${new Date(activeVote.endTime).toLocaleDateString('ko-KR')} 입니다.`
+    );
+  } else {
+    parts.push('지금은 진행 중인 투표가 없습니다.');
+  }
+
+  parts.push('상세 일정은 일정 페이지에서 요일별로 확인할 수 있어요.');
+  return parts.join('\n');
+};
+
 // 관리자용 비밀번호 초기화 API
 router.post('/members/:id/reset-password', authenticateToken, async (req, res) => {
   try {
@@ -3147,6 +3241,51 @@ router.post('/members/:id/reset-password', authenticateToken, async (req, res) =
     res.status(500).json({
       success: false,
       message: '비밀번호 초기화 중 오류가 발생했습니다.'
+    });
+  }
+});
+
+// 규칙 기반 챗봇 API
+router.post('/chatbot/query', async (req, res) => {
+  try {
+    const question = (req.body?.question || '').trim();
+    if (!question) {
+      return res.status(400).json({
+        success: false,
+        message: '질문 내용을 입력해주세요.'
+      });
+    }
+
+    const lowered = question.toLowerCase();
+    if (['일정', '경기', '스케줄', '투표', '참석', '다음주'].some((keyword) => lowered.includes(keyword))) {
+      const answer = await buildScheduleAnswer();
+      return res.json({
+        success: true,
+        intent: 'schedule',
+        answer
+      });
+    }
+
+    const faqAnswer = matchFaqAnswer(question);
+    if (faqAnswer) {
+      return res.json({
+        success: true,
+        intent: 'faq',
+        answer: faqAnswer
+      });
+    }
+
+    return res.json({
+      success: true,
+      intent: 'fallback',
+      answer:
+        '아직 학습되지 않은 질문이에요. 일정이나 홈페이지 이용 방법을 물어보면 더 잘 답할 수 있어요. 자세한 내용은 관리자에게 문의해주세요!'
+    });
+  } catch (error) {
+    console.error('챗봇 API 오류:', error);
+    res.status(500).json({
+      success: false,
+      message: '챗봇 답변 생성 중 오류가 발생했습니다.'
     });
   }
 });
