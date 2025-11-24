@@ -3085,6 +3085,37 @@ const generateTempPassword = (length = 10) => {
   return result;
 };
 
+const smallTalkRules = [
+  {
+    keywords: ['안녕', '안뇽', '하이', 'hello', 'hi', 'ㅎㅇ'],
+    replies: [
+      '안녕하세요! 운동 준비 잘 하고 계시죠? 일정이나 투표가 궁금하면 언제든 물어보세요 😊',
+      '안녕하세요! 오늘도 즐거운 축구 되시길 바랄게요 ⚽️'
+    ]
+  },
+  {
+    keywords: ['고마워', '감사', 'thanks', 'thx'],
+    replies: [
+      '별말씀을요! 도움이 필요하면 언제든 불러주세요 🙌',
+      '언제든 도움이 필요하면 챗봇을 찾아주세요!'
+    ]
+  },
+  {
+    keywords: ['누구', '이름', '정체', '챗봇'],
+    replies: [
+      '저는 FC CHAL-GGYEO 도우미에요. 일정과 홈페이지 사용법을 안내해드리고 있어요!',
+      'FC CHAL-GGYEO 홈페이지 안내 챗봇입니다. 일정/투표/이용법을 도와드려요.'
+    ]
+  },
+  {
+    keywords: ['잘가', '바이', 'bye', 'ㅂㅇ'],
+    replies: [
+      '다음에 또 만나요! ⚽️',
+      '좋은 하루 보내세요!'
+    ]
+  }
+];
+
 const chatbotFaqs = [
   {
     keywords: ['로그인', '로그아웃', '계정'],
@@ -3148,6 +3179,17 @@ const matchFaqAnswer = (question: string) => {
   for (const faq of chatbotFaqs) {
     if (faq.keywords.some((keyword) => cleaned.includes(keyword))) {
       return faq.answer;
+    }
+  }
+  return null;
+};
+
+const matchSmallTalk = (question: string) => {
+  const cleaned = question.toLowerCase();
+  for (const rule of smallTalkRules) {
+    if (rule.keywords.some((keyword) => cleaned.includes(keyword))) {
+      const replies = rule.replies;
+      return replies[Math.floor(Math.random() * replies.length)];
     }
   }
   return null;
@@ -3287,6 +3329,16 @@ router.post('/chatbot/query', async (req, res) => {
     }
 
     const lowered = question.toLowerCase();
+
+    const smallTalk = matchSmallTalk(question);
+    if (smallTalk) {
+      return res.json({
+        success: true,
+        intent: 'smalltalk',
+        answer: smallTalk
+      });
+    }
+
     if (['일정', '경기', '스케줄', '투표', '참석', '다음주'].some((keyword) => lowered.includes(keyword))) {
       const answer = await buildScheduleAnswer();
       return res.json({

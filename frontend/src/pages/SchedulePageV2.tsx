@@ -3409,7 +3409,7 @@ export default function SchedulePageV2() {
                 </Flex>
 
                 {/* 투표 목록 및 불참 */}
-                <VStack spacing={0.5} align="stretch">
+                <VStack spacing="5.7px" align="stretch">
                   {getScheduleData.nextWeekVoteData.map((vote, index) => {
                     // 통합 API에서 투표 수 가져오기
                     const voteCount = (() => {
@@ -3502,7 +3502,7 @@ export default function SchedulePageV2() {
                         justify="space-between" 
                         align="center" 
                         px={2}
-                        py={{ base: 1, md: 1.5 }} 
+                        py="0.5px"
                         border={isMaxVote ? "1px solid" : "0 0 1px 0 solid"}
                         borderColor={isMaxVote ? "purple.600" : "gray.200"}
                         bg={isMaxVote ? "purple.50" : "transparent"}
@@ -3568,12 +3568,12 @@ export default function SchedulePageV2() {
                     );
                   })}
                   
-                  {/* 불참 항목 - 0명이어도 항상 표시 */}
+                {/* 불참 항목 - 0명이어도 항상 표시 */}
                   <Flex 
                     justify="space-between" 
                     align="center" 
                     px={2}
-                    py={{ base: 1, md: 1.5 }} 
+                    py="0.5px"
                     borderBottom="1px solid" 
                     borderColor="gray.200"
                     bg="red.50"
