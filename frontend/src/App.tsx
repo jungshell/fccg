@@ -42,12 +42,6 @@ function AppLayout() {
   const location = useLocation();
   const hideHeader = ['/login', '/signup'].includes(location.pathname);
   const { user } = useAuthStore();
-  const isLocalEnv =
-    typeof window !== 'undefined' &&
-    (window.location.hostname === 'localhost' ||
-      window.location.hostname === '127.0.0.1' ||
-      window.location.hostname.startsWith('192.168.') ||
-      window.location.hostname.endsWith('.local'));
 
   // 고급 기능 초기화
   React.useEffect(() => {
@@ -105,7 +99,7 @@ function AppLayout() {
       <GlobalNotification />
       
       {/* 챗봇은 로컬 환경에서만 노출 */}
-      {isLocalEnv && !hideHeader && <ChatbotWidget />}
+      {!hideHeader && <ChatbotWidget />}
     </Box>
   );
 }
