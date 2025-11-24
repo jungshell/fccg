@@ -1,12 +1,19 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
+import { PrismaClient } from '@prisma/client';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'fc-chalggyeo-secret';
+const prisma = new PrismaClient();
 
 /**
  * JWT 토큰을 검증하고 req.user에 userId/role을 주입하는 미들웨어
  */
-export function authenticateToken(req: Request, res: Response, next: NextFunction) {
+export async function authenticateToken(req: Request, res: Response, next: NextFunction) {
+  console.log('🔐 authenticateToken 호출:', {
+    path: req.path,
+    method: req.method,
+    hasAuthHeader: !!req.headers['authorization']
+  });
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
   
@@ -27,13 +34,26 @@ export function authenticateToken(req: Request, res: Response, next: NextFunctio
   
   try {
     const payload = jwt.verify(token, JWT_SECRET) as { id?: number; userId?: number; role?: string };
+    const userId = payload.userId || payload.id;
+    let role = payload.role;
+
+    if (!role && userId) {
+      console.log('ℹ️ 토큰에 role 정보 없음, DB 조회 시도:', { userId });
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { role: true }
+      });
+      role = user?.role || 'MEMBER';
+      console.log('ℹ️ DB에서 role 확인:', role);
+    }
+
     console.log('✅ 토큰 검증 성공:', {
       id: payload.id,
-      userId: payload.userId,
-      role: payload.role,
+      userId,
+      role,
       endpoint: req.path
     });
-    req.user = { userId: payload.userId || payload.id, role: payload.role || 'USER' };
+    req.user = { userId, role: role || 'USER' };
     next();
   } catch (e) {
     console.log('❌ 토큰 검증 실패:', {

@@ -3088,8 +3088,15 @@ const generateTempPassword = (length = 10) => {
 // 관리자용 비밀번호 초기화 API
 router.post('/members/:id/reset-password', authenticateToken, async (req, res) => {
   try {
+    console.log('🔐 비밀번호 초기화 요청 수신:', {
+      requesterId: req.user?.userId,
+      requesterRole: req.user?.role,
+      targetMemberId: req.params?.id
+    });
+    
     const requesterRole = req.user?.role;
     if (!requesterRole || !['ADMIN', 'SUPER_ADMIN'].includes(requesterRole)) {
+      console.warn('⚠️ 비밀번호 초기화 권한 부족:', requesterRole);
       return res.status(403).json({
         success: false,
         message: '비밀번호 초기화 권한이 없습니다.'
@@ -3129,6 +3136,11 @@ router.post('/members/:id/reset-password', authenticateToken, async (req, res) =
       message: '비밀번호가 초기화되었습니다.',
       member: updatedMember,
       newPassword: passwordToSet
+    });
+    console.log('✅ 비밀번호 초기화 완료:', {
+      memberId,
+      memberEmail: updatedMember.email,
+      requesterId: req.user?.userId
     });
   } catch (error) {
     console.error('비밀번호 초기화 오류:', error);
