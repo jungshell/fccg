@@ -497,17 +497,18 @@ export default function SchedulePageV2() {
       thisWeekScheduleData: getScheduleData.thisWeekScheduleData
     });
     
-    const updatedData = getScheduleData.thisWeekScheduleData.map(schedule => {
+    // 먼저 모든 날짜의 투표 수를 계산하고 최대값 찾기
+    const voteCounts: number[] = [];
+    const scheduleDataWithCounts = getScheduleData.thisWeekScheduleData.map(schedule => {
       // 날짜에서 일자 추출 (예: "9월 24일(수)" -> 24)
       const dayMatch = schedule.date.match(/(\d+)월 (\d+)일/);
-      if (!dayMatch) return schedule;
-      
+      if (!dayMatch) return { schedule, totalCount: 0 };
+
       const month = parseInt(dayMatch[1]);
       const day = parseInt(dayMatch[2]);
       
       // 투표 결과만 사용 (지난주 완료 세션 요약)
       let totalCount = 0;
-      let isConfirmed = false;
       if (unifiedVoteData && unifiedVoteData.lastWeekResults) {
         const lastWeekResults = unifiedVoteData.lastWeekResults;
         const results = lastWeekResults.results || {};
@@ -542,7 +543,6 @@ export default function SchedulePageV2() {
           
           if (voteCount > 0) {
             totalCount = voteCount;
-            isConfirmed = true; // 섹션은 투표결과만 반영
             
             console.log('🔍 투표 데이터에서 참석자 계산:', {
               date: schedule.date,
@@ -554,28 +554,27 @@ export default function SchedulePageV2() {
         }
       }
       
-      // 게임 데이터는 본 섹션에서 사용하지 않음 (투표 결과 고정 표시)
+      voteCounts.push(totalCount);
+      return { schedule, totalCount };
+    });
+    
+    // 최대 투표 수 찾기
+    const maxVoteCount = voteCounts.length > 0 ? Math.max(...voteCounts) : 0;
+    console.log('🔍 최대 투표 수:', maxVoteCount, '전체 투표 수:', voteCounts);
+    
+    // 최대값과 같은 날짜에만 isConfirmed = true 설정
+    const updatedData = scheduleDataWithCounts.map(({ schedule, totalCount }) => {
+      const isConfirmed = totalCount > 0 && totalCount === maxVoteCount;
       
-      // 3. 디버깅을 위한 로그 추가
+      // 디버깅을 위한 로그 추가
       console.log('🔍 이번주 일정 계산 결과:', {
         date: schedule.date,
-        month,
-        day,
         totalCount,
         isConfirmed,
+        maxVoteCount,
         hasGameData: games && games.length > 0,
         hasVoteData: unifiedVoteData && unifiedVoteData.lastWeekResults
       });
-      
-      // 3. 게임 데이터가 없고 투표 데이터도 없으면 기본값 유지
-      if (totalCount === 0 && !isConfirmed) {
-        // 기본값은 0으로 유지
-        console.log('🔍 기본값 유지:', {
-          date: schedule.date,
-          totalCount: 0,
-          isConfirmed: false
-        });
-      }
       
       return {
         ...schedule,
@@ -2313,8 +2312,21 @@ export default function SchedulePageV2() {
                   px={{ base: 2, md: 3 }} 
                   py={{ base: 0.5, md: 1 }} 
                   fontSize={{ base: "2xs", md: "xs" }}
-                    bg={isConfirmed ? "blue.600" : "gray.200"}
-                    color={isConfirmed ? "white" : "gray.600"}
+                    bg={(() => {
+                      if (isConfirmed) return "blue.600"; // 최다: 파란색 유지
+                      if (actualCount > 0) return "blue.600"; // 최다가 아닌 투표자 있음: 파란색
+                      return "gray.200"; // 투표자 없음: 회색
+                    })()}
+                    color={(() => {
+                      if (isConfirmed) return "white"; // 최다: 흰색
+                      if (actualCount > 0) return "white"; // 최다가 아닌 투표자 있음: 흰색
+                      return "gray.600"; // 투표자 없음: 회색
+                    })()}
+                    opacity={(() => {
+                      if (isConfirmed) return 1; // 최다: 불투명
+                      if (actualCount > 0) return 0.4; // 최다가 아닌 투표자 있음: 60% 투명도
+                      return 1; // 투표자 없음: 불투명
+                    })()}
                   w={{ base: "40px", md: "45px" }}
                   h={{ base: "20px", md: "22px" }}
                   display="flex"
