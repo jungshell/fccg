@@ -72,6 +72,7 @@ interface GameData {
   count: number;
   time: string;
   location: string;
+  locationAddress?: string; // 장소 주소 (신주소)
   confirmed: boolean;
   date?: string;
   memberNames?: string[] | string;
@@ -877,6 +878,7 @@ export default function SchedulePageV2() {
               date: gameDate.toISOString(),
               time: game.time || '미정',
               location: game.location || '미정',
+              locationAddress: game.locationAddress || null, // 주소 정보 추가
               eventType: game.eventType || '미정',
               // 재계산한 값 우선 사용
               count: computedCount,
@@ -3989,7 +3991,7 @@ export default function SchedulePageV2() {
           <ModalCloseButton size="sm" aria-label="경기 상세정보 모달 닫기" />
           <ModalBody pb={4} id="game-detail-modal-description">
             {selectedGameData ? (
-              <VStack spacing={3} align="stretch">
+              <VStack spacing={1.5} align="stretch">
                 {/* 유형 */}
                 <Flex align="center" gap={2}>
                   <Box as="span" fontSize="md">⚽</Box>
@@ -4005,7 +4007,7 @@ export default function SchedulePageV2() {
                 </Flex>
 
                 {/* 일시 */}
-                <Flex align="center" gap={2}>
+                <Flex align="center" gap={2} mt="-18.9px">
                   <Box as="span" fontSize="md">🕐</Box>
                   <Text fontSize="sm" fontWeight="medium">
                     일시: {(() => {
@@ -4028,12 +4030,20 @@ export default function SchedulePageV2() {
                 </Flex>
 
                 {/* 장소 */}
-                <Flex align="center" justify="space-between">
-                  <Flex align="center" gap={2}>
-                    <Box as="span" fontSize="md">📍</Box>
-                    <Text fontSize="sm" fontWeight="medium">
-                      장소: {selectedGameData.location || '장소 미정'}
-                    </Text>
+                <Flex align="center" justify="space-between" mt="-18.9px">
+                  <Flex align="flex-start" gap={2} direction="column" flex={1}>
+                    <Flex align="center" gap={2}>
+                      <Box as="span" fontSize="md">📍</Box>
+                      <Text fontSize="sm" fontWeight="medium">
+                        장소: {selectedGameData.location || '장소 미정'}
+                      </Text>
+                    </Flex>
+                    {/* 주소 표시 */}
+                    {selectedGameData.locationAddress && (
+                      <Text fontSize="xs" color="gray.600" pl={6} mt="-21px">
+                        {selectedGameData.locationAddress}
+                      </Text>
+                    )}
                   </Flex>
                   <Button
                     size="xs"
@@ -4044,7 +4054,10 @@ export default function SchedulePageV2() {
                     bg="yellow.400"
                     color="blue.600"
                     onClick={() => {
-                      const searchQuery = encodeURIComponent(selectedGameData.location || '');
+                      // location에서 세부 장소 제거 (마지막 공백 이후 부분 제거)
+                      const location = selectedGameData.location || '';
+                      const locationBase = location.includes(' ') ? location.substring(0, location.lastIndexOf(' ')) : location;
+                      const searchQuery = encodeURIComponent(locationBase);
                       window.open(`https://map.kakao.com/link/search/${searchQuery}`, '_blank');
                     }}
                   >
@@ -4053,7 +4066,7 @@ export default function SchedulePageV2() {
                 </Flex>
 
                 {/* 참석자 정보 */}
-                <Flex align="center" gap={2}>
+                <Flex align="center" gap={2} mt="-18.9px">
                   <Box as="span" fontSize="md">👥</Box>
                   <Text fontSize="sm" fontWeight="medium">
                     참석자 : {(() => {

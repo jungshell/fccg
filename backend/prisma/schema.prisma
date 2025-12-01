@@ -50,6 +50,7 @@ model Game {
   date            DateTime
   time            String?
   location        String
+  locationAddress String?       // 장소 주소 (신주소)
   gameType        String
   eventType       String?
   mercenaryCount  Int           @default(0)

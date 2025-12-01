@@ -955,7 +955,10 @@ export default function MainDashboard() {
                        bg="yellow.400"
                        color="blue.600"
                        onClick={() => {
-                         const searchQuery = encodeURIComponent(thisWeekGame.location || '');
+                         // location에서 세부 장소 제거 (마지막 공백 이후 부분 제거)
+                         const location = thisWeekGame.location || '';
+                         const locationBase = location.includes(' ') ? location.substring(0, location.lastIndexOf(' ')) : location;
+                         const searchQuery = encodeURIComponent(locationBase);
                          window.open(`https://map.kakao.com/link/search/${searchQuery}`, '_blank');
                        }}
                      >

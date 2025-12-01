@@ -369,7 +369,7 @@ export default function AdminPageNew() {
     gameReminder: {
       enabled: true,
       beforeHours: 24,
-      targets: ['all']
+      targets: ['participating']
     },
     voteReminder: {
       enabled: true,
@@ -1493,8 +1493,16 @@ export default function AdminPageNew() {
         <div style="margin-bottom: 15px; padding: 15px; background: rgba(255, 255, 255, 0.1); border-radius: 8px;">
           <div style="font-size: 14px; margin-bottom: 5px;">🏆 ${game.eventType || '자체'}</div>
           <div style="font-size: 14px; margin-bottom: 5px;">📅 ${dateStr} ${game.time ? `⏰ ${game.time}` : ''}</div>
-          <div style="font-size: 14px; margin-bottom: 5px;">📍 ${game.location || '장소 미정'}
-            ${game.location ? `<a href="https://map.kakao.com/link/search/${encodeURIComponent(game.location)}" target="_blank" style="display:inline-block;background:#FFD700;color:#0066CC;text-decoration:none;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:700;margin-left:8px;">K</a>` : ''}
+          <div style="font-size: 14px; margin-bottom: 5px;">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: ${game.locationAddress ? '4px' : '0'};">
+              📍 ${game.location || '장소 미정'}
+              ${game.location ? (() => {
+                // location에서 세부 장소 제거 (마지막 공백 이후 부분 제거)
+                const locationBase = game.location.includes(' ') ? game.location.substring(0, game.location.lastIndexOf(' ')) : game.location;
+                return `<a href="https://map.kakao.com/link/search/${encodeURIComponent(locationBase)}" target="_blank" style="display:inline-block;background:#FFD700;color:#0066CC;text-decoration:none;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:700;margin-left:8px;">K</a>`;
+              })() : ''}
+            </div>
+            ${game.locationAddress ? `<div style="font-size: 12px; opacity: 0.9; padding-left: 24px;">${game.locationAddress}</div>` : ''}
           </div>
           <div style="font-size: 14px; margin-bottom: 5px;">👥 참가자: ${game.totalParticipantCount || 0}명</div>
           ${(names.length > 0 || merc > 0) ? `<div style="font-size: 14px; margin-bottom: 5px; opacity: 0.9; display: flex; flex-wrap: wrap; gap: 4px;">${names.map(n => `<span style=\"background:#3182CE;color:#fff;padding:2px 8px;border-radius:12px;font-size:12px;font-weight:500;\">${n}</span>`).join('')}${merc > 0 ? `<span style=\"background:#2D3748;color:#fff;padding:2px 8px;border-radius:12px;font-size:12px;font-weight:500;\">용병 ${merc}명</span>` : ''}</div>` : ''}
@@ -3648,7 +3656,7 @@ export default function AdminPageNew() {
                           />
                         </HStack>
                         
-                        <HStack spacing={4}>
+                        <HStack spacing={4} mt="-26.44px">
                           <Badge colorScheme={isNotificationSystemActive ? 'green' : 'red'} size="lg">
                             {isNotificationSystemActive ? '활성화' : '비활성화'}
                           </Badge>
@@ -3685,38 +3693,39 @@ export default function AdminPageNew() {
 
                           {notificationSettings.gameReminder.enabled && (
                             <>
-                              <FormControl>
-                                <FormLabel color="gray.700" fontWeight="bold">알림 전송 시간</FormLabel>
-                                <HStack>
-                                  <NumberInput
-                                    value={notificationSettings.gameReminder.beforeHours}
-                                    onChange={(_, value) => handleNotificationChange('gameReminder', 'beforeHours', value)}
-                                    min={1}
-                                    max={168}
-                                    w="120px"
-                                  >
-                                    <NumberInputField />
-                                    <NumberInputStepper>
-                                      <NumberIncrementStepper />
-                                      <NumberDecrementStepper />
-                                    </NumberInputStepper>
-                                  </NumberInput>
-                                  <Text color="gray.600">시간 전</Text>
-                                </HStack>
-                              </FormControl>
+                              <HStack spacing={4} align="flex-start">
+                                <FormControl flex={1}>
+                                  <FormLabel color="gray.700" fontWeight="bold">알림 전송 시간</FormLabel>
+                                  <HStack>
+                                    <NumberInput
+                                      value={notificationSettings.gameReminder.beforeHours}
+                                      onChange={(_, value) => handleNotificationChange('gameReminder', 'beforeHours', value)}
+                                      min={1}
+                                      max={168}
+                                      w="120px"
+                                    >
+                                      <NumberInputField />
+                                      <NumberInputStepper>
+                                        <NumberIncrementStepper />
+                                        <NumberDecrementStepper />
+                                      </NumberInputStepper>
+                                    </NumberInput>
+                                    <Text color="gray.600">시간 전</Text>
+                                  </HStack>
+                                </FormControl>
 
-                              <FormControl>
-                                <FormLabel color="gray.700" fontWeight="bold">알림 대상</FormLabel>
-                                <Select
-                                  value={notificationSettings.gameReminder.targets[0]}
-                                  onChange={(e) => handleNotificationChange('gameReminder', 'targets', [e.target.value])}
-                                  focusBorderColor="#004ea8"
-                                >
-                                  <option value="all">전체 회원</option>
-                                  <option value="participating">참가 회원만</option>
-                                  <option value="admin">관리자만</option>
-                                </Select>
-                              </FormControl>
+                                <FormControl flex={1}>
+                                  <FormLabel color="gray.700" fontWeight="bold">알림 대상</FormLabel>
+                                  <Select
+                                    value={notificationSettings.gameReminder.targets[0]}
+                                    onChange={(e) => handleNotificationChange('gameReminder', 'targets', [e.target.value])}
+                                    focusBorderColor="#004ea8"
+                                  >
+                                    <option value="participating">참가 예정 회원</option>
+                                    <option value="all">전체 회원</option>
+                                  </Select>
+                                </FormControl>
+                              </HStack>
             </>
           )}
                           
@@ -3772,37 +3781,39 @@ export default function AdminPageNew() {
 
                           {notificationSettings.voteReminder.enabled && (
                             <>
-                              <FormControl>
-                                <FormLabel color="gray.700" fontWeight="bold">알림 전송 시간</FormLabel>
-                                <HStack>
-                                  <NumberInput
-                                    value={notificationSettings.voteReminder.beforeHours}
-                                    onChange={(_, value) => handleNotificationChange('voteReminder', 'beforeHours', value)}
-                                    min={1}
-                                    max={72}
-                                    w="120px"
-                                  >
-                                    <NumberInputField />
-                                    <NumberInputStepper>
-                                      <NumberIncrementStepper />
-                                      <NumberDecrementStepper />
-                                    </NumberInputStepper>
-                                  </NumberInput>
-                                  <Text color="gray.600">시간 전</Text>
-                                </HStack>
-                              </FormControl>
+                              <HStack spacing={4} align="flex-start">
+                                <FormControl flex={1}>
+                                  <FormLabel color="gray.700" fontWeight="bold">알림 전송 시간</FormLabel>
+                                  <HStack>
+                                    <NumberInput
+                                      value={notificationSettings.voteReminder.beforeHours}
+                                      onChange={(_, value) => handleNotificationChange('voteReminder', 'beforeHours', value)}
+                                      min={1}
+                                      max={72}
+                                      w="120px"
+                                    >
+                                      <NumberInputField />
+                                      <NumberInputStepper>
+                                        <NumberIncrementStepper />
+                                        <NumberDecrementStepper />
+                                      </NumberInputStepper>
+                                    </NumberInput>
+                                    <Text color="gray.600">시간 전</Text>
+                                  </HStack>
+                                </FormControl>
 
-                              <FormControl>
-                                <FormLabel color="gray.700" fontWeight="bold">알림 대상</FormLabel>
-                                <Select
-                                  value={notificationSettings.voteReminder.targets[0]}
-                                  onChange={(e) => handleNotificationChange('voteReminder', 'targets', [e.target.value])}
-                                  focusBorderColor="#004ea8"
-                                >
-                                  <option value="all">전체 회원</option>
-                                  <option value="admin">관리자만</option>
-                                </Select>
-                              </FormControl>
+                                <FormControl flex={1}>
+                                  <FormLabel color="gray.700" fontWeight="bold">알림 대상</FormLabel>
+                                  <Select
+                                    value={notificationSettings.voteReminder.targets[0]}
+                                    onChange={(e) => handleNotificationChange('voteReminder', 'targets', [e.target.value])}
+                                    focusBorderColor="#004ea8"
+                                  >
+                                    <option value="all">전체 회원</option>
+                                    <option value="nonVoters">투표 미참여 회원</option>
+                                  </Select>
+                                </FormControl>
+                              </HStack>
                             </>
                           )}
                           
@@ -4271,24 +4282,36 @@ export default function AdminPageNew() {
                                     })} {game.time ? `⏰ ${game.time}` : ''}
                                   </div>
                                   {/* 세번째줄: 장소 */}
-                                  <div style={{ fontSize: "14px", marginBottom: "5px", display: "flex", alignItems: "center", gap: "10px" }}>
-                                    📍 {game.location || '장소 미정'}
-                                    {game.location && (
-                                      <button 
-                                        style={{
-                                          background: "#FFD700",
-                                          border: "none",
-                                          borderRadius: "4px",
-                                          color: "#0066CC",
-                                          padding: "4px 8px",
-                                          fontSize: "12px",
-                                          cursor: "pointer",
-                                          fontWeight: "bold"
-                                        }}
-                                        onClick={() => window.open(`https://map.kakao.com/link/search/${encodeURIComponent(game.location)}`, '_blank')}
-                                      >
-                                        K
-                                      </button>
+                                  <div style={{ fontSize: "14px", marginBottom: "5px" }}>
+                                    <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: game.locationAddress ? "4px" : "0" }}>
+                                      📍 {game.location || '장소 미정'}
+                                      {game.location && (
+                                        <button 
+                                          style={{
+                                            background: "#FFD700",
+                                            border: "none",
+                                            borderRadius: "4px",
+                                            color: "#0066CC",
+                                            padding: "4px 8px",
+                                            fontSize: "12px",
+                                            cursor: "pointer",
+                                            fontWeight: "bold"
+                                          }}
+                                          onClick={() => {
+                                            // location에서 세부 장소 제거 (마지막 공백 이후 부분 제거)
+                                            const locationBase = game.location.includes(' ') ? game.location.substring(0, game.location.lastIndexOf(' ')) : game.location;
+                                            window.open(`https://map.kakao.com/link/search/${encodeURIComponent(locationBase)}`, '_blank');
+                                          }}
+                                        >
+                                          K
+                                        </button>
+                                      )}
+                                    </div>
+                                    {/* 주소 표시 */}
+                                    {game.locationAddress && (
+                                      <div style={{ fontSize: "12px", opacity: "0.9", paddingLeft: "24px" }}>
+                                        {game.locationAddress}
+                                      </div>
                                     )}
                                   </div>
                                   {/* 네번째줄: 참가자 인원수 */}
