@@ -3982,6 +3982,110 @@ async function sendGameConfirmationNotification(game) {
   `;
 }
 
+// 발송 대상자 리스트 확인 API
+router.get('/notification-recipients', authenticateToken, async (req, res) => {
+  try {
+    const { target, gameIds } = req.query;
+    
+    // 전체 회원 목록 가져오기
+    const allUsers = await prisma.user.findMany({
+      where: { 
+        role: { in: ['MEMBER', 'ADMIN', 'SUPER_ADMIN'] },
+        status: { in: ['ACTIVE', 'SUSPENDED'] }
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        status: true
+      },
+      orderBy: { name: 'asc' }
+    });
+    
+    let recipients: number[] = [];
+    let recipientDetails: any[] = [];
+    
+    if (target === 'all') {
+      recipients = allUsers.map(u => u.id);
+      recipientDetails = allUsers.map(u => ({
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        role: u.role,
+        status: u.status,
+        hasEmail: !!u.email
+      }));
+    } else if (target === 'participating') {
+      // 참가 예정 회원
+      const gameIdArray = gameIds ? (Array.isArray(gameIds) ? gameIds : [gameIds]).map(id => parseInt(id)) : [];
+      const attendances = await prisma.attendance.findMany({
+        where: {
+          gameId: { in: gameIdArray },
+          status: 'CONFIRMED'
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              role: true,
+              status: true
+            }
+          }
+        }
+      });
+      
+      const participantIds = new Set(attendances.map(a => a.userId));
+      recipients = Array.from(participantIds);
+      recipientDetails = Array.from(participantIds).map(id => {
+        const user = allUsers.find(u => u.id === id);
+        return user ? {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          status: user.status,
+          hasEmail: !!user.email
+        } : null;
+      }).filter(Boolean);
+    } else if (target === 'admin') {
+      recipients = allUsers.filter(u => u.role === 'ADMIN' || u.role === 'SUPER_ADMIN').map(u => u.id);
+      recipientDetails = allUsers
+        .filter(u => u.role === 'ADMIN' || u.role === 'SUPER_ADMIN')
+        .map(u => ({
+          id: u.id,
+          name: u.name,
+          email: u.email,
+          role: u.role,
+          status: u.status,
+          hasEmail: !!u.email
+        }));
+    }
+    
+    res.json({
+      target,
+      totalUsers: allUsers.length,
+      recipientsCount: recipients.length,
+      recipientsWithEmail: recipientDetails.filter(r => r.hasEmail).length,
+      recipientsWithoutEmail: recipientDetails.filter(r => !r.hasEmail).length,
+      recipients: recipientDetails,
+      allUsers: allUsers.map(u => ({
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        role: u.role,
+        status: u.status
+      }))
+    });
+    
+  } catch (error) {
+    console.error('발송 대상자 리스트 조회 오류:', error);
+    res.status(500).json({ error: '발송 대상자 리스트 조회 중 오류가 발생했습니다.', message: error.message });
+  }
+});
+
 // 테스트 알림 발송 API
 router.post('/send-test-notification', authenticateToken, async (req, res) => {
   try {
@@ -4000,10 +4104,20 @@ router.post('/send-test-notification', authenticateToken, async (req, res) => {
     
     // 수신자 이메일 주소 가져오기
     const userEmails = [];
+    const userDetails = [];
     for (const userId of recipients) {
       const user = await prisma.user.findUnique({
         where: { id: parseInt(userId) },
-        select: { email: true, name: true }
+        select: { id: true, email: true, name: true, role: true, status: true }
+      });
+      
+      userDetails.push({
+        id: user?.id,
+        name: user?.name,
+        email: user?.email,
+        role: user?.role,
+        status: user?.status,
+        hasEmail: !!user?.email
       });
       
       if (user && user.email) {
@@ -4011,17 +4125,34 @@ router.post('/send-test-notification', authenticateToken, async (req, res) => {
       }
     }
     
+    console.log('📧 발송 대상자 상세 정보:', JSON.stringify(userDetails, null, 2));
+    console.log('📧 이메일이 있는 발송 대상자 수:', userEmails.length, '/', recipients.length);
+    console.log('📧 이메일이 있는 발송 대상자 목록:', userEmails.map(u => `${u.name}(${u.email})`));
+    console.log('📧 이메일이 없는 발송 대상자:', userDetails.filter(u => !u.hasEmail).map(u => `${u.name}(ID: ${u.id}, 역할: ${u.role})`));
+    
     if (userEmails.length === 0) {
-      return res.status(400).json({ error: '유효한 수신자 이메일이 없습니다.' });
+      console.error('❌ 유효한 수신자 이메일이 없습니다.');
+      return res.status(400).json({ 
+        error: '유효한 수신자 이메일이 없습니다.',
+        details: userDetails 
+      });
     }
     
     // 이메일 발송
     const useRaw = req.body.useRaw || false;
+    console.log('📧 이메일 발송 시작 - 대상자:', userEmails.map(u => `${u.name}(${u.email})`));
     const result = await sendTestEmailNotification(userEmails, title, message, useRaw);
+    
+    console.log('📧 이메일 발송 완료 - 결과:', {
+      successCount: result.successCount,
+      failCount: result.failCount,
+      total: result.total
+    });
     
     res.json({
       message: '테스트 알림이 발송되었습니다.',
-      result
+      result,
+      sentTo: userEmails.map(u => ({ name: u.name, email: u.email }))
     });
     
   } catch (error) {
@@ -4064,7 +4195,9 @@ async function sendTestEmailNotification(recipients, title, message, useRaw = fa
     let failCount = 0;
 
     // 수신자들에게 이메일 발송
+    console.log(`📧 총 ${recipients.length}명에게 이메일 발송 시작...`);
     for (const recipient of recipients) {
+      console.log(`📧 발송 중: ${recipient.name} (${recipient.email})`);
       const mailOptions = {
         from: process.env.GMAIL_USER,
         to: recipient.email,
@@ -4088,13 +4221,14 @@ async function sendTestEmailNotification(recipients, title, message, useRaw = fa
 
       try {
         await transporter.sendMail(mailOptions);
-        console.log(`📧 테스트 이메일 발송 완료: ${recipient.email} (${recipient.name})`);
+        console.log(`✅ 이메일 발송 완료: ${recipient.email} (${recipient.name})`);
         successCount++;
       } catch (emailError) {
-        console.error(`❌ 테스트 이메일 발송 실패 (${recipient.email}):`, emailError);
+        console.error(`❌ 이메일 발송 실패: ${recipient.email} (${recipient.name})`, emailError.message);
         failCount++;
       }
     }
+    console.log(`📧 이메일 발송 완료 - 성공: ${successCount}건, 실패: ${failCount}건`);
 
     console.log(`📊 테스트 이메일 발송 결과: 성공 ${successCount}건, 실패 ${failCount}건`);
     return { 
@@ -6016,6 +6150,134 @@ router.post('/send-vote-notification-test', async (req, res) => {
   } catch (error) {
     console.error('투표 알림 발송 오류:', error);
     res.status(500).json({ error: '투표 알림 발송 중 오류가 발생했습니다.', message: error.message });
+  }
+});
+
+// 경기 알림 테스트 발송 API (테스트용 - 인증 없이 사용 가능)
+router.post('/send-game-notification-test', async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({ error: '이메일 주소가 필요합니다.' });
+    }
+
+    // 미래 경기 가져오기
+    const now = new Date();
+    const futureGames = await prisma.game.findMany({
+      where: {
+        date: { gte: now }
+      },
+      include: {
+        attendances: {
+          include: {
+            user: {
+              select: { id: true, name: true, email: true }
+            }
+          }
+        }
+      },
+      orderBy: { date: 'asc' },
+      take: 3
+    });
+
+    if (futureGames.length === 0) {
+      return res.status(404).json({ error: '발송할 미래 경기가 없습니다.' });
+    }
+
+    // HTML 생성 (프리뷰와 동일한 형식)
+    const items = futureGames.map((game: any) => {
+      const names: string[] = game.attendances
+        .filter((a: any) => a.user)
+        .map((a: any) => a.user.name)
+        .filter(Boolean);
+      const merc = game.mercenaryCount || 0;
+      const dateStr = new Date(game.date).toLocaleDateString('ko-KR', { 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric', 
+        weekday: 'long' 
+      });
+      
+      // location에서 세부 장소 제거 (마지막 공백 이후 부분 제거)
+      const locationBase = game.location && game.location.includes(' ') 
+        ? game.location.substring(0, game.location.lastIndexOf(' ')) 
+        : game.location;
+      
+      return `
+        <div style="margin-bottom: 15px; padding: 15px; background: rgba(255, 255, 255, 0.1); border-radius: 8px;">
+          <div style="font-size: 14px; margin-bottom: 5px;">🏆 ${game.eventType || '자체'}</div>
+          <div style="font-size: 14px; margin-bottom: 5px;">📅 ${dateStr} ${game.time ? `⏰ ${game.time}` : ''}</div>
+          <div style="font-size: 14px; margin-bottom: 5px;">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: ${game.locationAddress ? '4px' : '0'};">
+              📍 ${game.location || '장소 미정'}
+              ${game.location && locationBase ? `<a href="https://map.kakao.com/link/search/${encodeURIComponent(locationBase)}" target="_blank" style="display:inline-block;background:#FFD700;color:#0066CC;text-decoration:none;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:700;margin-left:8px;">K</a>` : ''}
+            </div>
+            ${game.locationAddress ? `<div style="font-size: 12px; opacity: 0.9; padding-left: 24px;">${game.locationAddress}</div>` : ''}
+          </div>
+          <div style="font-size: 14px; margin-bottom: 5px;">👥 참가자: ${names.length + merc}명</div>
+          ${(names.length > 0 || merc > 0) ? `<div style="font-size: 14px; margin-bottom: 5px; opacity: 0.9; display: flex; flex-wrap: wrap; gap: 4px;">${names.map(n => `<span style="background:#3182CE;color:#fff;padding:2px 8px;border-radius:12px;font-size:12px;font-weight:500;">${n}</span>`).join('')}${merc > 0 ? `<span style="background:#2D3748;color:#fff;padding:2px 8px;border-radius:12px;font-size:12px;font-weight:500;">용병 ${merc}명</span>` : ''}</div>` : ''}
+        </div>`;
+    }).join('');
+
+    const htmlContent = `
+      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px; border-radius: 15px; color: white;">
+        <div style="background: rgba(255, 255, 255, 0.1); padding: 30px; border-radius: 10px; margin-bottom: 30px;">
+          <h2 style="margin: 0 0 20px 0; font-size: 24px; text-align: center;">⚽ 경기 알림</h2>
+          <p style="margin: 0 0 20px 0; font-size: 18px; line-height: 1.6; text-align: center;">확정된 경기 일정을 회원들에게 알립니다.</p>
+          <div style="background: rgba(255, 255, 255, 0.2); padding: 20px; border-radius: 8px; margin-top: 20px;">
+            <h3 style="margin: 0 0 15px 0; font-size: 20px; text-align: center;">다음 경기 일정</h3>
+            ${items}
+          </div>
+        </div>
+        <div style="text-align: center; margin-bottom: 30px;">
+          <div style="display: inline-block; background: rgba(255, 255, 255, 0.2); padding: 15px 25px; border-radius: 25px;">
+            <span style="font-size: 14px; opacity: 0.9;">발송 시간: ${new Date().toLocaleString('ko-KR')}</span>
+          </div>
+        </div>
+        <div style="text-align: center; font-size: 14px; opacity: 0.7;">
+          <p style="margin: 0;">이 이메일은 자동으로 발송되었습니다.</p>
+          <p style="margin: 5px 0 0 0;">FC CHAL GGYEO 관리 시스템</p>
+        </div>
+      </div>
+    `;
+
+    // 이메일 발송
+    if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
+      return res.status(500).json({ error: 'Gmail 환경변수가 설정되지 않았습니다.' });
+    }
+
+    const nodemailer = require('nodemailer');
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.GMAIL_USER,
+        pass: process.env.GMAIL_APP_PASSWORD
+      }
+    });
+
+    await transporter.verify();
+    console.log('✅ Gmail SMTP 연결 성공');
+
+    const mailOptions = {
+      from: process.env.GMAIL_USER,
+      to: email,
+      subject: '⚽ 경기 알림',
+      html: htmlContent
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log(`📧 경기 알림 이메일 발송 완료: ${email}`);
+
+    res.json({
+      message: '경기 알림이 성공적으로 발송되었습니다.',
+      email: email,
+      gamesCount: futureGames.length
+    });
+
+  } catch (error) {
+    console.error('경기 알림 발송 오류:', error);
+    res.status(500).json({ error: '경기 알림 발송 중 오류가 발생했습니다.', message: error.message });
   }
 });
 

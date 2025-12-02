@@ -1389,14 +1389,34 @@ export default function AdminPageNew() {
   const sendEmailNotification = async (notification: Notification) => {
     try {
       console.log('📧 이메일 알림 발송 시작:', notification);
+      console.log('📧 발송 대상자 ID 목록:', notification.recipients);
+      console.log('📧 발송 대상자 수:', notification.recipients.length);
+      
+      // 발송 대상자 상세 정보 확인
+      const recipientDetails = notification.recipients.map(id => {
+        const user = userList.find(u => u.id === id);
+        return {
+          id,
+          name: user?.name || '알 수 없음',
+          email: user?.email || '이메일 없음',
+          role: user?.role || '알 수 없음',
+          status: user?.status || '알 수 없음'
+        };
+      });
+      console.log('📧 발송 대상자 상세 정보:', recipientDetails);
+      console.log('📧 이메일이 있는 대상자:', recipientDetails.filter(r => r.email && r.email !== '이메일 없음').map(r => `${r.name}(${r.email})`));
+      console.log('📧 이메일이 없는 대상자:', recipientDetails.filter(r => !r.email || r.email === '이메일 없음').map(r => `${r.name}(${r.id})`));
       
       // 공통 요청 함수 (재사용)
       const requestOnce = async () => {
+        const token = localStorage.getItem('token') || localStorage.getItem('auth_token_backup');
+        console.log('📧 사용할 토큰:', token ? `있음 (길이: ${token.length})` : '없음');
+        
         const res = await fetch('/api/auth/send-test-notification', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
+            'Authorization': `Bearer ${token}`
           },
           body: JSON.stringify({
             recipients: notification.recipients,
@@ -1406,7 +1426,13 @@ export default function AdminPageNew() {
             useRaw: true
           })
         });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        
+        console.log('📧 API 응답 상태:', res.status, res.statusText);
+        if (!res.ok) {
+          const errorText = await res.text();
+          console.error('📧 API 오류 응답:', errorText);
+          throw new Error(`HTTP ${res.status}: ${errorText}`);
+        }
         return res.json();
       };
 
@@ -1421,6 +1447,16 @@ export default function AdminPageNew() {
       }
 
       console.log('📧 이메일 발송 결과:', result);
+      console.log('📧 발송 성공 건수:', result.result?.successCount || 0);
+      console.log('📧 발송 실패 건수:', result.result?.failCount || 0);
+      console.log('📧 총 발송 대상자:', result.result?.total || 0);
+      
+      if (result.result?.successCount > 0) {
+        console.log('✅ 이메일 발송 성공!');
+      }
+      if (result.result?.failCount > 0) {
+        console.warn('⚠️ 일부 이메일 발송 실패:', result.result.failCount, '건');
+      }
 
         // 발송 성공 로그
         addActivityLog(0, 'System', 'ANNOUNCEMENT_CREATE', 
@@ -1466,7 +1502,7 @@ export default function AdminPageNew() {
     const futureGames = (games || []).filter((g: any) => new Date(g.date).getTime() >= now.getTime());
     if (futureGames.length === 0) {
       return `
-        <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px; border-radius: 15px; color: white;">
+        <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 400px; margin: 0 auto; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px; border-radius: 15px; color: white;">
           <div style="background: rgba(255, 255, 255, 0.1); padding: 30px; border-radius: 10px; margin-bottom: 30px;">
             <h2 style="margin: 0 0 20px 0; font-size: 24px; text-align: center;">⚽ 경기 알림</h2>
             <p style="margin: 0 0 20px 0; font-size: 18px; line-height: 1.6; text-align: center;">확정된 경기 일정을 회원들에게 알립니다.</p>
@@ -1509,7 +1545,7 @@ export default function AdminPageNew() {
         </div>`;
     }).join('');
     return `
-      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px; border-radius: 15px; color: white;">
+      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 400px; margin: 0 auto; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px; border-radius: 15px; color: white;">
         <div style="background: rgba(255, 255, 255, 0.1); padding: 30px; border-radius: 10px; margin-bottom: 30px;">
           <h2 style="margin: 0 0 20px 0; font-size: 24px; text-align: center;">⚽ 경기 알림</h2>
           <p style="margin: 0 0 20px 0; font-size: 18px; line-height: 1.6; text-align: center;">확정된 경기 일정을 회원들에게 알립니다.</p>
@@ -1532,23 +1568,108 @@ export default function AdminPageNew() {
 
   // 실제 경기 알림 발송 (프리뷰 HTML 그대로, 실제 수신자 대상으로)
   const sendGameNotification = () => {
+    console.log('📧 경기 알림 발송 시작 - 현재 상태:', {
+      userListCount: userList.length,
+      gamesCount: games.length,
+      notificationSettings: notificationSettings.gameReminder
+    });
+    
     const now = new Date();
     const futureGames = (games || []).filter((g: any) => new Date(g.date).getTime() >= now.getTime());
+    console.log('📧 미래 경기 수:', futureGames.length);
+    
     if (futureGames.length === 0) {
       toast({ title: '경기 알림 발송 불가', description: '발송할 미래 경기가 없습니다.', status: 'warning', duration: 3000, isClosable: true });
       return;
     }
+    
     // 대상자 결정
     const target = notificationSettings.gameReminder.targets[0] || 'all';
+    console.log('📧 선택된 발송 대상:', target);
+    
     let recipients: number[] = [];
     if (target === 'all') {
-      recipients = (userList || []).map((u: any) => u.id);
+      if (!userList || userList.length === 0) {
+        console.error('❌ userList가 비어있습니다!');
+        toast({ 
+          title: '경기 알림 발송 실패', 
+          description: '회원 목록을 불러올 수 없습니다. 페이지를 새로고침해주세요.', 
+          status: 'error', 
+          duration: 5000, 
+          isClosable: true 
+        });
+        return;
+      }
+      recipients = userList.map((u: any) => u.id);
+      console.log('📧 경기 알림 발송 - 전체 회원 대상:', {
+        userListCount: userList.length,
+        recipientsCount: recipients.length,
+        userList: userList.map((u: any) => ({ id: u.id, name: u.name, email: u.email, role: u.role }))
+      });
     } else if (target === 'participating') {
       const ids = new Set<number>();
-      futureGames.forEach((g: any) => (g.attendances || []).forEach((a: any) => a?.userId && ids.add(a.userId)));
+      console.log('📧 미래 경기별 참가자 확인:', futureGames.map((g: any) => ({
+        gameId: g.id,
+        date: g.date,
+        attendancesCount: (g.attendances || []).length,
+        attendances: (g.attendances || []).map((a: any) => ({ userId: a.userId, status: a.status }))
+      })));
+      
+      futureGames.forEach((g: any) => {
+        if (g.attendances && Array.isArray(g.attendances)) {
+          g.attendances.forEach((a: any) => {
+            if (a?.userId) {
+              ids.add(a.userId);
+            }
+          });
+        }
+      });
       recipients = Array.from(ids);
+      console.log('📧 경기 알림 발송 - 참가 예정 회원 대상:', {
+        recipientsCount: recipients.length,
+        recipients: recipients,
+        futureGamesCount: futureGames.length
+      });
+      
+      if (recipients.length === 0) {
+        toast({ 
+          title: '경기 알림 발송 불가', 
+          description: '참가 예정 회원이 없습니다. 전체 회원 대상으로 발송해주세요.', 
+          status: 'warning', 
+          duration: 5000, 
+          isClosable: true 
+        });
+        return;
+      }
     } else if (target === 'admin') {
-      recipients = (userList || []).filter((u: any) => u.role === 'ADMIN').map((u: any) => u.id);
+      if (!userList || userList.length === 0) {
+        console.error('❌ userList가 비어있습니다!');
+        toast({ 
+          title: '경기 알림 발송 실패', 
+          description: '회원 목록을 불러올 수 없습니다. 페이지를 새로고침해주세요.', 
+          status: 'error', 
+          duration: 5000, 
+          isClosable: true 
+        });
+        return;
+      }
+      recipients = userList.filter((u: any) => u.role === 'ADMIN' || u.role === 'SUPER_ADMIN').map((u: any) => u.id);
+      console.log('📧 경기 알림 발송 - 관리자 대상:', {
+        recipientsCount: recipients.length,
+        recipients: recipients
+      });
+    }
+    
+    if (recipients.length === 0) {
+      console.error('❌ 발송 대상자가 0명입니다!');
+      toast({ 
+        title: '경기 알림 발송 실패', 
+        description: '발송 대상자가 없습니다. 알림 대상을 확인해주세요.', 
+        status: 'error', 
+        duration: 5000, 
+        isClosable: true 
+      });
+      return;
     }
 
     const htmlContent = buildGameNotificationHtml();
