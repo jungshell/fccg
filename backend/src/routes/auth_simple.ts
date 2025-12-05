@@ -1632,12 +1632,13 @@ router.get('/votes/unified', async (req, res) => {
     // 활성 세션 데이터 가공
     let processedActiveSession = null;
     if (activeSession) {
-      const dayVotes = {
+      const dayVotes: any = {
         MON: { count: 0, participants: [] },
         TUE: { count: 0, participants: [] },
         WED: { count: 0, participants: [] },
         THU: { count: 0, participants: [] },
-        FRI: { count: 0, participants: [] }
+        FRI: { count: 0, participants: [] },
+        '불참': { count: 0, participants: [] }
       };
       
       activeSession.votes.forEach(vote => {
@@ -1649,10 +1650,17 @@ router.get('/votes/unified', async (req, res) => {
           selectedDays = [];
         }
         selectedDays.forEach((day: string) => {
-          // 요일 코드를 직접 사용 (MON, TUE, WED, THU, FRI)
+          // 요일 코드를 직접 사용 (MON, TUE, WED, THU, FRI) 또는 '불참'
           const dayKey = day;
           
-          if (dayKey && dayVotes[dayKey as keyof typeof dayVotes]) {
+          if (dayKey === '불참') {
+            dayVotes['불참'].count++;
+            dayVotes['불참'].participants.push({
+              userId: vote.userId,
+              userName: vote.user.name,
+              votedAt: vote.createdAt
+            });
+          } else if (dayKey && dayVotes[dayKey as keyof typeof dayVotes]) {
             dayVotes[dayKey as keyof typeof dayVotes].count++;
             dayVotes[dayKey as keyof typeof dayVotes].participants.push({
               userId: vote.userId,
@@ -1665,11 +1673,13 @@ router.get('/votes/unified', async (req, res) => {
       
       processedActiveSession = {
         id: activeSession.id,
+        sessionId: activeSession.id,
         weekStartDate: activeSession.weekStartDate,
         startTime: activeSession.startTime,
         endTime: activeSession.endTime,
         weekRange: `${formatDateWithDay(activeSession.weekStartDate)} ~ ${formatDateWithDay(new Date(activeSession.weekStartDate.getTime() + 4 * 24 * 60 * 60 * 1000))}`,
         isActive: activeSession.isActive,
+        isCompleted: activeSession.isCompleted,
         results: dayVotes,
         participants: activeSession.votes.map(vote => {
           let selectedDays = [];
@@ -1691,8 +1701,27 @@ router.get('/votes/unified', async (req, res) => {
     }
     
     // 지난주 세션 데이터 가공
+    // activeSession이 isCompleted: true이고 isActive: false인 경우, 이를 lastWeekResults로도 사용
     let processedLastWeekSession = null;
-    if (lastWeekSession) {
+    let sessionToProcess = lastWeekSession;
+    
+    // activeSession이 완료된 세션이고, 이번주 주간에 해당하면 이를 우선 사용
+    if (activeSession && activeSession.isCompleted && !activeSession.isActive) {
+      const activeWeekStart = new Date(activeSession.weekStartDate);
+      const activeWeekEnd = new Date(activeWeekStart);
+      activeWeekEnd.setDate(activeWeekStart.getDate() + 4);
+      
+      // activeSession의 주간이 이번주 주간과 겹치는지 확인
+      if (activeWeekStart <= thisWeekFriday && activeWeekEnd >= thisWeekMonday) {
+        console.log('✅ activeSession이 완료된 세션이므로 lastWeekResults로 사용:', {
+          activeSessionId: activeSession.id,
+          weekStartDate: activeSession.weekStartDate
+        });
+        sessionToProcess = activeSession;
+      }
+    }
+    
+    if (sessionToProcess) {
       const dayVotes: any = {
         MON: { count: 0, participants: [] },
         TUE: { count: 0, participants: [] },
@@ -1702,7 +1731,7 @@ router.get('/votes/unified', async (req, res) => {
         '불참': { count: 0, participants: [] }
       };
       
-      lastWeekSession.votes.forEach(vote => {
+      sessionToProcess.votes.forEach(vote => {
         let selectedDays = [];
         try {
           selectedDays = JSON.parse(vote.selectedDays || '[]');
@@ -1733,15 +1762,15 @@ router.get('/votes/unified', async (req, res) => {
       });
       
       processedLastWeekSession = {
-        sessionId: lastWeekSession.id,
-        weekStartDate: lastWeekSession.weekStartDate,
-        startTime: lastWeekSession.startTime,
-        endTime: lastWeekSession.endTime,
-        isActive: lastWeekSession.isActive,
-        isCompleted: lastWeekSession.isCompleted,
-        weekRange: `${formatDateWithDay(lastWeekSession.weekStartDate)} ~ ${formatDateWithDay(new Date(lastWeekSession.weekStartDate.getTime() + 6 * 24 * 60 * 60 * 1000))}`,
+        sessionId: sessionToProcess.id,
+        weekStartDate: sessionToProcess.weekStartDate,
+        startTime: sessionToProcess.startTime,
+        endTime: sessionToProcess.endTime,
+        isActive: sessionToProcess.isActive,
+        isCompleted: sessionToProcess.isCompleted,
+        weekRange: `${formatDateWithDay(sessionToProcess.weekStartDate)} ~ ${formatDateWithDay(new Date(sessionToProcess.weekStartDate.getTime() + 6 * 24 * 60 * 60 * 1000))}`,
         results: dayVotes,
-        participants: lastWeekSession.votes.map(vote => {
+        participants: sessionToProcess.votes.map(vote => {
           let selectedDays = [];
           try {
             selectedDays = JSON.parse(vote.selectedDays || '[]');
@@ -1756,7 +1785,7 @@ router.get('/votes/unified', async (req, res) => {
             votedAt: vote.createdAt
           };
         }),
-        totalParticipants: lastWeekSession.votes.length
+        totalParticipants: sessionToProcess.votes.length
       };
     }
     
