@@ -500,6 +500,100 @@ export default function SchedulePageV2() {
     
     // 먼저 모든 날짜의 투표 수를 계산하고 최대값 찾기
     const voteCounts: number[] = [];
+    
+    // 현재 이번주 월요일 계산 (비교용) - map 밖에서 한 번만 계산
+    const now = new Date();
+    const currentDay = now.getDay();
+    let daysUntilMonday;
+    if (currentDay === 0) {
+      daysUntilMonday = -6;
+    } else if (currentDay === 1) {
+      daysUntilMonday = 0;
+    } else {
+      daysUntilMonday = 1 - currentDay;
+    }
+    const thisWeekMonday = new Date(now);
+    thisWeekMonday.setDate(now.getDate() + daysUntilMonday);
+    thisWeekMonday.setHours(0, 0, 0, 0);
+    const thisWeekMondayNormalized = new Date(thisWeekMonday.getFullYear(), thisWeekMonday.getMonth(), thisWeekMonday.getDate());
+    
+    // 사용할 결과 데이터 결정: 이번주 일정은 지난주 투표 결과(lastWeekResults)만 사용
+    // activeSession은 다음주 투표 세션이므로 사용하지 않음
+    let resultsToUse: any = null;
+    let weekStartDateToUse: Date | null = null;
+    
+    console.log('🔍 이번주 일정 - 데이터 소스 확인 시작 (lastWeekResults만 사용):', {
+      hasUnifiedVoteData: !!unifiedVoteData,
+      hasLastWeekResults: !!unifiedVoteData?.lastWeekResults,
+      thisWeekMonday: thisWeekMondayNormalized.toISOString().split('T')[0]
+    });
+    
+    if (unifiedVoteData?.lastWeekResults) {
+      const lastWeekResults = unifiedVoteData.lastWeekResults;
+      const weekStartDate = new Date(lastWeekResults.weekStartDate);
+      const weekStartLocalNormalized = new Date(weekStartDate.getFullYear(), weekStartDate.getMonth(), weekStartDate.getDate());
+      
+      console.log('🔍 lastWeekResults 날짜 비교:', {
+        lastWeekResultsWeekStart: weekStartLocalNormalized.toISOString().split('T')[0],
+        thisWeekMonday: thisWeekMondayNormalized.toISOString().split('T')[0],
+        isMatch: weekStartLocalNormalized.getTime() === thisWeekMondayNormalized.getTime(),
+        hasResults: !!lastWeekResults.results,
+        resultsKeys: lastWeekResults.results ? Object.keys(lastWeekResults.results) : []
+      });
+      
+      // 이번주 데이터와 정확히 일치하는 경우
+      if (weekStartLocalNormalized.getTime() === thisWeekMondayNormalized.getTime()) {
+        resultsToUse = lastWeekResults.results || {};
+        weekStartDateToUse = weekStartDate;
+        console.log('✅ lastWeekResults 사용 (이번주 데이터)', {
+          resultsKeys: Object.keys(resultsToUse)
+        });
+      } else {
+        // 날짜가 정확히 일치하지 않아도 일주일 이내면 사용 (날짜 매핑 조정)
+        const dayDiff = Math.abs((weekStartLocalNormalized.getTime() - thisWeekMondayNormalized.getTime()) / (1000 * 60 * 60 * 24));
+        const isWithinWeek = dayDiff <= 7; // 일주일 이내면 허용
+        
+        console.log('⚠️ lastWeekResults 날짜 범위 확인:', {
+          lastWeekResultsWeekStart: weekStartLocalNormalized.toISOString().split('T')[0],
+          thisWeekMonday: thisWeekMondayNormalized.toISOString().split('T')[0],
+          dayDiff,
+          isWithinWeek,
+          hasResults: !!lastWeekResults.results,
+          resultsKeys: lastWeekResults.results ? Object.keys(lastWeekResults.results) : []
+        });
+        
+        if (isWithinWeek && lastWeekResults.results) {
+          resultsToUse = lastWeekResults.results;
+          // weekStartDateToUse를 이번주 월요일로 설정하여 날짜 매핑이 올바르게 되도록 함
+          weekStartDateToUse = thisWeekMondayNormalized;
+          console.log('✅ lastWeekResults 사용 (일주일 이내 데이터, 이번주 월요일 기준으로 매핑)', {
+            resultsKeys: Object.keys(resultsToUse),
+            weekStartDate: weekStartDateToUse ? weekStartDateToUse.toISOString().split('T')[0] : 'null',
+            hasWeekStartDate: !!weekStartDateToUse
+          });
+        }
+      }
+    }
+    
+    if (!resultsToUse) {
+      console.log('⚠️ 이번주 데이터를 찾을 수 없음:', {
+        hasLastWeekResults: !!unifiedVoteData?.lastWeekResults,
+        lastWeekResultsWeekStart: unifiedVoteData?.lastWeekResults?.weekStartDate,
+        hasActiveSession: !!unifiedVoteData?.activeSession,
+        activeSessionWeekStart: unifiedVoteData?.activeSession?.weekStartDate,
+        activeSessionCompleted: unifiedVoteData?.activeSession?.isCompleted,
+        activeSessionActive: unifiedVoteData?.activeSession?.isActive,
+        thisWeekMonday: thisWeekMondayNormalized.toISOString().split('T')[0]
+      });
+    }
+    
+    console.log('🔍 map 시작 전 resultsToUse 확인:', {
+      hasResultsToUse: !!resultsToUse,
+      hasWeekStartDateToUse: !!weekStartDateToUse,
+      resultsToUseKeys: resultsToUse ? Object.keys(resultsToUse) : [],
+      weekStartDate: weekStartDateToUse ? weekStartDateToUse.toISOString().split('T')[0] : null
+    });
+    
     const scheduleDataWithCounts = getScheduleData.thisWeekScheduleData.map(schedule => {
       // 날짜에서 일자 추출 (예: "9월 24일(수)" -> 24)
       const dayMatch = schedule.date.match(/(\d+)월 (\d+)일/);
@@ -510,23 +604,51 @@ export default function SchedulePageV2() {
       
       // 투표 결과만 사용 (지난주 완료 세션 요약)
       let totalCount = 0;
-      if (unifiedVoteData && unifiedVoteData.lastWeekResults) {
-        const lastWeekResults = unifiedVoteData.lastWeekResults;
-        const results = lastWeekResults.results || {};
+      
+      console.log('🔍 map 내부 - resultsToUse 확인:', {
+        date: schedule.date,
+        hasResultsToUse: !!resultsToUse,
+        hasWeekStartDateToUse: !!weekStartDateToUse,
+        month,
+        day
+      });
+      
+      if (resultsToUse && weekStartDateToUse) {
+        const results = resultsToUse;
+        const weekStartDate = weekStartDateToUse;
+        
+        console.log('🔍 이번주 일정 - 결과 데이터 확인:', {
+          weekStartDate: weekStartDate.toISOString().split('T')[0],
+          results: Object.keys(results),
+          targetDate: `${month}-${day}`,
+          scheduleDate: schedule.date,
+          thisWeekMonday: thisWeekMondayNormalized.toISOString().split('T')[0]
+        });
         
         // 요일 매핑 (월=0, 화=1, 수=2, 목=3, 금=4)
         const dayMapping = {
           'MON': 0, 'TUE': 1, 'WED': 2, 'THU': 3, 'FRI': 4
         };
         
-        // 해당 날짜가 지난주 세션의 어느 요일에 해당하는지 확인
-        const weekStartDate = new Date(lastWeekResults.weekStartDate);
         // weekStartDate를 로컬 시간으로 정규화 (UTC 오프셋 무시)
         const weekStartLocal = new Date(weekStartDate.getFullYear(), weekStartDate.getMonth(), weekStartDate.getDate());
+        const weekStartLocalNormalized = new Date(weekStartLocal.getFullYear(), weekStartLocal.getMonth(), weekStartLocal.getDate());
+        
+        // weekStartDate가 이번주 월요일과 다른 경우, 이번주 월요일 기준으로 매핑
+        const weekStartToUse = weekStartLocalNormalized.getTime() === thisWeekMondayNormalized.getTime() 
+          ? weekStartLocal 
+          : thisWeekMondayNormalized; // 이번주 월요일 사용
+        
+        console.log('🔍 날짜 매핑 - 주간 비교:', {
+          weekStartDate: weekStartLocal.toISOString().split('T')[0],
+          thisWeekMonday: thisWeekMondayNormalized.toISOString().split('T')[0],
+          isSameWeek: weekStartLocalNormalized.getTime() === thisWeekMondayNormalized.getTime(),
+          weekStartToUse: weekStartToUse.toISOString().split('T')[0]
+        });
         
         const dayIndex = Object.entries(dayMapping).find(([, index]) => {
-          const currentDate = new Date(weekStartLocal);
-          currentDate.setDate(weekStartLocal.getDate() + index);
+          const currentDate = new Date(weekStartToUse);
+          currentDate.setDate(weekStartToUse.getDate() + index);
           // 로컬 시간 기준으로 날짜 비교
           return currentDate.getMonth() + 1 === month && currentDate.getDate() === day;
         });
@@ -534,6 +656,7 @@ export default function SchedulePageV2() {
         console.log('🔍 날짜 매핑 확인:', {
           targetDate: `${month}-${day}`,
           weekStartDate: weekStartDate.toISOString().split('T')[0],
+          weekStartToUse: weekStartToUse.toISOString().split('T')[0],
           dayMapping,
           foundDayIndex: dayIndex
         });
@@ -542,20 +665,41 @@ export default function SchedulePageV2() {
           const [dayKey] = dayIndex;
           const voteCount = results[dayKey]?.count || 0;
           
+          console.log('🔍 투표 데이터 확인:', {
+            dayKey,
+            voteCount,
+            hasResults: !!results[dayKey],
+            resultsKeys: Object.keys(results)
+          });
+          
           if (voteCount > 0) {
             totalCount = voteCount;
             
-            console.log('🔍 투표 데이터에서 참석자 계산:', {
+            console.log('✅ 투표 데이터에서 참석자 계산:', {
               date: schedule.date,
               dayKey,
               voteCount,
               participants: results[dayKey]?.participants || []
             });
           }
+        } else {
+          console.log('⚠️ 날짜 매핑 실패:', {
+            targetDate: `${month}-${day}`,
+            weekStartToUse: weekStartToUse.toISOString().split('T')[0],
+            scheduleDate: schedule.date
+          });
         }
       }
       
       voteCounts.push(totalCount);
+      
+      console.log('🔍 이번주 일정 - 개별 날짜 계산:', {
+        date: schedule.date,
+        totalCount,
+        month,
+        day
+      });
+      
       return { schedule, totalCount };
     });
     
@@ -574,17 +718,26 @@ export default function SchedulePageV2() {
         isConfirmed,
         maxVoteCount,
         hasGameData: games && games.length > 0,
-        hasVoteData: unifiedVoteData && unifiedVoteData.lastWeekResults
+        hasVoteData: unifiedVoteData && unifiedVoteData.lastWeekResults,
+        willReturnCount: totalCount
       });
       
-      return {
+      const result = {
         ...schedule,
         count: totalCount,
         confirmed: isConfirmed
       };
+      
+      console.log('🔍 반환되는 객체:', {
+        date: result.date,
+        count: result.count,
+        confirmed: result.confirmed
+      });
+      
+      return result;
     });
     
-    console.log('✅ 업데이트된 이번주 일정 데이터:', updatedData);
+    console.log('✅ 업데이트된 이번주 일정 데이터:', updatedData.map(d => ({ date: d.date, count: d.count, confirmed: d.confirmed })));
     return updatedData;
   }, [getScheduleData.thisWeekScheduleData, games, unifiedVoteData]);
 
@@ -640,9 +793,17 @@ export default function SchedulePageV2() {
       let activeSession = unifiedData.activeSession;
 
       if (!activeSession && unifiedData.lastWeekResults) {
+        console.log('🔍 lastWeekResults 확인:', {
+          hasLastWeekResults: !!unifiedData.lastWeekResults,
+          resultsKeys: unifiedData.lastWeekResults?.results ? Object.keys(unifiedData.lastWeekResults.results) : [],
+          hasAbsent: unifiedData.lastWeekResults?.results ? '불참' in unifiedData.lastWeekResults.results : false,
+          absentCount: unifiedData.lastWeekResults?.results?.['불참']?.count
+        });
         const fallbackSession = buildFallbackActiveSessionFromLastWeek(unifiedData.lastWeekResults);
         if (fallbackSession) {
           console.log('ℹ️ 활성 세션이 없어 지난주 결과를 표시용으로 사용합니다.');
+          console.log('🔍 fallbackSession.results keys:', fallbackSession.results ? Object.keys(fallbackSession.results) : []);
+          console.log('🔍 fallbackSession.results 불참:', fallbackSession.results?.['불참']);
           activeSession = fallbackSession;
         }
       }
@@ -674,74 +835,101 @@ export default function SchedulePageV2() {
       const isVoteClosedForDataLoad = activeSession?.isCompleted === true;
       
       console.log('🔍 activeSession 존재 여부:', !!activeSession);
+      console.log('🔍 activeSession 전체:', activeSession);
+      console.log('🔍 activeSession.results:', activeSession?.results);
       console.log('🔍 투표 마감 여부:', isVoteClosedForDataLoad);
       
-      // 투표 마감 후에는 lastWeekResults를 사용하여 voteResults 설정
-      if (isVoteClosedForDataLoad && unifiedData.lastWeekResults) {
-        console.log('✅ 투표 마감됨 - lastWeekResults 사용하여 voteResults 설정...');
-        const lastWeekResults = unifiedData.lastWeekResults;
+      // 투표 마감 후에도 activeSession이 있으면 activeSession.results를 사용
+      if (isVoteClosedForDataLoad && activeSession) {
+        console.log('✅ 투표 마감됨 - activeSession.results 사용하여 voteResults 설정...');
+        console.log('🔍 투표 마감 후 activeSession.results 원본:', activeSession.results);
+        const resultsKeys = activeSession.results ? Object.keys(activeSession.results) : [];
+        console.log('🔍 투표 마감 후 activeSession.results 키 목록:', resultsKeys);
+        console.log('🔍 투표 마감 후 activeSession.results 키 상세:', resultsKeys.map(key => ({
+          key,
+          value: activeSession.results[key],
+          hasCount: activeSession.results[key]?.count !== undefined,
+          count: activeSession.results[key]?.count
+        })));
+        console.log('🔍 불참 키 존재 여부:', resultsKeys.includes('불참'));
+        console.log('🔍 불참 데이터:', activeSession.results?.['불참']);
         
-        // lastWeekResults에서 votes 재구성
-        const votes: any[] = [];
-        if (lastWeekResults.results) {
-          Object.entries(lastWeekResults.results).forEach(([dayKey, dayResult]: [string, any]) => {
-            if (dayResult?.participants && Array.isArray(dayResult.participants)) {
-              dayResult.participants.forEach((participant: any) => {
-                // 이미 추가된 사용자인지 확인
-                const existingVote = votes.find(v => v.userId === (participant.userId || participant.id));
-                if (existingVote) {
-                  // 기존 투표에 날짜 추가
-                  if (!existingVote.selectedDays.includes(dayKey)) {
-                    existingVote.selectedDays.push(dayKey);
-                  }
-                } else {
-                  // 새 투표 추가
-                  votes.push({
-                    id: participant.userId || participant.id || Date.now() + Math.random(),
-                    userId: participant.userId || participant.id,
-                    selectedDays: [dayKey],
-                    createdAt: participant.votedAt || lastWeekResults.endTime || lastWeekResults.startTime || new Date().toISOString()
-                  });
-                }
-              });
-            }
-          });
-        }
+        // 활성 세션의 투표 데이터를 voteResults 형식으로 변환
+        const participants = activeSession.participants || [];
+        const votes = participants.map((p: any) => ({
+          id: p.userId || Date.now() + Math.random(),
+          userId: p.userId,
+          selectedDays: (() => {
+          try {
+              if (Array.isArray(p.selectedDays)) return p.selectedDays;
+              if (typeof p.selectedDays === 'string') return JSON.parse(p.selectedDays || '[]');
+              return [];
+            } catch { return []; }
+          })(),
+          createdAt: p.votedAt || new Date().toISOString()
+        }));
         
-        // 불참 카운트 계산 (lastWeekResults.results에서 '불참' 키 확인)
-        const absentCount = lastWeekResults.results?.['불참']?.count || 0;
+        // activeSession.results를 voteResults 형식으로 변환 (count 값만 추출)
+        console.log('🔍 activeSession.results 원본:', activeSession.results);
+        console.log('🔍 activeSession.results 키 목록:', activeSession.results ? Object.keys(activeSession.results) : []);
         
-        // lastWeekResults의 모든 결과를 voteResults 형식으로 변환
         const voteResultsData: Record<string, number> = {};
-        if (lastWeekResults.results) {
-          Object.entries(lastWeekResults.results).forEach(([dayKey, dayResult]: [string, any]) => {
-            if (dayKey !== '불참') {
-              voteResultsData[dayKey] = dayResult?.count || 0;
+        if (activeSession.results) {
+          Object.entries(activeSession.results).forEach(([dayKey, dayResult]: [string, any]) => {
+            console.log(`🔍 처리 중: ${dayKey}`, dayResult);
+            if (dayResult && typeof dayResult === 'object' && 'count' in dayResult) {
+              voteResultsData[dayKey] = dayResult.count || 0;
+            } else if (typeof dayResult === 'number') {
+              voteResultsData[dayKey] = dayResult;
             }
           });
         }
-        voteResultsData['불참'] = absentCount;
         
+        console.log('🔍 voteResultsData 변환 결과:', voteResultsData);
+        console.log('🔍 불참 인원:', voteResultsData['불참']);
+
         voteResults = {
-          voteSession: {
-            id: lastWeekResults.sessionId,
-            weekStartDate: lastWeekResults.weekStartDate,
-            startTime: lastWeekResults.startTime,
-            endTime: lastWeekResults.endTime,
-            isActive: false,
-            isCompleted: true,
-            createdAt: lastWeekResults.startTime || new Date().toISOString(),
-            updatedAt: lastWeekResults.endTime || new Date().toISOString(),
-            votes: votes
-          },
-          voteResults: voteResultsData
+            voteSession: {
+            id: activeSession.sessionId,
+            weekStartDate: activeSession.weekStartDate,
+            startTime: activeSession.startTime,
+            endTime: activeSession.endTime,
+            isActive: activeSession.isActive,
+            isCompleted: activeSession.isCompleted,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              votes: votes
+            },
+        voteResults: voteResultsData
         };
         
-        // 다음주 투표 데이터는 빈 배열로 설정 (마감된 투표는 표시하지 않음)
-        localNextWeekVoteData = [];
+        // 다음주 투표 데이터를 실제 데이터로 업데이트 (요일만 포함, '불참' 제외)
+        localNextWeekVoteData = Object.entries(activeSession.results)
+          .filter(([day]) => day !== '불참') // '불참' 키 제외
+          .map(([day, data]: [string, any]) => {
+          const dayNames = { MON: '월', TUE: '화', WED: '수', THU: '목', FRI: '금' };
+          const dayName = dayNames[day as keyof typeof dayNames];
+          
+          // 기준 월요일에서 해당 요일 날짜 계산
+          const baseMonday = new Date(activeSession.weekStartDate);
+          const dayIndex = { MON: 0, TUE: 1, WED: 2, THU: 3, FRI: 4 }[day as keyof typeof dayNames];
+          const targetDate = new Date(baseMonday.getTime() + dayIndex * 24 * 60 * 60 * 1000);
+          
+          const month = targetDate.getMonth() + 1;
+          const dayNum = targetDate.getDate();
+          
+          return {
+            date: `${month}월 ${dayNum}일(${dayName})`,
+            count: data.count,
+            max: false,
+            dayName,
+            voteDate: targetDate
+          };
+        });
         
         console.log('✅ 투표 마감 후 voteResults 설정 완료:', voteResults);
-        console.log('✅ lastWeekResults 기반 voteResults 설정 완료');
+        console.log('✅ 다음주 투표 데이터 업데이트:', localNextWeekVoteData);
+        console.log('✅ activeSession.results 기반 voteResults 설정 완료');
       } else if (activeSession) {
         console.log('✅ activeSession이 있음 - voteResults 설정 시작...');
         // 활성 세션이 있을 때만 다음주 투표 데이터 생성
@@ -767,13 +955,24 @@ export default function SchedulePageV2() {
           createdAt: p.votedAt || new Date().toISOString()
         }));
         
-        // 불참 카운트 계산
-        const absentCount = votes.reduce((count: number, v: any) => {
-          try {
-            const sel = Array.isArray(v.selectedDays) ? v.selectedDays : [v.selectedDays];
-            return sel.includes('불참') ? count + 1 : count;
-          } catch { return count; }
-        }, 0);
+        // activeSession.results를 voteResults 형식으로 변환 (count 값만 추출)
+        console.log('🔍 활성 세션 activeSession.results 원본:', activeSession.results);
+        console.log('🔍 활성 세션 activeSession.results 키 목록:', activeSession.results ? Object.keys(activeSession.results) : []);
+        
+        const voteResultsData: Record<string, number> = {};
+        if (activeSession.results) {
+          Object.entries(activeSession.results).forEach(([dayKey, dayResult]: [string, any]) => {
+            console.log(`🔍 활성 세션 처리 중: ${dayKey}`, dayResult);
+            if (dayResult && typeof dayResult === 'object' && 'count' in dayResult) {
+              voteResultsData[dayKey] = dayResult.count || 0;
+            } else if (typeof dayResult === 'number') {
+              voteResultsData[dayKey] = dayResult;
+            }
+          });
+        }
+        
+        console.log('🔍 활성 세션 voteResultsData 변환 결과:', voteResultsData);
+        console.log('🔍 활성 세션 불참 인원:', voteResultsData['불참']);
 
         voteResults = {
             voteSession: {
@@ -787,14 +986,13 @@ export default function SchedulePageV2() {
               updatedAt: new Date().toISOString(),
               votes: votes
             },
-        voteResults: {
-            ...activeSession.results,
-            ['불참']: absentCount
-          }
+        voteResults: voteResultsData
         };
         
-        // 다음주 투표 데이터를 실제 데이터로 업데이트
-        localNextWeekVoteData = Object.entries(activeSession.results).map(([day, data]: [string, any]) => {
+        // 다음주 투표 데이터를 실제 데이터로 업데이트 (요일만 포함, '불참' 제외)
+        localNextWeekVoteData = Object.entries(activeSession.results)
+          .filter(([day]) => day !== '불참') // '불참' 키 제외
+          .map(([day, data]: [string, any]) => {
           const dayNames = { MON: '월', TUE: '화', WED: '수', THU: '목', FRI: '금' };
           const dayName = dayNames[day as keyof typeof dayNames];
           
@@ -806,9 +1004,12 @@ export default function SchedulePageV2() {
           const month = targetDate.getMonth() + 1;
           const dayNum = targetDate.getDate();
           
+          // data가 객체인 경우 count 속성 사용
+          const count = (data && typeof data === 'object' && 'count' in data) ? data.count : (typeof data === 'number' ? data : 0);
+          
           return {
             date: `${month}월 ${dayNum}일(${dayName})`,
-            count: data.count,
+            count: count,
             max: false,
             dayName,
             voteDate: targetDate
@@ -1057,13 +1258,47 @@ export default function SchedulePageV2() {
       setNextWeekVoteData(localNextWeekVoteData);
       
       // 7. 통합 데이터 설정 (항상 설정하여 상태 안정성 확보)
+      // activeSession이 isCompleted: true이고 isActive: false인 경우, 이를 lastWeekResults로도 사용
+      let lastWeekResultsToUse = unifiedData.lastWeekResults || null;
+      
+      if (activeSession && activeSession.isCompleted && !activeSession.isActive) {
+        // activeSession이 완료된 세션이면 이를 lastWeekResults로도 사용
+        // 백엔드에서 이미 처리했지만, 프론트엔드에서도 명시적으로 확인
+        if (!lastWeekResultsToUse || !lastWeekResultsToUse.results) {
+          console.log('✅ activeSession이 완료된 세션이므로 lastWeekResults로 사용');
+          // activeSession의 결과를 lastWeekResults 형식으로 변환
+          const activeResults: any = {};
+          if (activeSession.results) {
+            Object.entries(activeSession.results).forEach(([dayKey, dayResult]: [string, any]) => {
+              activeResults[dayKey] = {
+                count: dayResult?.count || 0,
+                participants: dayResult?.participants || []
+              };
+            });
+          }
+          
+          lastWeekResultsToUse = {
+            sessionId: activeSession.sessionId || activeSession.id,
+            weekStartDate: activeSession.weekStartDate,
+            startTime: activeSession.startTime,
+            endTime: activeSession.endTime,
+            isActive: false,
+            isCompleted: true,
+            results: activeResults,
+            participants: activeSession.participants || [],
+            totalParticipants: activeSession.totalParticipants || 0
+          };
+        }
+      }
+      
       const unifiedVoteDataToSet = {
         activeSession: activeSession || null, // activeSession이 없어도 null로 명시적 설정
         allMembers: allMembers, // 이미 추출한 allMembers 변수 사용
-        lastWeekResults: unifiedData.lastWeekResults || null // 백엔드 응답 키 확인
+        lastWeekResults: lastWeekResultsToUse // 명시적으로 설정된 lastWeekResults 사용
       };
       console.log('📊 unifiedVoteData 설정:', unifiedVoteDataToSet);
       console.log('📊 unifiedVoteData.activeSession 확인:', unifiedVoteDataToSet.activeSession);
+      console.log('📊 unifiedVoteData.lastWeekResults 확인:', unifiedVoteDataToSet.lastWeekResults);
       setUnifiedVoteData(unifiedVoteDataToSet);
       
       // 상태 설정 후 즉시 확인 (다음 렌더링 사이클에서 확인됨)
@@ -1926,34 +2161,30 @@ export default function SchedulePageV2() {
     };
     
     loadData();
-    
-  // 투표 데이터 자동 새로고침 비활성화 (수동 새로고침만 사용)
-    // const interval = setInterval(() => {
-    //   loadAllData();
-    // }, 30000);
-  
-  // 투표 데이터 변경 이벤트 리스너
-  const handleVoteDataChanged = () => {
-    console.log('🔄 투표 데이터 변경 이벤트 수신 - 데이터 새로고침');
-    loadAllData();
-  };
-    
-    // 경기 데이터 변경 이벤트 리스너
-    const handleGameDataChanged = () => {
-    console.log('🔄 경기 데이터 변경 이벤트 수신 - 데이터 새로고침');
+  }, []);
+
+  // 투표 데이터 변경 이벤트 리스너 (별도 useEffect로 분리)
+  useEffect(() => {
+    const handleVoteDataChanged = () => {
+      console.log('🔄 투표 데이터 변경 이벤트 수신 - 데이터 새로고침');
       loadAllData();
     };
     
-  // 이벤트 리스너 등록
-  window.addEventListener('voteDataChanged', handleVoteDataChanged);
+    // 경기 데이터 변경 이벤트 리스너
+    const handleGameDataChanged = () => {
+      console.log('🔄 경기 데이터 변경 이벤트 수신 - 데이터 새로고침');
+      loadAllData();
+    };
+    
+    // 이벤트 리스너 등록
+    window.addEventListener('voteDataChanged', handleVoteDataChanged);
     window.addEventListener('gameDataChanged', handleGameDataChanged);
     
     return () => {
-      // clearInterval(interval); // interval 변수가 정의되지 않았으므로 제거
-    window.removeEventListener('voteDataChanged', handleVoteDataChanged);
+      window.removeEventListener('voteDataChanged', handleVoteDataChanged);
       window.removeEventListener('gameDataChanged', handleGameDataChanged);
     };
-  }, []);
+  }, [loadAllData]);
 
   // 페이지 로드 시 데이터 강제 새로고침
   useEffect(() => {
@@ -2207,6 +2438,14 @@ export default function SchedulePageV2() {
           const actualCount = schedule.count;
           const isConfirmed = schedule.confirmed;
           
+          console.log('🔍 렌더링 - 이번주 일정:', {
+            date: schedule.date,
+            count: schedule.count,
+            actualCount,
+            isConfirmed,
+            scheduleObject: schedule
+          });
+          
           return (
             <Box
               key={schedule.date}
@@ -2266,100 +2505,58 @@ export default function SchedulePageV2() {
                       return '참석자 없음';
                     }
                     
-                    // 해당 날짜의 참석자 이름 찾기 (확정 경기 우선, 없으면 지난주 투표 결과)
+                    // 이번주 일정은 지난주 투표 결과(lastWeekResults)만 사용 (게임 데이터 제외, activeSession 제외)
+                    if (actualCount === 0) {
+                      return '참석자 없음';
+                    }
+                    
                     const dayMatch = schedule.date.match(/(\d+)월 (\d+)일/);
-                    if (dayMatch) {
+                    if (dayMatch && unifiedVoteData?.lastWeekResults) {
                       const month = parseInt(dayMatch[1]);
                       const day = parseInt(dayMatch[2]);
                       
-                      // 이번주 일정은 lastWeekResults를 우선 사용
-                      if (unifiedVoteData?.lastWeekResults) {
-                        // 지난주 투표 결과에서 해당 요일의 참여자 이름 표시
-                        const weekStartDate = new Date(unifiedVoteData.lastWeekResults.weekStartDate);
-                        const weekStartLocal = new Date(weekStartDate.getFullYear(), weekStartDate.getMonth(), weekStartDate.getDate());
-                        const targetDayIndex = [0,1,2,3,4].find(index => {
-                          const currentDate = new Date(weekStartLocal);
-                          currentDate.setDate(weekStartLocal.getDate() + index);
+                      // 이번주 일정은 lastWeekResults만 사용 (지난주 투표 결과)
+                      const resultsToCheck = unifiedVoteData.lastWeekResults.results;
+                      
+                      if (resultsToCheck) {
+                        // 이번주 월요일 기준으로 요일 매핑
+                        const thisWeekMonday = new Date();
+                        const currentDay = thisWeekMonday.getDay();
+                        let daysUntilMonday;
+                        if (currentDay === 0) {
+                          daysUntilMonday = -6;
+                        } else if (currentDay === 1) {
+                          daysUntilMonday = 0;
+                        } else {
+                          daysUntilMonday = 1 - currentDay;
+                        }
+                        const thisWeekMondayCalc = new Date(thisWeekMonday);
+                        thisWeekMondayCalc.setDate(thisWeekMonday.getDate() + daysUntilMonday);
+                        thisWeekMondayCalc.setHours(0, 0, 0, 0);
+                        const thisWeekMondayNormalized = new Date(thisWeekMondayCalc.getFullYear(), thisWeekMondayCalc.getMonth(), thisWeekMondayCalc.getDate());
+                        
+                        const dayMapping = { 'MON': 0, 'TUE': 1, 'WED': 2, 'THU': 3, 'FRI': 4 };
+                        const targetDayIndex = Object.entries(dayMapping).find(([, index]) => {
+                          const currentDate = new Date(thisWeekMondayNormalized);
+                          currentDate.setDate(thisWeekMondayNormalized.getDate() + index);
                           return currentDate.getMonth() + 1 === month && currentDate.getDate() === day;
                         });
-                        if (typeof targetDayIndex === 'number') {
-                          const keyMap = ['MON','TUE','WED','THU','FRI'];
-                          const key = keyMap[targetDayIndex];
-                          const parts = unifiedVoteData.lastWeekResults.results?.[key]?.participants || [];
-                          const names = parts.map((p: any) => {
-                            // participants가 객체인 경우 userName 추출
-                            if (typeof p === 'object' && p !== null) {
-                              return p.userName || p.name || String(p);
+                        
+                        if (targetDayIndex) {
+                          const [dayKey] = targetDayIndex;
+                          const dayResult = resultsToCheck[dayKey];
+                          if (dayResult && dayResult.participants) {
+                            const names = dayResult.participants.map((p: any) => {
+                              if (typeof p === 'object' && p !== null) {
+                                return p.userName || p.name || String(p);
+                              }
+                              return String(p);
+                            }).filter(Boolean);
+                            if (names.length > 0) {
+                              console.log('🔍 툴팁 이름 표시 (지난주 투표 결과):', { date: schedule.date, dayKey, names });
+                              return names.join(', ');
                             }
-                            return String(p);
-                          }).filter(Boolean);
-                          if (names.length > 0) {
-                            console.log('🔍 툴팁 이름 표시:', { date: schedule.date, key, names });
-                            return names.join(', ');
                           }
-                        }
-                      }
-                      
-                      // lastWeekResults가 없거나 해당 날짜가 없으면 게임 데이터 확인
-                      const currentYear = new Date().getFullYear();
-                      const gameForDate = games?.find(game => {
-                        if (!game.date) return false;
-                        const gameDate = new Date(game.date);
-                        return gameDate.getFullYear() === currentYear && 
-                               gameDate.getDate() === day && 
-                               gameDate.getMonth() === month - 1;
-                      });
-                      
-                      if (gameForDate) {
-                        // 참석자 이름 수집
-                        const attendeeNames = [];
-                        
-                        // selectedMembers 파싱 (실제 존재하는 회원만 필터링)
-                        if (gameForDate.selectedMembers) {
-                          try {
-                            const selectedMembersArray = JSON.parse(
-                              typeof gameForDate.selectedMembers === 'string' 
-                                ? gameForDate.selectedMembers 
-                                : gameForDate.selectedMembers[0] || '[]'
-                            );
-                            // 실제 존재하는 회원만 필터링
-                            const validMembers = selectedMembersArray.filter((name: string) => {
-                              return allMembers.some(member => member.name === name);
-                            });
-                            attendeeNames.push(...validMembers);
-                          } catch (e) {
-                            console.warn('selectedMembers 파싱 오류:', e);
-                          }
-                        }
-                        
-                        // memberNames 파싱 (회원 + 기타 모두 포함, 중복만 제거)
-                        if (gameForDate.memberNames) {
-                          try {
-                            const memberNamesArray = JSON.parse(
-                              typeof gameForDate.memberNames === 'string' 
-                                ? gameForDate.memberNames 
-                                : gameForDate.memberNames[0] || '[]'
-                            );
-                            // selectedMembers에 이미 있는 회원은 중복 제거
-                            const validSelectedMembers: string[] = [];
-                            const selectedSet = new Set(validSelectedMembers);
-                            const otherNames = memberNamesArray.filter((name: string) => {
-                              return !selectedSet.has(name); // 중복 제거
-                            });
-                            attendeeNames.push(...otherNames);
-                          } catch (e) {
-                            console.warn('memberNames 파싱 오류:', e);
-                          }
-                        }
-                        
-                        // 용병 수 추가
-                        const mercenaryCount = gameForDate.mercenaryCount || 0;
-                        if (mercenaryCount > 0) {
-                          attendeeNames.push(`용병 ${mercenaryCount}명`);
-                        }
-                        
-                        if (attendeeNames.length > 0) {
-                          return attendeeNames.join(', ');
                         }
                       }
                     }

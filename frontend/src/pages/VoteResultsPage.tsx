@@ -67,6 +67,7 @@ interface VoteResults {
     WED: DayVoteResult;
     THU: DayVoteResult;
     FRI: DayVoteResult;
+    '불참'?: DayVoteResult;
   };
   participants: Array<{
     userId: number;
