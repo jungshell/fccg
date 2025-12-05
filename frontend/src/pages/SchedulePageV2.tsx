@@ -670,8 +670,79 @@ export default function SchedulePageV2() {
       let voteResults = null;
       let localNextWeekVoteData: any[] = []; // 기본값을 빈 배열로 설정
       
+      // 투표 마감 여부 확인 (activeSession이 isCompleted: true인 경우)
+      const isVoteClosedForDataLoad = activeSession?.isCompleted === true;
+      
       console.log('🔍 activeSession 존재 여부:', !!activeSession);
-      if (activeSession) {
+      console.log('🔍 투표 마감 여부:', isVoteClosedForDataLoad);
+      
+      // 투표 마감 후에는 lastWeekResults를 사용하여 voteResults 설정
+      if (isVoteClosedForDataLoad && unifiedData.lastWeekResults) {
+        console.log('✅ 투표 마감됨 - lastWeekResults 사용하여 voteResults 설정...');
+        const lastWeekResults = unifiedData.lastWeekResults;
+        
+        // lastWeekResults에서 votes 재구성
+        const votes: any[] = [];
+        if (lastWeekResults.results) {
+          Object.entries(lastWeekResults.results).forEach(([dayKey, dayResult]: [string, any]) => {
+            if (dayResult?.participants && Array.isArray(dayResult.participants)) {
+              dayResult.participants.forEach((participant: any) => {
+                // 이미 추가된 사용자인지 확인
+                const existingVote = votes.find(v => v.userId === (participant.userId || participant.id));
+                if (existingVote) {
+                  // 기존 투표에 날짜 추가
+                  if (!existingVote.selectedDays.includes(dayKey)) {
+                    existingVote.selectedDays.push(dayKey);
+                  }
+                } else {
+                  // 새 투표 추가
+                  votes.push({
+                    id: participant.userId || participant.id || Date.now() + Math.random(),
+                    userId: participant.userId || participant.id,
+                    selectedDays: [dayKey],
+                    createdAt: participant.votedAt || lastWeekResults.endTime || lastWeekResults.startTime || new Date().toISOString()
+                  });
+                }
+              });
+            }
+          });
+        }
+        
+        // 불참 카운트 계산 (lastWeekResults.results에서 '불참' 키 확인)
+        const absentCount = lastWeekResults.results?.['불참']?.count || 0;
+        
+        // lastWeekResults의 모든 결과를 voteResults 형식으로 변환
+        const voteResultsData: Record<string, number> = {};
+        if (lastWeekResults.results) {
+          Object.entries(lastWeekResults.results).forEach(([dayKey, dayResult]: [string, any]) => {
+            if (dayKey !== '불참') {
+              voteResultsData[dayKey] = dayResult?.count || 0;
+            }
+          });
+        }
+        voteResultsData['불참'] = absentCount;
+        
+        voteResults = {
+          voteSession: {
+            id: lastWeekResults.sessionId,
+            weekStartDate: lastWeekResults.weekStartDate,
+            startTime: lastWeekResults.startTime,
+            endTime: lastWeekResults.endTime,
+            isActive: false,
+            isCompleted: true,
+            createdAt: lastWeekResults.startTime || new Date().toISOString(),
+            updatedAt: lastWeekResults.endTime || new Date().toISOString(),
+            votes: votes
+          },
+          voteResults: voteResultsData
+        };
+        
+        // 다음주 투표 데이터는 빈 배열로 설정 (마감된 투표는 표시하지 않음)
+        localNextWeekVoteData = [];
+        
+        console.log('✅ 투표 마감 후 voteResults 설정 완료:', voteResults);
+        console.log('✅ lastWeekResults 기반 voteResults 설정 완료');
+      } else if (activeSession) {
         console.log('✅ activeSession이 있음 - voteResults 설정 시작...');
         // 활성 세션이 있을 때만 다음주 투표 데이터 생성
         localNextWeekVoteData = getScheduleData.nextWeekVoteData.map(vote => ({

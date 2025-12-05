@@ -1693,12 +1693,13 @@ router.get('/votes/unified', async (req, res) => {
     // 지난주 세션 데이터 가공
     let processedLastWeekSession = null;
     if (lastWeekSession) {
-      const dayVotes = {
+      const dayVotes: any = {
         MON: { count: 0, participants: [] },
         TUE: { count: 0, participants: [] },
         WED: { count: 0, participants: [] },
         THU: { count: 0, participants: [] },
-        FRI: { count: 0, participants: [] }
+        FRI: { count: 0, participants: [] },
+        '불참': { count: 0, participants: [] }
       };
       
       lastWeekSession.votes.forEach(vote => {
@@ -1710,10 +1711,17 @@ router.get('/votes/unified', async (req, res) => {
           selectedDays = [];
         }
         selectedDays.forEach((day: string) => {
-          // 요일 코드를 직접 사용 (MON, TUE, WED, THU, FRI)
+          // 요일 코드를 직접 사용 (MON, TUE, WED, THU, FRI) 또는 '불참'
           const dayKey = day;
           
-          if (dayKey && dayVotes[dayKey as keyof typeof dayVotes]) {
+          if (dayKey === '불참') {
+            dayVotes['불참'].count++;
+            dayVotes['불참'].participants.push({
+              userId: vote.userId,
+              userName: vote.user.name,
+              votedAt: vote.createdAt
+            });
+          } else if (dayKey && dayVotes[dayKey as keyof typeof dayVotes]) {
             dayVotes[dayKey as keyof typeof dayVotes].count++;
             dayVotes[dayKey as keyof typeof dayVotes].participants.push({
               userId: vote.userId,
@@ -1727,6 +1735,10 @@ router.get('/votes/unified', async (req, res) => {
       processedLastWeekSession = {
         sessionId: lastWeekSession.id,
         weekStartDate: lastWeekSession.weekStartDate,
+        startTime: lastWeekSession.startTime,
+        endTime: lastWeekSession.endTime,
+        isActive: lastWeekSession.isActive,
+        isCompleted: lastWeekSession.isCompleted,
         weekRange: `${formatDateWithDay(lastWeekSession.weekStartDate)} ~ ${formatDateWithDay(new Date(lastWeekSession.weekStartDate.getTime() + 6 * 24 * 60 * 60 * 1000))}`,
         results: dayVotes,
         participants: lastWeekSession.votes.map(vote => {
