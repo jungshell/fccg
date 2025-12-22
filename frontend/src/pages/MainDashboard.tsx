@@ -709,24 +709,82 @@ export default function MainDashboard() {
   const PLAYLIST_ID = 'PLQ5o2f7efzlZ-RDG64h4Oj_5pXt0g6q3b';
   const [youtubeVideos, setYoutubeVideos] = useState(fallbackVideos);
   useEffect(() => {
-    fetch(`https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=5&playlistId=${PLAYLIST_ID}&key=${YT_API_KEY}`)
+    fetch(`https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=10&playlistId=${PLAYLIST_ID}&key=${YT_API_KEY}`)
       .then(res => res.json())
-      .then((data: { items?: { snippet: { resourceId: { videoId: string }, title: string } }[] }) => {
-        if (data.items && data.items.length > 0) {
-          const validVideos = data.items
-            .map((item) => ({
-              id: item.snippet.resourceId.videoId,
-              title: item.snippet.title,
-            }))
-            .filter((v) => !!v.id)
-            .slice(0, 3);
-          if (validVideos.length === 3) {
-            setYoutubeVideos(validVideos);
-          } else {
-            setYoutubeVideos([...validVideos, ...fallbackVideos].slice(0, 3));
-          }
-        } else {
+      .then(async (data: { items?: { snippet: { resourceId: { videoId: string }, title: string } }[] }) => {
+        if (!data.items || data.items.length === 0) {
           setYoutubeVideos(fallbackVideos);
+          return;
+        }
+
+        // 1차: 플레이리스트에서 id/제목만 추출
+        const playlistVideos = data.items
+          .map((item) => ({
+            id: item.snippet.resourceId.videoId,
+            title: item.snippet.title,
+          }))
+          .filter(v => !!v.id);
+
+        if (playlistVideos.length === 0) {
+          setYoutubeVideos(fallbackVideos);
+          return;
+        }
+
+        try {
+          // 2차: videos API로 privacyStatus 확인 (private / deleted 등 제거)
+          const idsParam = playlistVideos.map(v => v.id).join(',');
+          const statusRes = await fetch(
+            `https://www.googleapis.com/youtube/v3/videos?part=status&id=${idsParam}&key=${YT_API_KEY}`
+          );
+          const statusJson: { items?: { id: string; status?: { privacyStatus?: string } }[] } = await statusRes.json();
+
+          const statusMap: Record<string, string> = {};
+          statusJson.items?.forEach(item => {
+            if (item.id && item.status?.privacyStatus) {
+              statusMap[item.id] = item.status.privacyStatus;
+            }
+          });
+
+          const filteredByStatus = playlistVideos.filter(v => {
+            const privacy = statusMap[v.id];
+            // status 정보가 있으면 public 인 것만 사용
+            if (privacy) {
+              return privacy === 'public';
+            }
+            // status 정보가 없으면 제목 기반 필터만 적용
+            const title = (v.title || '').toLowerCase();
+            return !title.includes('deleted video') && 
+                   !title.includes('private video') && 
+                   !title.includes('unavailable') &&
+                   !title.includes('삭제') &&
+                   !title.includes('비공개') &&
+                   v.title.trim() !== '';
+          });
+
+          const finalVideos = (filteredByStatus.length > 0 ? filteredByStatus : playlistVideos).slice(0, 3);
+
+          if (finalVideos.length > 0) {
+            setYoutubeVideos(finalVideos);
+          } else {
+            setYoutubeVideos(fallbackVideos);
+          }
+        } catch (e) {
+          console.error('YouTube videos 상태 확인 실패:', e);
+          // videos API 실패 시 기존 제목 기반 필터만 사용
+          const fallbackList = playlistVideos
+            .filter((v) => {
+              if (!v.id) return false;
+              const title = (v.title || '').toLowerCase();
+              return !title.includes('deleted video') && 
+                     !title.includes('private video') && 
+                     !title.includes('unavailable') &&
+                     !title.includes('삭제') &&
+                     !title.includes('비공개') &&
+                     v.title.trim() !== '';
+            })
+            .slice(0, 3);
+
+          setYoutubeVideos(fallbackList.length > 0 ? fallbackList : fallbackVideos);
         }
       })
       .catch(() => setYoutubeVideos(fallbackVideos));
@@ -736,9 +794,30 @@ export default function MainDashboard() {
 
   const [videoIdx, setVideoIdx] = useState<number>(0);
   const currentVideo = youtubeVideos[videoIdx] || fallbackVideos[0] || { id: 'AAftIIK3MOg', title: '기본 영상' };
+  
+  // 삭제된/비공개 영상 감지 시 다음 영상으로 단순 이동
+  const handleVideoError = useCallback(() => {
+    console.log('영상 재생 오류 감지, 다음 영상으로 이동:', currentVideo.id);
+    setVideoIdx((idx: number) => {
+      if (youtubeVideos.length === 0) return 0;
+      return (idx + 1) % youtubeVideos.length;
+    });
+  }, [currentVideo.id, youtubeVideos.length]);
+  
   // 동영상 인덱스 이동 (최신화된 리스트에 맞게)
-  const handlePrev = () => setVideoIdx((idx: number) => (idx === 0 ? youtubeVideos.length - 1 : idx - 1));
-  const handleNext = () => setVideoIdx((idx: number) => (idx === youtubeVideos.length - 1 ? 0 : idx + 1));
+  const handlePrev = () => {
+    setVideoIdx((idx: number) => {
+      if (youtubeVideos.length === 0) return 0;
+      return idx === 0 ? youtubeVideos.length - 1 : idx - 1;
+    });
+  };
+  
+  const handleNext = () => {
+    setVideoIdx((idx: number) => {
+      if (youtubeVideos.length === 0) return 0;
+      return (idx + 1) % youtubeVideos.length;
+    });
+  };
 
   // 상세 모달 상태
   const { isOpen, onOpen, onClose } = useDisclosure();
@@ -1425,7 +1504,17 @@ export default function MainDashboard() {
                 transformOrigin: 'center center',
               }}
               className="yt-iframe"
-              onEnd={() => setVideoIdx(idx => (idx + 1) % youtubeVideos.length)}
+              onEnd={() => handleNext()}
+              onError={handleVideoError}
+              onStateChange={(event: any) => {
+                // YouTube 플레이어 상태 변경 감지
+                // -1: 비디오 시작 전, 0: 종료, 1: 재생 중, 2: 일시정지, 3: 버퍼링, 5: 큐에 추가됨
+                if (event.data === 5) {
+                  // 큐에 추가됨 상태는 비디오를 찾을 수 없을 때 발생
+                  console.log('비디오를 찾을 수 없음:', currentVideo.id);
+                  setTimeout(() => handleVideoError(), 1000);
+                }
+              }}
             />
           </Box>
           <IconButton icon={<ChevronRightIcon />} aria-label="다음" position="absolute" right={2} top="50%" transform="translateY(-50%)" onClick={handleNext} zIndex={2} bg="white" color="#004ea8" boxShadow="md" _hover={{ bg: "gray.100" }}/>
