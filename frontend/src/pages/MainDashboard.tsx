@@ -1,5 +1,6 @@
 import { Box, Flex, Text, SimpleGrid, Stack, IconButton, Modal, ModalOverlay, ModalContent, ModalBody, ModalCloseButton, useDisclosure, Spinner, Alert, AlertIcon, VStack, Button, Badge, Tooltip, Wrap, WrapItem, Tag } from '@chakra-ui/react';
 import { ChevronLeftIcon, ChevronRightIcon } from '@chakra-ui/icons';
+import { MdMusicNote, MdMusicOff } from 'react-icons/md';
 import { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { useAuthStore } from '../store/auth';
 import type { StatsSummary } from '../api/auth';
@@ -44,6 +45,101 @@ const fallbackVideos = [
 export default function MainDashboard() {
   // 로그인 상태 확인
   const { user } = useAuthStore();
+  
+  // 배경음악 자동 재생 (메인 화면 진입 시) - MP3 파일 랜덤 재생
+  const [isMusicEnabled, setIsMusicEnabled] = useState(() => {
+    // localStorage에서 음악 설정 불러오기
+    const saved = localStorage.getItem('backgroundMusicEnabled');
+    return saved !== null ? saved === 'true' : true; // 기본값: 켜짐
+  });
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  
+  // 사용 가능한 음악 파일 목록
+  const musicFiles = useMemo(() => [
+    '/music/FC Chal Ggyeo Anthem.mp3',
+    '/music/FC Chal Ggyeo Anthem (1).mp3',
+    '/music/FC Chal Ggyeo Anthem (2).mp3',
+    '/music/FC Chal Ggyeo Anthem (3).mp3',
+  ], []);
+  
+  useEffect(() => {
+    if (!isMusicEnabled) {
+      // 음악이 꺼져있으면 정리
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+      localStorage.setItem('backgroundMusicEnabled', String(isMusicEnabled));
+      return;
+    }
+    
+    // 랜덤으로 음악 선택
+    const randomIndex = Math.floor(Math.random() * musicFiles.length);
+    const selectedMusic = musicFiles[randomIndex];
+    
+    // HTML5 Audio로 MP3 재생
+    const audio = new Audio(selectedMusic);
+    audio.loop = true; // 반복 재생
+    audio.volume = 0.3; // 볼륨 30% (0.0 ~ 1.0)
+    audioRef.current = audio;
+    
+    // 음악이 끝나면 다음 랜덤 음악 재생
+    const handleEnded = () => {
+      const nextRandomIndex = Math.floor(Math.random() * musicFiles.length);
+      const nextMusic = musicFiles[nextRandomIndex];
+      audio.src = nextMusic;
+      audio.load();
+      audio.play().catch((err) => {
+        console.log('다음 음악 재생 실패:', err);
+      });
+    };
+    
+    audio.addEventListener('ended', handleEnded);
+    
+    // 사용자 상호작용 후 자동 재생 (브라우저 정책 - 자동재생 방지)
+    const handleUserInteraction = () => {
+      audio.play().catch((err) => {
+        console.log('배경음악 자동 재생 실패 (브라우저 정책):', err);
+      });
+      // 한 번만 실행되도록 리스너 제거
+      document.removeEventListener('click', handleUserInteraction);
+      document.removeEventListener('touchstart', handleUserInteraction);
+      document.removeEventListener('keydown', handleUserInteraction);
+    };
+    
+    // 사용자 상호작용 이벤트 리스너 등록
+    document.addEventListener('click', handleUserInteraction);
+    document.addEventListener('touchstart', handleUserInteraction);
+    document.addEventListener('keydown', handleUserInteraction);
+    
+    // localStorage에 설정 저장
+    localStorage.setItem('backgroundMusicEnabled', String(isMusicEnabled));
+    
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.removeEventListener('ended', handleEnded);
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+      document.removeEventListener('click', handleUserInteraction);
+      document.removeEventListener('touchstart', handleUserInteraction);
+      document.removeEventListener('keydown', handleUserInteraction);
+    };
+  }, [isMusicEnabled, musicFiles]);
+  
+  // 음악 on/off 토글
+  const toggleMusic = () => {
+    if (audioRef.current) {
+      if (isMusicEnabled) {
+        audioRef.current.pause();
+      } else {
+        audioRef.current.play().catch((err) => {
+          console.log('음악 재생 실패:', err);
+        });
+      }
+    }
+    setIsMusicEnabled(prev => !prev);
+  };
   
   // 통계 상태 - 기본값으로 초기화
   const [stats, setStats] = useState<StatsSummary>({
@@ -747,11 +843,11 @@ export default function MainDashboard() {
 
           const filteredByStatus = playlistVideos.filter(v => {
             const privacy = statusMap[v.id];
-            // status 정보가 있으면 public 인 것만 사용
             if (privacy) {
+              // status 가 있으면 public 만 사용
               return privacy === 'public';
             }
-            // status 정보가 없으면 제목 기반 필터만 적용
+            // status 없으면 제목 기반 필터만
             const title = (v.title || '').toLowerCase();
             return !title.includes('deleted video') && 
                    !title.includes('private video') && 
@@ -770,7 +866,7 @@ export default function MainDashboard() {
           }
         } catch (e) {
           console.error('YouTube videos 상태 확인 실패:', e);
-          // videos API 실패 시 기존 제목 기반 필터만 사용
+          // videos API 실패 시 제목 기반 필터
           const fallbackList = playlistVideos
             .filter((v) => {
               if (!v.id) return false;
@@ -1436,6 +1532,24 @@ export default function MainDashboard() {
 
   return (
     <Box minH="100vh" bg="#f7f9fb" w="100vw" minW="100vw" pt="18mm" overflowX="hidden">
+      {/* 음악 on/off 버튼 (우측 상단 고정) */}
+      <IconButton
+        aria-label={isMusicEnabled ? '음악 끄기' : '음악 켜기'}
+        icon={isMusicEnabled ? <MdMusicNote /> : <MdMusicOff />}
+        onClick={toggleMusic}
+        position="fixed"
+        top="20px"
+        right="20px"
+        zIndex={1000}
+        bg={isMusicEnabled ? "#004ea8" : "gray.400"}
+        color="white"
+        borderRadius="full"
+        boxShadow="lg"
+        _hover={{ bg: isMusicEnabled ? "#00397a" : "gray.500", transform: 'scale(1.1)' }}
+        transition="all 0.2s"
+        size="md"
+      />
+      
       {/* 메인 컨텐츠 */}
       <Flex direction={{ base: 'column', md: 'row' }} gap={8} px={{ base: 2, md: 8, lg: 24 }} py={10} w="full" maxW="100vw" align="stretch" overflowX="hidden">
         {/* 명언 카드 */}
