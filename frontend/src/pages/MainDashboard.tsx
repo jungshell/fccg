@@ -1,7 +1,7 @@
 import { Box, Flex, Text, SimpleGrid, Stack, IconButton, Modal, ModalOverlay, ModalContent, ModalBody, ModalCloseButton, useDisclosure, Spinner, Alert, AlertIcon, VStack, Button, Badge, Tooltip, Wrap, WrapItem, Tag } from '@chakra-ui/react';
 import { ChevronLeftIcon, ChevronRightIcon } from '@chakra-ui/icons';
 import { MdMusicNote, MdMusicOff } from 'react-icons/md';
-import { useMemo, useState, useEffect, useCallback, useRef } from 'react';
+import React, { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { useAuthStore } from '../store/auth';
 import type { StatsSummary } from '../api/auth';
 import type { Member } from '../api/auth';
@@ -53,6 +53,12 @@ export default function MainDashboard() {
     return saved !== null ? saved === 'true' : true; // 기본값: 켜짐
   });
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  
+  // 드래그 가능한 음악 버튼 위치 상태
+  const [buttonPosition, setButtonPosition] = useState({ x: 20, y: 200 }); // 유튜브 카드 상단 위치로 초기값 설정
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
   
   // 사용 가능한 음악 파일 목록
   const musicFiles = useMemo(() => [
@@ -140,6 +146,83 @@ export default function MainDashboard() {
     }
     setIsMusicEnabled(prev => !prev);
   };
+  
+  // 드래그 관련 상태
+  const dragStartPos = useRef({ x: 0, y: 0 });
+  const hasMoved = useRef(false);
+  
+  // 드래그 핸들러
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    hasMoved.current = false;
+    if (buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      dragStartPos.current = {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
+      };
+      setDragStart({
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
+      });
+      setIsDragging(true);
+    }
+  };
+  
+  // 클릭 핸들러 (드래그가 아닐 때만 실행)
+  const handleClick = () => {
+    if (!hasMoved.current) {
+      toggleMusic();
+    }
+  };
+  
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (isDragging && buttonRef.current) {
+        // 움직임 감지
+        const moveThreshold = 5; // 5px 이상 움직이면 드래그로 간주
+        const deltaX = Math.abs(e.clientX - (buttonPosition.x + dragStart.x));
+        const deltaY = Math.abs(e.clientY - (buttonPosition.y + dragStart.y));
+        if (deltaX > moveThreshold || deltaY > moveThreshold) {
+          hasMoved.current = true;
+        }
+        
+        const newX = e.clientX - dragStart.x;
+        const newY = e.clientY - dragStart.y;
+        // 화면 경계 내로 제한
+        const maxX = window.innerWidth - 32; // 버튼 너비 고려
+        const maxY = window.innerHeight - 32; // 버튼 높이 고려
+        setButtonPosition({
+          x: Math.max(0, Math.min(newX, maxX)),
+          y: Math.max(0, Math.min(newY, maxY)),
+        });
+      }
+    };
+    
+    const handleMouseUp = () => {
+      setIsDragging(false);
+      // 약간의 지연 후 hasMoved 리셋 (다음 클릭을 위해)
+      setTimeout(() => {
+        hasMoved.current = false;
+      }, 100);
+    };
+    
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      // 터치 이벤트도 지원
+      document.addEventListener('touchmove', handleMouseMove as any);
+      document.addEventListener('touchend', handleMouseUp);
+    }
+    
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('touchmove', handleMouseMove as any);
+      document.removeEventListener('touchend', handleMouseUp);
+    };
+  }, [isDragging, dragStart, buttonPosition]);
   
   // 통계 상태 - 기본값으로 초기화
   const [stats, setStats] = useState<StatsSummary>({
@@ -1532,22 +1615,27 @@ export default function MainDashboard() {
 
   return (
     <Box minH="100vh" bg="#f7f9fb" w="100vw" minW="100vw" pt="18mm" overflowX="hidden">
-      {/* 음악 on/off 버튼 (우측 상단 고정) */}
+      {/* 음악 on/off 버튼 (드래그 가능한 플로팅 버튼) */}
       <IconButton
+        ref={buttonRef}
         aria-label={isMusicEnabled ? '음악 끄기' : '음악 켜기'}
-        icon={isMusicEnabled ? <MdMusicNote /> : <MdMusicOff />}
-        onClick={toggleMusic}
+        icon={isMusicEnabled ? <MdMusicNote size={16} /> : <MdMusicOff size={16} />}
+        onClick={handleClick}
+        onMouseDown={handleMouseDown}
         position="fixed"
-        top="20px"
-        right="20px"
+        left={`${buttonPosition.x}px`}
+        top={`${buttonPosition.y}px`}
         zIndex={1000}
         bg={isMusicEnabled ? "#004ea8" : "gray.400"}
         color="white"
         borderRadius="full"
         boxShadow="lg"
-        _hover={{ bg: isMusicEnabled ? "#00397a" : "gray.500", transform: 'scale(1.1)' }}
-        transition="all 0.2s"
-        size="md"
+        _hover={{ bg: isMusicEnabled ? "#00397a" : "gray.500", transform: 'scale(1.05)' }}
+        transition={isDragging ? 'none' : 'all 0.2s'}
+        size="sm"
+        width="32px"
+        height="32px"
+        cursor={isDragging ? 'grabbing' : 'grab'}
       />
       
       {/* 메인 컨텐츠 */}
