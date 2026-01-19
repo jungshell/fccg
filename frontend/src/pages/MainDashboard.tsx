@@ -45,6 +45,11 @@ const fallbackVideos = [
 export default function MainDashboard() {
   // 로그인 상태 확인
   const { user } = useAuthStore();
+
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem('token') || localStorage.getItem('auth_token_backup');
+    return token ? { Authorization: `Bearer ${token}` } : undefined;
+  };
   
   // 배경음악 자동 재생 (메인 화면 진입 시) - MP3 파일 랜덤 재생
   const [isMusicEnabled, setIsMusicEnabled] = useState(() => {
@@ -381,29 +386,13 @@ export default function MainDashboard() {
         // 투표 상태 확인 로직 (모달과 일치)
         const now = new Date();
         
-        // 9월 21일 00:00 이후에는 원래 규칙 적용
-        const cutoffDate = new Date();
-        cutoffDate.setDate(21);
-        cutoffDate.setMonth(8); // 9월 (0부터 시작)
-        cutoffDate.setHours(0, 0, 0, 0); // 21일 00:00
+        // 원래 규칙: 매주 목요일 17시까지
+        const currentDay = now.getDay(); // 0: 일요일, 1: 월요일, ..., 6: 토요일
+        const daysUntilThursday = (4 - currentDay + 7) % 7; // 목요일까지 남은 일수
         
-        let deadline: Date;
-        
-        if (now >= cutoffDate) {
-          // 원래 규칙: 매주 목요일 17시까지
-          const currentDay = now.getDay(); // 0: 일요일, 1: 월요일, ..., 6: 토요일
-          const daysUntilThursday = (4 - currentDay + 7) % 7; // 목요일까지 남은 일수
-          
-          deadline = new Date(now);
-          deadline.setDate(now.getDate() + daysUntilThursday);
-          deadline.setHours(17, 0, 0, 0); // 목요일 17:00
-        } else {
-          // 임시로 9월 21일 23:50까지
-          deadline = new Date();
-          deadline.setDate(21);
-          deadline.setMonth(8); // 9월 (0부터 시작)
-          deadline.setHours(23, 50, 0, 0); // 21일 23:50
-        }
+        const deadline = new Date(now);
+        deadline.setDate(now.getDate() + daysUntilThursday);
+        deadline.setHours(17, 0, 0, 0); // 목요일 17:00
         
         const isVoteOpen = now < deadline;
         return isVoteOpen ? 'pending' : 'completed';
@@ -426,9 +415,7 @@ export default function MainDashboard() {
       const baseUrl = await import('../config/api').then(m => m.getApiBaseUrl());
       
       const response = await fetch(`${baseUrl}/members`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
+        headers: getAuthHeaders(),
       });
       
       if (response.ok) {
@@ -469,9 +456,7 @@ export default function MainDashboard() {
       
       // 통합 API에서 투표 데이터 가져오기
       const unifiedData = await fetch(`${baseUrl}/votes/unified`, {
-        headers: { 
-          'Authorization': `Bearer ${localStorage.getItem('token') || localStorage.getItem('auth_token_backup') || ''}` 
-        }
+        headers: getAuthHeaders(),
       });
       
       let data: any[] = [];
@@ -645,9 +630,7 @@ export default function MainDashboard() {
       const baseUrl = await import('../config/api').then(m => m.getApiBaseUrl());
       
       const response = await fetch(`${baseUrl}/games`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
+        headers: getAuthHeaders(),
       });
       
       if (response.ok) {
@@ -884,10 +867,14 @@ export default function MainDashboard() {
   const randomQuote = useMemo(() => quotes[Math.floor(Math.random() * quotes.length)], []);
 
   // 유튜브 영상 fetch (최신 3개 자동)
-  const YT_API_KEY = 'AIzaSyC7M5KrtdL8ChfVCX0M2CZfg7GWGaExMTk';
+  const YT_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY as string | undefined;
   const PLAYLIST_ID = 'PLQ5o2f7efzlZ-RDG64h4Oj_5pXt0g6q3b';
   const [youtubeVideos, setYoutubeVideos] = useState(fallbackVideos);
   useEffect(() => {
+    if (!YT_API_KEY) {
+      setYoutubeVideos(fallbackVideos);
+      return;
+    }
     fetch(`https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=10&playlistId=${PLAYLIST_ID}&key=${YT_API_KEY}`)
       .then(res => res.json())
       .then(async (data: { items?: { snippet: { resourceId: { videoId: string }, title: string } }[] }) => {
@@ -967,7 +954,7 @@ export default function MainDashboard() {
         }
       })
       .catch(() => setYoutubeVideos(fallbackVideos));
-  }, []);
+  }, [YT_API_KEY]);
 
   // 유튜브 IFrame Player는 외부 라이브러리로 동작하며, 최신화 fetch만 사용합니다.
 
@@ -1070,9 +1057,7 @@ export default function MainDashboard() {
           const baseUrl = await import('../constants').then(m => m.ensureApiBaseUrl()).catch(() => '/api/auth');
           
           const response = await fetch(`${baseUrl}/members`, {
-                headers: {
-                  'Authorization': `Bearer ${localStorage.getItem('token')}`
-                }
+            headers: getAuthHeaders(),
           });
           
           if (response.ok) {
