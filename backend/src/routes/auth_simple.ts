@@ -4164,7 +4164,11 @@ router.get('/notification-recipients', authenticateToken, async (req, res) => {
       }));
     } else if (target === 'participating') {
       // 참가 예정 회원
-      const gameIdArray = gameIds ? (Array.isArray(gameIds) ? gameIds : [gameIds]).map(id => parseInt(id)) : [];
+      const gameIdArray = gameIds
+        ? (Array.isArray(gameIds) ? gameIds : [gameIds])
+            .map(id => parseInt(String(id), 10))
+            .filter(id => !Number.isNaN(id))
+        : [];
       const attendances = await prisma.attendance.findMany({
         where: {
           gameId: { in: gameIdArray },
@@ -5196,7 +5200,9 @@ router.get('/videos/view-stats', async (req, res) => {
     }
 
     const idsArray = Array.isArray(idsParam) ? idsParam : String(idsParam).split(',');
-    const videoKeys = Array.from(new Set(idsArray.map(id => id.trim()).filter(Boolean)));
+    const videoKeys = Array.from(
+      new Set(idsArray.map(id => String(id).trim()).filter(id => id.length > 0))
+    );
 
     if (videoKeys.length === 0) {
       return res.json({ success: true, data: {} });
