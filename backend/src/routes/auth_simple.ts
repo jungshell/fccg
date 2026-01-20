@@ -238,6 +238,19 @@ router.post('/login', authLimiter, async (req, res) => {
       });
     }
 
+    // 로그인 기록 업데이트 (마지막 로그인 시간, 로그인 횟수)
+    try {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          lastLoginAt: new Date(),
+          loginCount: { increment: 1 }
+        }
+      });
+    } catch (e) {
+      console.warn('⚠️ 로그인 기록 업데이트 실패:', e);
+    }
+
     // JWT 토큰 생성 (간단한 예시)
     const jwt = require('jsonwebtoken');
     const token = jwt.sign(
@@ -5755,7 +5768,7 @@ router.get('/activity-analysis', authenticateToken, async (req, res) => {
         role: { in: ['MEMBER', 'ADMIN', 'SUPER_ADMIN'] },
         status: { in: ['ACTIVE', 'SUSPENDED'] }
       },
-      select: { id: true, name: true, role: true }
+      select: { id: true, name: true, role: true, loginCount: true }
     });
 
         const memberStats = allMembers.map(member => {
@@ -5819,6 +5832,7 @@ router.get('/activity-analysis', authenticateToken, async (req, res) => {
             id: member.id,
             name: member.name,
             role: member.role,
+            loginCount: member.loginCount || 0,
             gameParticipation: thisMonthGames > 0 ? Math.round((gameParticipationCount / thisMonthGames) * 100) : 0,
             voteParticipation: allVoteSessions.length > 0 ? Math.round((voteParticipationCount / allVoteSessions.length) * 100) : 0,
             activityScore,

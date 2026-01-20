@@ -18,6 +18,7 @@ model User {
   role               String       @default("MEMBER")
   status             String       @default("ACTIVE")
   attendance         Int?         @default(0)
+  loginCount         Int          @default(0)
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
   lastLoginAt        DateTime?

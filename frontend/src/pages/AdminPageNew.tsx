@@ -331,6 +331,7 @@ export default function AdminPageNew() {
       id: number;
       name: string;
       role: string;
+      loginCount?: number;
       gameParticipation: number;
       voteParticipation: number;
       activityScore: number;
@@ -3033,6 +3034,38 @@ export default function AdminPageNew() {
     }
   });
 
+  const activityMetrics = useMemo(() => {
+    const members = activityAnalysisData?.memberStats ?? [];
+    const withSafeCounts = members.map(member => ({
+      ...member,
+      loginCount: member.loginCount ?? 0
+    }));
+
+    const maxLogin = Math.max(0, ...withSafeCounts.map(m => m.loginCount));
+    const maxVote = Math.max(0, ...withSafeCounts.map(m => m.voteParticipationCount));
+    const maxGame = Math.max(0, ...withSafeCounts.map(m => m.gameParticipationCount));
+
+    const sortedByTotal = [...withSafeCounts].sort((a, b) => {
+      const aTotal = a.loginCount + a.voteParticipationCount + a.gameParticipationCount;
+      const bTotal = b.loginCount + b.voteParticipationCount + b.gameParticipationCount;
+      return bTotal - aTotal;
+    });
+
+    const topLogin = [...withSafeCounts].sort((a, b) => b.loginCount - a.loginCount).slice(0, 3);
+    const topVote = [...withSafeCounts].sort((a, b) => b.voteParticipationCount - a.voteParticipationCount).slice(0, 3);
+    const topGame = [...withSafeCounts].sort((a, b) => b.gameParticipationCount - a.gameParticipationCount).slice(0, 3);
+
+    return {
+      members: sortedByTotal,
+      maxLogin,
+      maxVote,
+      maxGame,
+      topLogin,
+      topVote,
+      topGame
+    };
+  }, [activityAnalysisData]);
+
   const renderSidebarContent = (onNavigate?: () => void) => {
     const handleClick = (menu: string) => {
       handleMenuSelect(menu);
@@ -4096,87 +4129,143 @@ export default function AdminPageNew() {
                   </SimpleGrid>
 
                   <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={2} w="100%">
-                    {/* 회원별 참여 현황 */}
+                    {/* 회원 활동 비교 */}
                     <Card>
                       <CardBody pt={1.5} pb={2} px={6}>
-                        <VStack spacing={2} align="stretch">
-                          <Text fontSize="lg" fontWeight="bold" color="#004ea8">👥 회원별 참여 현황</Text>
+                        <VStack spacing={3} align="stretch">
+                          <Flex justify="space-between" align="center">
+                            <Text fontSize="lg" fontWeight="bold" color="#004ea8">👥 회원 활동 비교</Text>
+                            <HStack spacing={2}>
+                              <Badge variant="subtle" colorScheme="purple">로그인</Badge>
+                              <Badge variant="subtle" colorScheme="blue">투표</Badge>
+                              <Badge variant="subtle" colorScheme="green">경기</Badge>
+                            </HStack>
+                          </Flex>
                           <Divider />
-                          
-                          <TableContainer maxH="400px" overflowY="auto">
-                            <Table size="sm" variant="simple">
-                              <Thead position="sticky" top={0} bg="white" zIndex={1}>
-                                <Tr>
-                                  <Th>회원명</Th>
-                                  <Th>경기 참여</Th>
-                                  <Th>투표 참여</Th>
-                                  <Th>활동점수</Th>
-                                </Tr>
-                              </Thead>
-                              <Tbody>
-                                {activityAnalysisData?.memberStats && activityAnalysisData.memberStats.length > 0 ? (
-                                  activityAnalysisData.memberStats.map((member) => (
-                                    <Tr key={member.id}>
-                                      <Td fontWeight="bold">
-                                        {member.name}
-                                        <Badge 
-                                          ml={2} 
-                                          size="sm"
-                                          colorScheme={
-                                            member.role === 'SUPER_ADMIN' ? 'red' :
-                                            member.role === 'ADMIN' ? 'blue' : 'gray'
-                                          }
-                                        >
-                                          {member.role === 'SUPER_ADMIN' ? '슈퍼관리자' :
-                                           member.role === 'ADMIN' ? '관리자' : '회원'}
-                                        </Badge>
-                                      </Td>
-                                      <Td>
-                                        <Progress 
-                                        value={member.gameParticipation} 
-                                          colorScheme="green"
-                                          size="sm"
-                                          w="60px"
-                                        />
-                                      <Text fontSize="xs" mt={1}>{member.gameParticipation}%</Text>
-                                      </Td>
-                                      <Td>
-                                        <Progress 
-                                        value={member.voteParticipation} 
-                                          colorScheme="blue"
-                                          size="sm"
-                                          w="60px"
-                                        />
-                                      <Text fontSize="xs" mt={1}>{member.voteParticipation}%</Text>
-                                      </Td>
-                                      <Td>
-                                        <Badge 
-                                          colorScheme={
-                                          member.activityScore >= 80 ? 'green' :
-                                          member.activityScore >= 60 ? 'yellow' : 'red'
-                                          }
-                                        >
-                                        {member.activityScore}점
-                                        </Badge>
-                                      </Td>
-                                    </Tr>
-                                  ))
-                                ) : (
-                                  <Tr>
-                                    <Td colSpan={4} textAlign="center" py={8}>
-                                      <Text color="gray.500">회원 데이터가 없습니다.</Text>
-                                    </Td>
-                                  </Tr>
+
+                          <SimpleGrid columns={{ base: 1, md: 3 }} spacing={2}>
+                            <Box p={3} bg="gray.50" border="1px solid" borderColor="gray.200" borderRadius="md">
+                              <Text fontSize="sm" fontWeight="semibold" color="gray.700">로그인 Top 3</Text>
+                              <VStack spacing={1} align="stretch" mt={2}>
+                                {activityMetrics.topLogin.length > 0 ? activityMetrics.topLogin.map((member, idx) => (
+                                  <Flex key={`login-${member.id}`} justify="space-between" fontSize="xs">
+                                    <Text color="gray.600">{idx + 1}. {member.name}</Text>
+                                    <Badge colorScheme="purple" variant="subtle">{member.loginCount}회</Badge>
+                                  </Flex>
+                                )) : (
+                                  <Text fontSize="xs" color="gray.400">데이터 없음</Text>
                                 )}
-                              </Tbody>
-                            </Table>
-                          </TableContainer>
-                          
-                          {userList.length === 0 && (
-                            <Flex justify="center" py={8}>
-                              <Text color="gray.500">회원 데이터가 없습니다.</Text>
-      </Flex>
-                          )}
+                              </VStack>
+                            </Box>
+                            <Box p={3} bg="gray.50" border="1px solid" borderColor="gray.200" borderRadius="md">
+                              <Text fontSize="sm" fontWeight="semibold" color="gray.700">투표 Top 3</Text>
+                              <VStack spacing={1} align="stretch" mt={2}>
+                                {activityMetrics.topVote.length > 0 ? activityMetrics.topVote.map((member, idx) => (
+                                  <Flex key={`vote-${member.id}`} justify="space-between" fontSize="xs">
+                                    <Text color="gray.600">{idx + 1}. {member.name}</Text>
+                                    <Badge colorScheme="blue" variant="subtle">{member.voteParticipationCount}회</Badge>
+                                  </Flex>
+                                )) : (
+                                  <Text fontSize="xs" color="gray.400">데이터 없음</Text>
+                                )}
+                              </VStack>
+                            </Box>
+                            <Box p={3} bg="gray.50" border="1px solid" borderColor="gray.200" borderRadius="md">
+                              <Text fontSize="sm" fontWeight="semibold" color="gray.700">경기 참여 Top 3</Text>
+                              <VStack spacing={1} align="stretch" mt={2}>
+                                {activityMetrics.topGame.length > 0 ? activityMetrics.topGame.map((member, idx) => (
+                                  <Flex key={`game-${member.id}`} justify="space-between" fontSize="xs">
+                                    <Text color="gray.600">{idx + 1}. {member.name}</Text>
+                                    <Badge colorScheme="green" variant="subtle">{member.gameParticipationCount}회</Badge>
+                                  </Flex>
+                                )) : (
+                                  <Text fontSize="xs" color="gray.400">데이터 없음</Text>
+                                )}
+                              </VStack>
+                            </Box>
+                          </SimpleGrid>
+
+                          <Divider />
+
+                          <VStack spacing={2} align="stretch" maxH="420px" overflowY="auto">
+                            {activityMetrics.members.length > 0 ? activityMetrics.members.map((member) => {
+                              const totalCount = (member.loginCount ?? 0) + member.voteParticipationCount + member.gameParticipationCount;
+                              return (
+                                <Box
+                                  key={member.id}
+                                  p={3}
+                                  bg="white"
+                                  border="1px solid"
+                                  borderColor="gray.200"
+                                  borderRadius="md"
+                                  boxShadow="sm"
+                                >
+                                  <Flex justify="space-between" align="center" mb={2}>
+                                    <HStack spacing={2}>
+                                      <Text fontWeight="semibold">{member.name}</Text>
+                                      <Badge
+                                        size="sm"
+                                        colorScheme={
+                                          member.role === 'SUPER_ADMIN' ? 'red' :
+                                          member.role === 'ADMIN' ? 'blue' : 'gray'
+                                        }
+                                      >
+                                        {member.role === 'SUPER_ADMIN' ? '슈퍼관리자' :
+                                         member.role === 'ADMIN' ? '관리자' : '회원'}
+                                      </Badge>
+                                    </HStack>
+                                    <Text fontSize="xs" color="gray.500">총 {totalCount}회</Text>
+                                  </Flex>
+
+                                  <SimpleGrid columns={{ base: 1, md: 3 }} spacing={2}>
+                                    <Box>
+                                      <HStack justify="space-between" mb={1}>
+                                        <Text fontSize="xs" color="gray.500">로그인</Text>
+                                        <Text fontSize="xs" fontWeight="semibold">{member.loginCount ?? 0}회</Text>
+                                      </HStack>
+                                      <Progress
+                                        value={activityMetrics.maxLogin > 0 ? ((member.loginCount ?? 0) / activityMetrics.maxLogin) * 100 : 0}
+                                        size="xs"
+                                        colorScheme="purple"
+                                        bg="gray.100"
+                                        borderRadius="full"
+                                      />
+                                    </Box>
+                                    <Box>
+                                      <HStack justify="space-between" mb={1}>
+                                        <Text fontSize="xs" color="gray.500">투표</Text>
+                                        <Text fontSize="xs" fontWeight="semibold">{member.voteParticipationCount}회</Text>
+                                      </HStack>
+                                      <Progress
+                                        value={activityMetrics.maxVote > 0 ? (member.voteParticipationCount / activityMetrics.maxVote) * 100 : 0}
+                                        size="xs"
+                                        colorScheme="blue"
+                                        bg="gray.100"
+                                        borderRadius="full"
+                                      />
+                                    </Box>
+                                    <Box>
+                                      <HStack justify="space-between" mb={1}>
+                                        <Text fontSize="xs" color="gray.500">경기 참여</Text>
+                                        <Text fontSize="xs" fontWeight="semibold">{member.gameParticipationCount}회</Text>
+                                      </HStack>
+                                      <Progress
+                                        value={activityMetrics.maxGame > 0 ? (member.gameParticipationCount / activityMetrics.maxGame) * 100 : 0}
+                                        size="xs"
+                                        colorScheme="green"
+                                        bg="gray.100"
+                                        borderRadius="full"
+                                      />
+                                    </Box>
+                                  </SimpleGrid>
+                                </Box>
+                              );
+                            }) : (
+                              <Flex justify="center" py={8}>
+                                <Text color="gray.500">회원 데이터가 없습니다.</Text>
+                              </Flex>
+                            )}
+                          </VStack>
                         </VStack>
                       </CardBody>
                     </Card>
