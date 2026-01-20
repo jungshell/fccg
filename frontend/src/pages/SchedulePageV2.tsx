@@ -171,6 +171,15 @@ export default function SchedulePageV2() {
   const [showVoteSharePrompt, setShowVoteSharePrompt] = useState(false);
   const [voteShareDays, setVoteShareDays] = useState<string[]>([]);
   const [isShareAbsentVote, setIsShareAbsentVote] = useState(false);
+
+  const voteShareText = useMemo(() => {
+    const shareUrl = `${window.location.origin}/schedule-v2?utm=vote_share`;
+    const selectedLabel = voteShareDays.length > 0 ? voteShareDays.join(', ') : '미정';
+    const description = isShareAbsentVote
+      ? '이번 주는 불참으로 투표했어요. 아직 투표 안 한 분들은 참여 부탁드립니다!'
+      : `선택 요일: ${selectedLabel}\n아직 투표 안 한 분들은 지금 참여해주세요!`;
+    return `🗳️ 투표 완료!\n${description}\n투표 링크: ${shareUrl}`;
+  }, [voteShareDays, isShareAbsentVote]);
   const [nextWeekVoteData, setNextWeekVoteData] = useState<VoteData[]>([]);
   
   // 통합 API 데이터 상태
@@ -1709,11 +1718,7 @@ export default function SchedulePageV2() {
 
   const handleKakaoShare = async () => {
     const shareUrl = `${window.location.origin}/schedule-v2?utm=vote_share`;
-    const selectedLabel = voteShareDays.length > 0 ? voteShareDays.join(', ') : '미정';
-    const description = isShareAbsentVote
-      ? '이번 주는 불참으로 투표했어요. 아직 투표 안 한 분들은 참여 부탁드립니다!'
-      : `선택 요일: ${selectedLabel}\n아직 투표 안 한 분들은 지금 참여해주세요!`;
-    const shareText = `🗳️ 투표 완료!\n${description}\n투표 링크: ${shareUrl}`;
+    const shareText = voteShareText;
 
     if (kakaoAppKey) {
       try {
@@ -1756,6 +1761,27 @@ export default function SchedulePageV2() {
       toast({
         title: '공유 실패',
         description: '공유 기능을 사용할 수 없습니다.',
+        status: 'error',
+        duration: 2500,
+        isClosable: true,
+      });
+    }
+  };
+
+  const handleCopyShareText = async () => {
+    try {
+      await navigator.clipboard.writeText(voteShareText);
+      toast({
+        title: '메시지 복사 완료',
+        description: '카카오톡에 붙여넣기 해주세요.',
+        status: 'success',
+        duration: 2500,
+        isClosable: true,
+      });
+    } catch (error) {
+      toast({
+        title: '복사 실패',
+        description: '메시지를 복사할 수 없습니다.',
         status: 'error',
         duration: 2500,
         isClosable: true,
@@ -4660,9 +4686,9 @@ export default function SchedulePageV2() {
               bg="white"
               color="#0B63CE"
               _hover={{ bg: 'blue.50' }}
-              onClick={() => setShowVoteSharePrompt(false)}
+              onClick={handleCopyShareText}
             >
-              나중에
+              메시지 복사
             </Button>
           </HStack>
         </Box>
