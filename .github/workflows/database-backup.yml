@@ -19,6 +19,11 @@ jobs:
         with:
           node-version: '18'
 
+      - name: Install backend dependencies
+        run: |
+          cd backend
+          npm ci
+
       - name: Install PostgreSQL client
         run: |
           sudo apt-get update
