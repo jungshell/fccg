@@ -1708,12 +1708,12 @@ export default function SchedulePageV2() {
   };
 
   const handleKakaoShare = async () => {
-    const shareUrl = `${window.location.origin}/schedule-v2`;
+    const shareUrl = `${window.location.origin}/schedule-v2?utm=vote_share`;
     const selectedLabel = voteShareDays.length > 0 ? voteShareDays.join(', ') : '미정';
     const description = isShareAbsentVote
-      ? '이번 주는 불참으로 투표했어요. 일정 확인해주세요!'
-      : `선택 요일: ${selectedLabel}`;
-    const imageUrl = `${window.location.origin}/vite.svg`;
+      ? '이번 주는 불참으로 투표했어요. 아직 투표 안 한 분들은 참여 부탁드립니다!'
+      : `선택 요일: ${selectedLabel}\n아직 투표 안 한 분들은 지금 참여해주세요!`;
+    const imageUrl = 'https://dummyimage.com/800x400/004ea8/ffffff&text=FC+CHAL-GGYEO+VOTE';
 
     if (kakaoAppKey) {
       try {
@@ -1730,7 +1730,7 @@ export default function SchedulePageV2() {
     }
 
     // 카카오 키가 없거나 SDK 실패 시 기본 공유로 대체
-    const fallbackText = `🗳️ 투표 완료!\n${description}\n${shareUrl}`;
+    const fallbackText = `🗳️ 투표 완료!\n${description}\n투표 링크: ${shareUrl}`;
     if (navigator.share) {
       try {
         await navigator.share({
@@ -4617,9 +4617,9 @@ export default function SchedulePageV2() {
           position="fixed"
           right={{ base: 4, md: 6 }}
           bottom={{ base: 4, md: 6 }}
-          bg="white"
+          bg="#0B63CE"
           border="1px solid"
-          borderColor="gray.200"
+          borderColor="#0B63CE"
           borderRadius="lg"
           boxShadow="lg"
           px={4}
@@ -4629,10 +4629,10 @@ export default function SchedulePageV2() {
         >
           <HStack justify="space-between" align="start" spacing={3}>
             <VStack align="start" spacing={1}>
-              <Text fontSize="sm" fontWeight="bold" color="gray.800">
+              <Text fontSize="sm" fontWeight="bold" color="white">
                 투표 완료! 단톡에 공유해요
               </Text>
-              <Text fontSize="xs" color="gray.500">
+              <Text fontSize="xs" color="blue.100">
                 공유하면 참여율이 올라가요.
               </Text>
             </VStack>
@@ -4641,6 +4641,8 @@ export default function SchedulePageV2() {
               size="xs"
               variant="ghost"
               icon={<SmallCloseIcon />}
+              color="white"
+              _hover={{ bg: 'rgba(255,255,255,0.15)' }}
               onClick={() => setShowVoteSharePrompt(false)}
             />
           </HStack>
@@ -4656,7 +4658,9 @@ export default function SchedulePageV2() {
             </Button>
             <Button
               size="sm"
-              variant="outline"
+              bg="white"
+              color="#0B63CE"
+              _hover={{ bg: 'blue.50' }}
               onClick={() => setShowVoteSharePrompt(false)}
             >
               나중에
