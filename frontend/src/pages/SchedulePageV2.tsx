@@ -36,7 +36,7 @@ import { API_ENDPOINTS } from '../constants';
 import { getApiUrl } from '../config/api';
 import { EditIcon, DeleteIcon } from '@chakra-ui/icons';
 import { CalendarSkeleton, VoteSectionSkeleton } from '../components/common/SkeletonLoader';
-import { shareKakaoFeed } from '../utils/kakaoShare';
+import { shareKakaoText } from '../utils/kakaoShare';
 
 // 타입 정의
 interface VoteData {
@@ -1713,15 +1713,14 @@ export default function SchedulePageV2() {
     const description = isShareAbsentVote
       ? '이번 주는 불참으로 투표했어요. 아직 투표 안 한 분들은 참여 부탁드립니다!'
       : `선택 요일: ${selectedLabel}\n아직 투표 안 한 분들은 지금 참여해주세요!`;
-    const imageUrl = 'https://dummyimage.com/800x400/004ea8/ffffff&text=FC+CHAL-GGYEO+VOTE';
+    const shareText = `🗳️ 투표 완료!\n${description}\n투표 링크: ${shareUrl}`;
 
     if (kakaoAppKey) {
       try {
-        await shareKakaoFeed(kakaoAppKey, {
-          title: 'FC CHAL-GGYEO 투표 완료',
-          description,
-          imageUrl,
+        await shareKakaoText(kakaoAppKey, {
+          text: shareText,
           url: shareUrl,
+          buttonTitle: '투표 확인하기',
         });
         return;
       } catch (error) {
@@ -1730,7 +1729,7 @@ export default function SchedulePageV2() {
     }
 
     // 카카오 키가 없거나 SDK 실패 시 기본 공유로 대체
-    const fallbackText = `🗳️ 투표 완료!\n${description}\n투표 링크: ${shareUrl}`;
+    const fallbackText = shareText;
     if (navigator.share) {
       try {
         await navigator.share({

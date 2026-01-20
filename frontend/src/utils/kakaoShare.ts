@@ -5,6 +5,12 @@ type KakaoLinkParams = {
   url: string;
 };
 
+type KakaoTextParams = {
+  text: string;
+  url: string;
+  buttonTitle?: string;
+};
+
 declare global {
   interface Window {
     Kakao?: {
@@ -98,5 +104,23 @@ export async function shareKakaoFeed(appKey: string, params: KakaoLinkParams) {
         },
       },
     ],
+  });
+}
+
+export async function shareKakaoText(appKey: string, params: KakaoTextParams) {
+  await loadKakaoSdk(appKey);
+
+  if (!window.Kakao || !window.Kakao.Link) {
+    throw new Error('Kakao SDK not available');
+  }
+
+  window.Kakao.Link.sendDefault({
+    objectType: 'text',
+    text: params.text,
+    link: {
+      webUrl: params.url,
+      mobileWebUrl: params.url,
+    },
+    buttonTitle: params.buttonTitle || '투표 확인하기',
   });
 }
