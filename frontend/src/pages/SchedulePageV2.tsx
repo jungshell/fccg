@@ -171,15 +171,24 @@ export default function SchedulePageV2() {
   const [showVoteSharePrompt, setShowVoteSharePrompt] = useState(false);
   const [voteShareDays, setVoteShareDays] = useState<string[]>([]);
   const [isShareAbsentVote, setIsShareAbsentVote] = useState(false);
+  const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
 
   const voteShareText = useMemo(() => {
     const shareUrl = `${window.location.origin}/schedule-v2?utm=vote_share`;
-    const selectedLabel = voteShareDays.length > 0 ? voteShareDays.join(', ') : '미정';
-    const description = isShareAbsentVote
-      ? '이번 주는 불참으로 투표했어요. 아직 투표 안 한 분들은 참여 부탁드립니다!'
-      : `선택 요일: ${selectedLabel}\n아직 투표 안 한 분들은 지금 참여해주세요!`;
-    return `🗳️ 투표 완료!\n${description}\n투표 링크: ${shareUrl}`;
-  }, [voteShareDays, isShareAbsentVote]);
+    const participationInfo = voteParticipationInfo;
+    const votedMembers = participationInfo?.votedMembers || [];
+    const nonVotedMembers = participationInfo?.nonVotedMembers || [];
+    const votedList = votedMembers.length > 0 ? votedMembers.join(', ') : '없음';
+    const nonVotedList = nonVotedMembers.length > 0 ? nonVotedMembers.join(', ') : '없음';
+
+    return [
+      '🗳️✨ FC CHAL-GGYEO 투표 현황',
+      `✅ 참여 (${votedMembers.length}명): ${votedList}`,
+      `❌ 미참여 (${nonVotedMembers.length}명): ${nonVotedList}`,
+      '📣 아직 투표 안 한 분들은 지금 참여 부탁드립니다!',
+      `🔗 투표 링크: ${shareUrl}`
+    ].join('\n');
+  }, [voteParticipationInfo]);
   const [nextWeekVoteData, setNextWeekVoteData] = useState<VoteData[]>([]);
   
   // 통합 API 데이터 상태
@@ -1580,9 +1589,11 @@ export default function SchedulePageV2() {
         });
         
         // 카카오 공유 안내 표시
-        setVoteShareDays(normalizedSelectedDays);
-        setIsShareAbsentVote(isAbsentVote);
-        setShowVoteSharePrompt(true);
+        if (isAdmin) {
+          setVoteShareDays(normalizedSelectedDays);
+          setIsShareAbsentVote(isAbsentVote);
+          setShowVoteSharePrompt(true);
+        }
 
         // 투표 완료 후 선택된 날짜 초기화
         setSelectedDays([]);
@@ -3069,37 +3080,57 @@ export default function SchedulePageV2() {
                       )}
                     </Flex>
                   {/* 투표참여율 - 오른쪽 끝에 배치 */}
-                  <Tooltip 
-                    label={(() => {
-                      const participationInfo = voteParticipationInfo;
-                      if (!participationInfo) {
-                        return '투표 데이터를 불러오는 중...';
-                      }
-                      const { votedMembers, nonVotedMembers } = participationInfo;
-                      const segments = [];
-                      if (votedMembers.length > 0) {
-                        segments.push(`참여: ${votedMembers.join(', ')}`);
-                      }
-                      if (nonVotedMembers.length > 0) {
-                        segments.push(`미참여: ${nonVotedMembers.join(', ')}`);
-                      }
-                      return segments.join('\n') || '투표 데이터 없음';
-                    })()}
-                    placement="bottom"
-                    hasArrow
-                    bg="gray.800"
-                    color="white"
-                    fontSize="sm"
-                    whiteSpace="pre-line"
-                  >
-                    <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600" fontWeight="medium" cursor="default">
-                      투표참여율: {(() => {
+                  <HStack spacing={2} align="center">
+                    {isAdmin && (
+                      <>
+                        <Button
+                          size="xs"
+                          variant="outline"
+                          onClick={handleKakaoShare}
+                        >
+                          카카오 공유
+                        </Button>
+                        <Button
+                          size="xs"
+                          variant="ghost"
+                          onClick={handleCopyShareText}
+                        >
+                          메시지 복사
+                        </Button>
+                      </>
+                    )}
+                    <Tooltip
+                      label={(() => {
                         const participationInfo = voteParticipationInfo;
-                        if (!participationInfo) return '0%';
-                        return `${participationInfo.participationRate}%`;
+                        if (!participationInfo) {
+                          return '투표 데이터를 불러오는 중...';
+                        }
+                        const { votedMembers, nonVotedMembers } = participationInfo;
+                        const segments = [];
+                        if (votedMembers.length > 0) {
+                          segments.push(`참여: ${votedMembers.join(', ')}`);
+                        }
+                        if (nonVotedMembers.length > 0) {
+                          segments.push(`미참여: ${nonVotedMembers.join(', ')}`);
+                        }
+                        return segments.join('\n') || '투표 데이터 없음';
                       })()}
-                    </Text>
-                  </Tooltip>
+                      placement="bottom"
+                      hasArrow
+                      bg="gray.800"
+                      color="white"
+                      fontSize="sm"
+                      whiteSpace="pre-line"
+                    >
+                      <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600" fontWeight="medium" cursor="default">
+                        투표참여율: {(() => {
+                          const participationInfo = voteParticipationInfo;
+                          if (!participationInfo) return '0%';
+                          return `${participationInfo.participationRate}%`;
+                        })()}
+                      </Text>
+                    </Tooltip>
+                  </HStack>
                 </Flex>
 
           <VStack spacing={{ base: 0, md: 0 }} align="stretch" mb={{ base: 1, md: 1 }}>
@@ -4637,7 +4668,7 @@ export default function SchedulePageV2() {
       </Modal>
 
       {/* 투표 완료 공유 안내 */}
-      {showVoteSharePrompt && (
+      {isAdmin && showVoteSharePrompt && (
         <Box
           position="fixed"
           right={{ base: 4, md: 6 }}
