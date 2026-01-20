@@ -27,7 +27,7 @@ import {
   Textarea,
 } from '@chakra-ui/react';
 import NewCalendarV2 from '../components/NewCalendarV2';
-import { ArrowUpIcon } from '@chakra-ui/icons';
+import { ArrowUpIcon, SmallCloseIcon } from '@chakra-ui/icons';
 import { useAuthStore } from '../store/auth';
 import { WarningIcon } from '@chakra-ui/icons';
 import { getUnifiedVoteDataNew, deleteVote } from '../api/auth';
@@ -36,6 +36,7 @@ import { API_ENDPOINTS } from '../constants';
 import { getApiUrl } from '../config/api';
 import { EditIcon, DeleteIcon } from '@chakra-ui/icons';
 import { CalendarSkeleton, VoteSectionSkeleton } from '../components/common/SkeletonLoader';
+import { shareKakaoFeed } from '../utils/kakaoShare';
 
 // 타입 정의
 interface VoteData {
@@ -125,6 +126,7 @@ const buildFallbackActiveSessionFromLastWeek = (lastWeekResults: any) => {
 
 export default function SchedulePageV2() {
   const navigate = useNavigate();
+  const kakaoAppKey = import.meta.env.VITE_KAKAO_JS_KEY as string | undefined;
   const toast = useToast();
   
   // 중앙화된 데이터 상태 관리 (내부적으로만 사용)
@@ -166,6 +168,9 @@ export default function SchedulePageV2() {
       votes: []
     }
   });
+  const [showVoteSharePrompt, setShowVoteSharePrompt] = useState(false);
+  const [voteShareDays, setVoteShareDays] = useState<string[]>([]);
+  const [isShareAbsentVote, setIsShareAbsentVote] = useState(false);
   const [nextWeekVoteData, setNextWeekVoteData] = useState<VoteData[]>([]);
   
   // 통합 API 데이터 상태
@@ -1565,6 +1570,11 @@ export default function SchedulePageV2() {
           isClosable: true,
         });
         
+        // 카카오 공유 안내 표시
+        setVoteShareDays(normalizedSelectedDays);
+        setIsShareAbsentVote(isAbsentVote);
+        setShowVoteSharePrompt(true);
+
         // 투표 완료 후 선택된 날짜 초기화
         setSelectedDays([]);
         
@@ -1692,6 +1702,63 @@ export default function SchedulePageV2() {
         description: '네트워크 오류가 발생했습니다.',
         status: 'error',
         duration: 3000,
+        isClosable: true,
+      });
+    }
+  };
+
+  const handleKakaoShare = async () => {
+    const shareUrl = `${window.location.origin}/schedule-v2`;
+    const selectedLabel = voteShareDays.length > 0 ? voteShareDays.join(', ') : '미정';
+    const description = isShareAbsentVote
+      ? '이번 주는 불참으로 투표했어요. 일정 확인해주세요!'
+      : `선택 요일: ${selectedLabel}`;
+    const imageUrl = `${window.location.origin}/vite.svg`;
+
+    if (kakaoAppKey) {
+      try {
+        await shareKakaoFeed(kakaoAppKey, {
+          title: 'FC CHAL-GGYEO 투표 완료',
+          description,
+          imageUrl,
+          url: shareUrl,
+        });
+        return;
+      } catch (error) {
+        console.warn('카카오 공유 실패, 대체 공유로 전환:', error);
+      }
+    }
+
+    // 카카오 키가 없거나 SDK 실패 시 기본 공유로 대체
+    const fallbackText = `🗳️ 투표 완료!\n${description}\n${shareUrl}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'FC CHAL-GGYEO 투표 완료',
+          text: fallbackText,
+          url: shareUrl,
+        });
+        return;
+      } catch (error) {
+        console.warn('기본 공유 실패:', error);
+      }
+    }
+
+    try {
+      await navigator.clipboard.writeText(fallbackText);
+      toast({
+        title: '공유 내용 복사 완료',
+        description: '카카오톡에 붙여넣기 해주세요.',
+        status: 'success',
+        duration: 2500,
+        isClosable: true,
+      });
+    } catch (error) {
+      toast({
+        title: '공유 실패',
+        description: '공유 기능을 사용할 수 없습니다.',
+        status: 'error',
+        duration: 2500,
         isClosable: true,
       });
     }
@@ -4543,6 +4610,60 @@ export default function SchedulePageV2() {
           </ModalBody>
         </ModalContent>
       </Modal>
+
+      {/* 투표 완료 공유 안내 */}
+      {showVoteSharePrompt && (
+        <Box
+          position="fixed"
+          right={{ base: 4, md: 6 }}
+          bottom={{ base: 4, md: 6 }}
+          bg="white"
+          border="1px solid"
+          borderColor="gray.200"
+          borderRadius="lg"
+          boxShadow="lg"
+          px={4}
+          py={3}
+          zIndex={2000}
+          maxW={{ base: 'calc(100% - 32px)', md: '360px' }}
+        >
+          <HStack justify="space-between" align="start" spacing={3}>
+            <VStack align="start" spacing={1}>
+              <Text fontSize="sm" fontWeight="bold" color="gray.800">
+                투표 완료! 단톡에 공유해요
+              </Text>
+              <Text fontSize="xs" color="gray.500">
+                공유하면 참여율이 올라가요.
+              </Text>
+            </VStack>
+            <IconButton
+              aria-label="공유 안내 닫기"
+              size="xs"
+              variant="ghost"
+              icon={<SmallCloseIcon />}
+              onClick={() => setShowVoteSharePrompt(false)}
+            />
+          </HStack>
+          <HStack mt={3} spacing={2}>
+            <Button
+              size="sm"
+              bg="#FEE500"
+              color="black"
+              _hover={{ bg: '#F7D600' }}
+              onClick={handleKakaoShare}
+            >
+              카카오톡 공유
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setShowVoteSharePrompt(false)}
+            >
+              나중에
+            </Button>
+          </HStack>
+        </Box>
+      )}
     </Box>
 );
 }
