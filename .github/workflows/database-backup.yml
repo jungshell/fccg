@@ -34,7 +34,7 @@ jobs:
           node backend/scripts/backup-database.js
 
       - name: Upload backup to GitHub Actions artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: database-backup-${{ github.run_number }}
           path: backups/*.sql
