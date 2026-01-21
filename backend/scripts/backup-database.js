@@ -21,19 +21,26 @@ function parseDatabaseUrl(url) {
     throw new Error('DATABASE_URL이 설정되지 않았습니다.');
   }
 
-  // postgresql://user:password@host:port/database 형식 파싱
-  const match = url.match(/postgresql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)/);
-  if (!match) {
+  try {
+    const parsed = new URL(url);
+    if (!/^postgres(?:ql)?:$/.test(parsed.protocol)) {
+      throw new Error('DATABASE_URL 형식이 올바르지 않습니다.');
+    }
+
+    const user = decodeURIComponent(parsed.username || '');
+    const password = decodeURIComponent(parsed.password || '');
+    const host = parsed.hostname;
+    const port = parsed.port || '5432';
+    const database = parsed.pathname.replace('/', '');
+
+    if (!user || !password || !host || !database) {
+      throw new Error('DATABASE_URL 형식이 올바르지 않습니다.');
+    }
+
+    return { user, password, host, port, database };
+  } catch (error) {
     throw new Error('DATABASE_URL 형식이 올바르지 않습니다.');
   }
-
-  return {
-    user: match[1],
-    password: match[2],
-    host: match[3],
-    port: match[4],
-    database: match[5]
-  };
 }
 
 // 백업 실행
