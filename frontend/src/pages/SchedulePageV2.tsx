@@ -2020,6 +2020,21 @@ export default function SchedulePageV2() {
     };
   }, [unifiedVoteData, effectiveVoteResults, isVoteClosed]);
 
+  const votePeriodLabel = useMemo(() => {
+    if (!nextWeekVoteData || nextWeekVoteData.length === 0) return '';
+    const yearTwoDigits = String(new Date().getFullYear()).slice(-2);
+    const formatLabel = (label: string) => {
+      const match = label.match(/(\d+)월\s+(\d+)일\((.+)\)/);
+      if (!match) return label;
+      const [, month, day, dayName] = match;
+      return `${yearTwoDigits}.${month}.${day}.(${dayName})`;
+    };
+    const first = nextWeekVoteData[0]?.date;
+    const last = nextWeekVoteData[nextWeekVoteData.length - 1]?.date;
+    if (!first || !last) return '';
+    return `${formatLabel(first)} ~ ${formatLabel(last)}`;
+  }, [nextWeekVoteData]);
+
   const voteShareText = useMemo(() => {
     const shareUrl = `${window.location.origin}/schedule-v2?utm=vote_share`;
     const participationInfo = voteParticipationInfo;
@@ -2030,12 +2045,13 @@ export default function SchedulePageV2() {
 
     return [
       '🗳️✨ FC CHAL-GGYEO 투표 현황',
+      `📅 투표기간 : ${votePeriodLabel || '일정 확인 중'}`,
       `✅ 참여 (${votedMembers.length}명): ${votedList}`,
       `❌ 미참여 (${nonVotedMembers.length}명): ${nonVotedList}`,
       '📣 아직 투표 안 한 분들은 지금 참여 부탁드립니다!',
       `🔗 투표 링크: ${shareUrl}`
     ].join('\n');
-  }, [voteParticipationInfo]);
+  }, [voteParticipationInfo, votePeriodLabel]);
 
   // 투표 버튼 텍스트 결정
   const getVoteButtonText = () => {
@@ -3081,26 +3097,7 @@ export default function SchedulePageV2() {
                       )}
                     </Flex>
                   {/* 투표참여율 - 오른쪽 끝에 배치 */}
-                  <HStack spacing={2} align="center">
-                    {isAdmin && (
-                      <>
-                        <Button
-                          size="xs"
-                          variant="outline"
-                          onClick={handleKakaoShare}
-                        >
-                          카카오 공유
-                        </Button>
-                        <Button
-                          size="xs"
-                          variant="ghost"
-                          onClick={handleCopyShareText}
-                        >
-                          메시지 복사
-                        </Button>
-                      </>
-                    )}
-                    <Tooltip
+                  <Tooltip
                       label={(() => {
                         const participationInfo = voteParticipationInfo;
                         if (!participationInfo) {
@@ -3131,7 +3128,6 @@ export default function SchedulePageV2() {
                         })()}
                       </Text>
                     </Tooltip>
-                  </HStack>
                 </Flex>
 
           <VStack spacing={{ base: 0, md: 0 }} align="stretch" mb={{ base: 1, md: 1 }}>
@@ -3674,6 +3670,21 @@ export default function SchedulePageV2() {
                           transition="all 0.2s ease-in-out"
                         >
                           {getVoteButtonText()}
+                        </Button>
+                      )}
+                      {isAdmin && (
+                        <Button
+                          size={{ base: "xs", md: "sm" }}
+                          bg="#FEE500"
+                          color="#004ea8"
+                          onClick={handleCopyShareText}
+                          fontWeight="bold"
+                          fontSize={{ base: "xs", md: "sm" }}
+                          px={{ base: 2, md: 3 }}
+                          h={{ base: "20px", md: "22px" }}
+                          _hover={{ bg: "#F7D600" }}
+                        >
+                          K
                         </Button>
                       )}
                     </Flex>
