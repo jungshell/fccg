@@ -173,22 +173,6 @@ export default function SchedulePageV2() {
   const [isShareAbsentVote, setIsShareAbsentVote] = useState(false);
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
 
-  const voteShareText = useMemo(() => {
-    const shareUrl = `${window.location.origin}/schedule-v2?utm=vote_share`;
-    const participationInfo = voteParticipationInfo;
-    const votedMembers = participationInfo?.votedMembers || [];
-    const nonVotedMembers = participationInfo?.nonVotedMembers || [];
-    const votedList = votedMembers.length > 0 ? votedMembers.join(', ') : '없음';
-    const nonVotedList = nonVotedMembers.length > 0 ? nonVotedMembers.join(', ') : '없음';
-
-    return [
-      '🗳️✨ FC CHAL-GGYEO 투표 현황',
-      `✅ 참여 (${votedMembers.length}명): ${votedList}`,
-      `❌ 미참여 (${nonVotedMembers.length}명): ${nonVotedList}`,
-      '📣 아직 투표 안 한 분들은 지금 참여 부탁드립니다!',
-      `🔗 투표 링크: ${shareUrl}`
-    ].join('\n');
-  }, [voteParticipationInfo]);
   const [nextWeekVoteData, setNextWeekVoteData] = useState<VoteData[]>([]);
   
   // 통합 API 데이터 상태
@@ -2035,6 +2019,23 @@ export default function SchedulePageV2() {
       nonVotedMembers
     };
   }, [unifiedVoteData, effectiveVoteResults, isVoteClosed]);
+
+  const voteShareText = useMemo(() => {
+    const shareUrl = `${window.location.origin}/schedule-v2?utm=vote_share`;
+    const participationInfo = voteParticipationInfo;
+    const votedMembers = participationInfo?.votedMembers || [];
+    const nonVotedMembers = participationInfo?.nonVotedMembers || [];
+    const votedList = votedMembers.length > 0 ? votedMembers.join(', ') : '없음';
+    const nonVotedList = nonVotedMembers.length > 0 ? nonVotedMembers.join(', ') : '없음';
+
+    return [
+      '🗳️✨ FC CHAL-GGYEO 투표 현황',
+      `✅ 참여 (${votedMembers.length}명): ${votedList}`,
+      `❌ 미참여 (${nonVotedMembers.length}명): ${nonVotedList}`,
+      '📣 아직 투표 안 한 분들은 지금 참여 부탁드립니다!',
+      `🔗 투표 링크: ${shareUrl}`
+    ].join('\n');
+  }, [voteParticipationInfo]);
 
   // 투표 버튼 텍스트 결정
   const getVoteButtonText = () => {
