@@ -3598,7 +3598,7 @@ export default function SchedulePageV2() {
                 {/* 버튼들 */}
                 <VStack spacing={{ base: 2, md: 3 }} align="stretch">
                   {/* 투표마감, 투표현황, 투표하기를 한 줄에 배치 */}
-                  <Flex gap={{ base: 1, md: 2 }} align="center" direction={{ base: 'column', sm: 'row' }}>
+                  <Flex gap={{ base: 1, md: 2 }} align="center" direction={{ base: 'column', sm: 'row' }} wrap="nowrap">
                     {/* 투표마감 시간 - 마감 시 숨김 */}
                   {!isVoteClosed && (unifiedVoteData?.activeSession || voteResults?.voteSession) && (
                       <Text
@@ -3608,12 +3608,13 @@ export default function SchedulePageV2() {
                         flex="1"
                         textAlign={{ base: "center", sm: "left" }}
                         mb={{ base: 1, sm: 0 }}
+                        whiteSpace="nowrap"
                       >
                         투표마감: {voteDeadlineInfo.text}
                       </Text>
                     )}
                     
-                    <Flex gap={{ base: 1, md: 2 }} w={{ base: "100%", sm: "auto" }}>
+                    <Flex gap={{ base: 1, md: 2 }} w={{ base: "100%", sm: "auto" }} wrap="nowrap">
                       <Button
                         size={{ base: "xs", md: "sm" }}
                         colorScheme="purple"
@@ -3680,8 +3681,10 @@ export default function SchedulePageV2() {
                           onClick={handleCopyShareText}
                           fontWeight="bold"
                           fontSize={{ base: "xs", md: "sm" }}
-                          px={{ base: 2, md: 3 }}
-                          h={{ base: "20px", md: "22px" }}
+                          w={{ base: "24px", md: "28px" }}
+                          minW={{ base: "24px", md: "28px" }}
+                          h={{ base: "24px", md: "28px" }}
+                          px={0}
                           _hover={{ bg: "#F7D600" }}
                         >
                           K
