@@ -3683,7 +3683,7 @@ export default function SchedulePageV2() {
                           fontSize={{ base: "xs", md: "sm" }}
                           w={{ base: "24px", md: "28px" }}
                           minW={{ base: "24px", md: "28px" }}
-                          h={{ base: "24px", md: "28px" }}
+                          h={{ base: "20px", md: "22px" }}
                           px={0}
                           _hover={{ bg: "#F7D600" }}
                         >
