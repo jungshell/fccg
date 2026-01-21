@@ -24,10 +24,14 @@ jobs:
           cd backend
           npm ci
 
-      - name: Install PostgreSQL client
+      - name: Install PostgreSQL client (v17)
         run: |
           sudo apt-get update
-          sudo apt-get install -y postgresql-client
+          sudo apt-get install -y wget ca-certificates
+          echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-17
 
       - name: Create backup directory
         run: mkdir -p backups
