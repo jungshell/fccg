@@ -67,10 +67,10 @@ export default function MainDashboard() {
   
   // 사용 가능한 음악 파일 목록
   const musicFiles = useMemo(() => [
-    '/music/FC Chal Ggyeo Anthem.mp3',
-    '/music/FC Chal Ggyeo Anthem (1).mp3',
-    '/music/FC Chal Ggyeo Anthem (2).mp3',
-    '/music/FC Chal Ggyeo Anthem (3).mp3',
+    '/clip%26music/FC Chal Ggyeo Anthem.mp3',
+    '/clip%26music/FC Chal Ggyeo Anthem (1).mp3',
+    '/clip%26music/FC Chal Ggyeo Anthem (2).mp3',
+    '/clip%26music/FC Chal Ggyeo Anthem (3).mp3',
   ], []);
   
   useEffect(() => {
