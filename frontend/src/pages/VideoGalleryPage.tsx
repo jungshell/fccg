@@ -412,9 +412,9 @@ export default function VideoGalleryPage() {
   }, [selectedItem, items]);
 
   return (
-    <Box minH="100vh" bg="#f7f9fb" w="100vw" minW="100vw" pt="18mm">
+    <Box minH="100vh" bg="#f7f9fb" w="100%" pt="18mm">
       {/* 상단 컨트롤 영역 */}
-      <Box px={{ base: 1, md: 4, lg: 12 }} pt={10} pb={4}>
+      <Box px={{ base: 2, md: 4, lg: 6 }} pt={10} pb={4} w="100%" maxW="1400px" mx="auto">
         <Flex direction={{ base: 'column', md: 'row' }} gap={4} align={{ base: 'stretch', md: 'center' }} justify="space-between" mb={1.5}>
           {/* 필터 탭 */}
           <HStack spacing={2} flexWrap="wrap">
@@ -435,7 +435,7 @@ export default function VideoGalleryPage() {
       </Box>
 
       {/* 갤러리 그리드 */}
-      <Box px={{ base: 1, md: 4, lg: 12 }} pb={10}>
+      <Box px={{ base: 2, md: 4, lg: 6 }} pb={10} w="100%" maxW="1400px" mx="auto">
         <SimpleGrid columns={{ base: 1, sm: 2, md: 3, lg: 4 }} spacing={6}>
           {sortedItems.map((item) => (
             <Box 

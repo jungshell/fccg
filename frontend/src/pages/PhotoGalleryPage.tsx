@@ -1472,9 +1472,9 @@ export default function PhotoGalleryPage() {
   };
 
   return (
-    <Box minH="100vh" bg="#f7f9fb" w="100vw" minW="100vw" pt="18mm">
+    <Box minH="100vh" bg="#f7f9fb" w="100%" pt="18mm">
       {/* 상단 컨트롤 영역 - 동영상 페이지와 동일한 여백 */}
-      <Box px={{ base: 1, md: 4, lg: 12 }} pt={10} pb={4}>
+      <Box px={{ base: 2, md: 4, lg: 6 }} pt={10} pb={4} w="100%" maxW="1400px" mx="auto">
         <Flex justify="flex-end" align="center" mb={1.5}>
           <HStack spacing={3}>
           <Select
@@ -1527,7 +1527,7 @@ export default function PhotoGalleryPage() {
           </VStack>
         </Center>
       ) : (
-        <Box px={{ base: 1, md: 4, lg: 12 }} pb={10}>
+        <Box px={{ base: 2, md: 4, lg: 6 }} pb={10} w="100%" maxW="1400px" mx="auto">
           <SimpleGrid columns={{ base: 1, sm: 2, md: 3, lg: 4 }} spacing={6}>
           {sortedPosts.map((post) => {
             const currentIndex = hoveredImageIndex[post.id] || 0;

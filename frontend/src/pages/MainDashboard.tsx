@@ -1599,7 +1599,7 @@ export default function MainDashboard() {
 
 
   return (
-    <Box minH="100vh" bg="#f7f9fb" w="100vw" minW="100vw" pt="18mm" overflowX="hidden">
+    <Box minH="100vh" bg="#f7f9fb" w="100%" pt="18mm" overflowX="hidden">
       {/* 음악 on/off 버튼 (드래그 가능한 플로팅 버튼) */}
       <IconButton
         ref={buttonRef}
@@ -1624,7 +1624,7 @@ export default function MainDashboard() {
       />
       
       {/* 메인 컨텐츠 */}
-      <Flex direction={{ base: 'column', md: 'row' }} gap={8} px={{ base: 2, md: 8, lg: 24 }} py={10} w="full" maxW="100vw" align="stretch" overflowX="hidden">
+      <Flex direction={{ base: 'column', md: 'row' }} gap={8} px={{ base: 2, md: 4, lg: 6 }} py={10} w="full" maxW="1400px" mx="auto" align="stretch" overflowX="hidden">
         {/* 명언 카드 */}
         <Box flex={1} bg="white" p={{ base: 4, md: 8 }} borderRadius="lg" boxShadow="md" display="flex" flexDirection="column" justifyContent="center" minH="433px" maxW={{ base: '100%', md: '420px' }}>
           <Text fontSize="5xl" color="#004ea8" fontWeight="bold" mb={4}>&ldquo;</Text>
@@ -1717,7 +1717,7 @@ export default function MainDashboard() {
       )}
 
       {/* 하단 통계 카드 */}
-      <SimpleGrid columns={{ base: 1, sm: 2, lg: 4 }} spacing={4} mb={6} px={{ base: 2, md: 8, lg: 24 }} w="full" maxW="100vw" overflowX="hidden">
+      <SimpleGrid columns={{ base: 1, sm: 2, lg: 4 }} spacing={4} mb={6} px={{ base: 2, md: 4, lg: 6 }} w="full" maxW="1400px" mx="auto" overflowX="hidden">
         {loading ? (
           <>
             {bottomInfoData.map((info, idx) => (

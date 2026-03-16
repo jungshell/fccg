@@ -2961,13 +2961,13 @@ export default function SchedulePageV2() {
           }
         `}
       </style>
-      <Box minH="100vh" bg="gray.50" w="100%" overflowX="hidden" maxW="100vw" boxSizing="border-box">
-        <Flex direction="column" minH="100vh" bg="gray.50" overflowX="hidden" maxW="100vw">
+      <Box minH="100vh" bg="gray.50" w="100%" overflowX="hidden" boxSizing="border-box" display="flex" justifyContent="center">
+        <Flex direction="column" minH="100vh" bg="gray.50" overflowX="hidden" w="100%" maxW="1400px">
         {/* 메인 컨텐츠 */}
           <Grid
             ref={gridContainerRef}
             w="100%"
-            maxW="100vw"
+            maxW="100%"
             boxSizing="border-box"
             templateColumns={
               lockedCalendarWidth
@@ -3017,7 +3017,6 @@ export default function SchedulePageV2() {
           {/* 왼쪽: 달력 */}
           <Box
             p={{ base: 2, md: 4 }}
-            pl={{ base: 'calc(0.5rem + 4mm)', md: 'calc(1rem + 4mm)' }}
             minW="0"
             w="100%"
             display="flex"

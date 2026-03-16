@@ -610,15 +610,15 @@ export default function AdminPage() {
 
   if (loading) {
     return (
-      <Flex w="full" minH="100vh" bg="#f7f9fb" maxW="100vw" px={{ base: 2, md: 8, lg: 24 }} pt="18mm" justify="center" align="center">
+      <Flex w="full" minH="100vh" bg="#f7f9fb" maxW="1400px" mx="auto" px={{ base: 2, md: 4, lg: 6 }} pt="18mm" justify="center" align="center">
         <Spinner size="xl" color="blue.500" />
       </Flex>
     );
   }
 
   return (
-    <Box minH="100vh" bg="#f7f9fb" w="100vw" minW="100vw">
-      <Flex h="100vh">
+    <Box minH="100vh" bg="#f7f9fb" w="100%">
+      <Flex h="100vh" w="100%" maxW="1400px" mx="auto">
       {/* 사이드 메뉴 */}
         <Box w={{ base: '60px', md: '220px' }} bg="white" boxShadow="md" p={4} flexShrink={0}>
         <VStack align="stretch" spacing={6}>
