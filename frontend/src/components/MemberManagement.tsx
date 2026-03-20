@@ -37,7 +37,7 @@ import {
   Tooltip
 } from '@chakra-ui/react';
 import { AddIcon, EditIcon, DeleteIcon, SearchIcon, ViewIcon, RepeatIcon } from '@chakra-ui/icons';
-import { updateMember, deleteMember, resetMemberPassword } from '../api/auth';
+import { updateMember, deleteMember, resetMemberPassword, getValidToken } from '../api/auth';
 import { useAuthStore } from '../store/auth';
 import { API_ENDPOINTS } from '../constants';
 import { getApiUrl } from '../config/api';
@@ -357,7 +357,7 @@ export default function MemberManagement({ userList, onUserListChange }: MemberM
     if (!memberId) return;
     
     // 인증 토큰 확인
-    const token = localStorage.getItem('token');
+    const token = getValidToken();
     if (!token) {
       toast({
         title: '인증 오류',
@@ -376,16 +376,22 @@ export default function MemberManagement({ userList, onUserListChange }: MemberM
       
       toast({
         title: '비밀번호 초기화 완료',
-        description: `새 비밀번호: ${response.newPassword}`,
+        description: response?.newPassword
+          ? `새 비밀번호: ${response.newPassword}`
+          : '비밀번호가 초기화되었습니다.',
         status: 'success',
         duration: 5000,
         isClosable: true,
       });
     } catch (error) {
       console.error('비밀번호 초기화 오류:', error);
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : '비밀번호 초기화 중 오류가 발생했습니다.';
       toast({
         title: '비밀번호 초기화 실패',
-        description: '비밀번호 초기화 중 오류가 발생했습니다.',
+        description: errorMessage,
         status: 'error',
         duration: 3000,
         isClosable: true,

@@ -3472,12 +3472,12 @@ router.post('/members/:id/reset-password', authenticateToken, async (req, res) =
       targetMemberId: req.params?.id
     });
     
-    const requesterRole = req.user?.role;
-    if (!requesterRole || !['ADMIN', 'SUPER_ADMIN'].includes(requesterRole)) {
-      console.warn('⚠️ 비밀번호 초기화 권한 부족:', requesterRole);
+    const requesterRole = String(req.user?.role || '').toUpperCase().trim();
+    if (!['ADMIN', 'SUPER_ADMIN'].includes(requesterRole)) {
+      console.warn('⚠️ 비밀번호 초기화 권한 부족:', req.user?.role);
       return res.status(403).json({
         success: false,
-        message: '비밀번호 초기화 권한이 없습니다.'
+        message: '비밀번호 초기화 권한이 없습니다. (관리자/슈퍼관리자만 가능)'
       });
     }
 
@@ -3486,6 +3486,18 @@ router.post('/members/:id/reset-password', authenticateToken, async (req, res) =
       return res.status(400).json({
         success: false,
         message: '유효한 회원 ID가 필요합니다.'
+      });
+    }
+
+    const targetMember = await prisma.user.findUnique({
+      where: { id: memberId },
+      select: { id: true, email: true, name: true }
+    });
+
+    if (!targetMember) {
+      return res.status(404).json({
+        success: false,
+        message: '대상 회원을 찾을 수 없습니다.'
       });
     }
 
