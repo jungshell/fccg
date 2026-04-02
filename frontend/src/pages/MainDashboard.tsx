@@ -969,7 +969,25 @@ export default function MainDashboard() {
       return (idx + 1) % youtubeVideos.length;
     });
   }, [currentVideo.id, youtubeVideos.length]);
-  
+
+  /** IFrame API: 사용 가능한 목록 중 최고 화질(배열 앞쪽이 고화질) 적용 */
+  const applyYoutubeBestQuality = useCallback((player: any) => {
+    try {
+      const levels: string[] | undefined = player?.getAvailableQualityLevels?.();
+      if (levels && levels.length > 0) {
+        player.setPlaybackQuality(levels[0]);
+      } else {
+        player.setPlaybackQuality?.('highres');
+      }
+    } catch {
+      try {
+        player.setPlaybackQuality?.('highres');
+      } catch {
+        /* 무시 */
+      }
+    }
+  }, []);
+
   // 동영상 인덱스 이동 (최신화된 리스트에 맞게)
   const handlePrev = () => {
     setVideoIdx((idx: number) => {
@@ -1676,26 +1694,29 @@ export default function MainDashboard() {
                   autoplay: 1,
                   mute: 1,
                   rel: 0,
-                  quality: 'highres',
+                  modestbranding: 1,
+                  playsinline: 1,
+                  ...(typeof window !== 'undefined' ? { origin: window.location.origin } : {}),
                 },
               }}
               style={{
                 position: 'absolute',
+                inset: 0,
                 width: '100%',
                 height: '100%',
                 borderRadius: 12,
                 background: 'black',
-                left: '50%',
-                top: '50%',
-                transform: 'translate(-50%, -50%) scale(1.25)',
-                transformOrigin: 'center center',
               }}
               className="yt-iframe"
+              onReady={(e: any) => applyYoutubeBestQuality(e.target)}
               onEnd={() => handleNext()}
               onError={handleVideoError}
               onStateChange={(event: any) => {
                 // YouTube 플레이어 상태 변경 감지
                 // -1: 비디오 시작 전, 0: 종료, 1: 재생 중, 2: 일시정지, 3: 버퍼링, 5: 큐에 추가됨
+                if (event.data === 1) {
+                  applyYoutubeBestQuality(event.target);
+                }
                 if (event.data === 5) {
                   // 큐에 추가됨 상태는 비디오를 찾을 수 없을 때 발생
                   console.log('비디오를 찾을 수 없음:', currentVideo.id);
