@@ -28,6 +28,7 @@ PORT=4000
 NODE_ENV=production
 GMAIL_USER=sti60val@gmail.com
 GMAIL_APP_PASSWORD=your-gmail-app-password
+AUTO_GAME_REMINDER_ENABLED=true
 ```
 
 **⚠️ 중요**: 

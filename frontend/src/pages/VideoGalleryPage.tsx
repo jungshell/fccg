@@ -41,7 +41,7 @@ import { useAuthStore } from '../store/auth';
 import { getApiUrl } from '../config/api';
 
 // YouTube API 설정
-const YT_API_KEY = 'AIzaSyC7M5KrtdL8ChfVCX0M2CZfg7GWGaExMTk';
+const YT_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY as string | undefined;
 const PLAYLIST_ID = 'PLQ5o2f7efzlZ-RDG64h4Oj_5pXt0g6q3b';
 
 const videoViewFormatter = new Intl.NumberFormat('ko-KR');
@@ -183,28 +183,30 @@ export default function VideoGalleryPage() {
     }
   }, [saveItemsToStorage]);
 
-  // 초기 로드: localStorage 우선, 없으면 YouTube에서 생성
+  // 초기 로드: localStorage를 먼저 표시한 뒤, YouTube에서 항상 최신 동기화
   useEffect(() => {
+    let initialStoredItems: any[] = [];
     const stored = localStorage.getItem('videoItems');
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const normalized = parsed.map(item => ({
+          initialStoredItems = parsed.map(item => ({
             ...item,
             viewCount: typeof item.viewCount === 'number' ? item.viewCount : 0
           }));
-          setItems(normalized);
-          return;
+          setItems(initialStoredItems);
         }
       } catch (e) { console.warn('videoItems 파싱 실패:', e); }
     }
+
+    if (!YT_API_KEY) return;
 
     fetch(`https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${PLAYLIST_ID}&key=${YT_API_KEY}`)
       .then(res => res.json())
       .then((data: { items?: { snippet: { resourceId: { videoId: string }, title: string, publishedAt: string } }[] }) => {
         if (data.items && data.items.length > 0) {
-          const videoItems = data.items
+          const fetchedVideoItems = data.items
             .filter(item => {
               const title = item.snippet.title.toLowerCase();
               return !title.includes('deleted video') && 
@@ -254,9 +256,29 @@ export default function VideoGalleryPage() {
                 viewCount: 0
               };
             });
-          
-          setItems(videoItems);
-          saveItemsToStorage(videoItems);
+
+          // 기존 로컬 데이터(좋아요/댓글/조회수/코멘트)를 videoId 기준으로 최대한 유지
+          const storedByVideoId = new Map(
+            initialStoredItems
+              .filter(item => !!item?.videoId)
+              .map(item => [item.videoId, item])
+          );
+
+          const merged = fetchedVideoItems.map((item) => {
+            const prev = storedByVideoId.get(item.videoId);
+            if (!prev) return item;
+            return {
+              ...item,
+              likes: prev.likes ?? item.likes,
+              comments: prev.comments ?? item.comments,
+              isLiked: prev.isLiked ?? item.isLiked,
+              commentsList: prev.commentsList ?? item.commentsList,
+              viewCount: typeof prev.viewCount === 'number' ? prev.viewCount : item.viewCount
+            };
+          });
+
+          setItems(merged);
+          saveItemsToStorage(merged);
         }
       })
       .catch((error) => {

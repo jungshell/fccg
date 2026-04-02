@@ -2541,41 +2541,9 @@ router.get('/unified-vote-data', async (req, res) => {
     // 활성 세션 조회 (안전한 조회)
     let activeSession = await getActiveSession(true);
     
-    // 활성 세션이 없으면 다음주 세션(완료된 세션 포함) 조회
-    // "다음주 일정투표" 패널은 다음주 세션을 사용해야 함
-    if (!activeSession) {
-      const nextWeekSession = await prisma.voteSession.findFirst({
-        where: {
-          weekStartDate: {
-            gte: nextWeekMonday,
-            lte: nextWeekFriday
-          },
-          votes: {
-            some: {}
-          }
-        },
-        include: {
-          votes: {
-            include: {
-              user: {
-                select: { id: true, name: true }
-              }
-            }
-          }
-        },
-        orderBy: { id: 'desc' }
-      });
-      
-      if (nextWeekSession) {
-        console.log('✅ 다음주 세션 조회 (완료된 세션 포함):', {
-          sessionId: nextWeekSession.id,
-          weekStartDate: nextWeekSession.weekStartDate,
-          isCompleted: nextWeekSession.isCompleted,
-          isActive: nextWeekSession.isActive
-        });
-        activeSession = nextWeekSession;
-      }
-    }
+    // 활성 세션이 없으면 null 유지
+    // 완료된 세션을 activeSession으로 승격하면
+    // "이번주 일정"과 "다음주 일정투표"가 동일 데이터로 중복 노출되는 문제가 발생한다.
     
     // activeSession은 그대로 사용 (필터링 제거)
     // "다음주 일정투표" 패널은 activeSession을 사용하므로 필터링하지 않음
@@ -2719,17 +2687,19 @@ router.get('/unified-vote-data', async (req, res) => {
       };
     });
 
-    // 이번주 월요일과 일치하는 완료된 세션 조회 (이번주 일정용)
-    // 세션 #3 (이번주 월-금 투표기간)의 결과를 가져옴
+    // 이번주 일정용 완료 세션 조회
+    // 기준: 활성 세션 주차(activeSession.weekStartDate)가 있으면 그 직전 완료 세션,
+    // 없으면 현재 주차(thisWeekMonday) 직전 완료 세션을 사용.
     const thisWeekMondayNormalized = new Date(thisWeekMonday.getFullYear(), thisWeekMonday.getMonth(), thisWeekMonday.getDate());
-    const thisWeekFridayNormalized = new Date(thisWeekFriday.getFullYear(), thisWeekFriday.getMonth(), thisWeekFriday.getDate());
+    const referenceWeekStart = activeSession?.weekStartDate
+      ? new Date(activeSession.weekStartDate)
+      : thisWeekMondayNormalized;
     
     const lastCompletedSession = await prisma.voteSession.findFirst({
       where: { 
         isCompleted: true,
         weekStartDate: {
-          gte: thisWeekMondayNormalized,
-          lte: thisWeekFridayNormalized
+          lt: referenceWeekStart
         },
         votes: {
           some: {}
@@ -2748,8 +2718,7 @@ router.get('/unified-vote-data', async (req, res) => {
     });
     
     console.log('🔍 이번주 일정용 세션 조회:', {
-      thisWeekMonday: thisWeekMondayNormalized.toISOString().split('T')[0],
-      thisWeekFriday: thisWeekFridayNormalized.toISOString().split('T')[0],
+      referenceWeekStart: referenceWeekStart.toISOString().split('T')[0],
       foundSession: lastCompletedSession ? {
         id: lastCompletedSession.id,
         weekStartDate: lastCompletedSession.weekStartDate,

@@ -1784,6 +1784,67 @@ export default function SchedulePageV2() {
     }
   };
 
+  const buildKakaoMapSearchUrl = (location?: string, locationAddress?: string) => {
+    const base = (locationAddress || location || '').trim();
+    const refined = base.includes(' ') ? base.substring(0, base.lastIndexOf(' ')) : base;
+    return `https://map.kakao.com/link/search/${encodeURIComponent(refined || base)}`;
+  };
+
+  const buildGameDetailShareText = (gameData: any) => {
+    if (!gameData) return '';
+    const eventType = gameData.eventType || '자체';
+    const normalizedType = ['풋살', 'FRIENDLY', 'FRIENDLY_MATCH'].includes(eventType)
+      ? '매치'
+      : (['매치', '자체', '회식', '기타'].includes(eventType) ? eventType : '기타');
+
+    let dateLine = '일시 미정';
+    if (gameData.date && gameData.time) {
+      const d = new Date(gameData.date);
+      const dayOfWeek = ['일', '월', '화', '수', '목', '금', '토'][d.getDay()];
+      dateLine = `${d.getMonth() + 1}월 ${d.getDate()}일(${dayOfWeek}) ${gameData.time}`;
+    } else if (gameData.date) {
+      const d = new Date(gameData.date);
+      const dayOfWeek = ['일', '월', '화', '수', '목', '금', '토'][d.getDay()];
+      dateLine = `${d.getMonth() + 1}월 ${d.getDate()}일(${dayOfWeek})`;
+    }
+
+    const mapUrl = buildKakaoMapSearchUrl(gameData.location, gameData.locationAddress);
+    const locationLine = gameData.location || '장소 미정';
+    const addressLine = gameData.locationAddress ? `\n- 주소: ${gameData.locationAddress}` : '';
+
+    return [
+      '⚽ FC CHAL-GGYEO 일정 안내',
+      `- 유형: ${normalizedType}`,
+      `- 일시: ${dateLine}`,
+      `- 장소: ${locationLine}${addressLine}`,
+      '',
+      `🗺 카카오맵: ${mapUrl}`
+    ].join('\n');
+  };
+
+  const handleCopyGameDetails = async () => {
+    try {
+      const text = buildGameDetailShareText(selectedGameData);
+      if (!text) return;
+      await navigator.clipboard.writeText(text);
+      toast({
+        title: '일정 정보 복사 완료',
+        description: '카카오톡에 자연스럽게 붙여넣기 할 수 있어요.',
+        status: 'success',
+        duration: 2500,
+        isClosable: true,
+      });
+    } catch (error) {
+      toast({
+        title: '복사 실패',
+        description: '일정 정보를 복사할 수 없습니다.',
+        status: 'error',
+        duration: 2500,
+        isClosable: true,
+      });
+    }
+  };
+
   // 재투표 처리 함수
   const handleRevote = async () => {
     try {
@@ -4450,24 +4511,37 @@ export default function SchedulePageV2() {
                       </Text>
                     )}
                   </Flex>
-                  <Button
-                    size="xs"
-                    height="22px"
-                    minW="22px"
-                    fontSize="11px"
-                    p={0}
-                    bg="yellow.400"
-                    color="blue.600"
-                    onClick={() => {
-                      // location에서 세부 장소 제거 (마지막 공백 이후 부분 제거)
-                      const location = selectedGameData.location || '';
-                      const locationBase = location.includes(' ') ? location.substring(0, location.lastIndexOf(' ')) : location;
-                      const searchQuery = encodeURIComponent(locationBase);
-                      window.open(`https://map.kakao.com/link/search/${searchQuery}`, '_blank');
-                    }}
-                  >
-                    K
-                  </Button>
+                  <HStack spacing={1}>
+                    <Button
+                      size="xs"
+                      height="22px"
+                      minW="22px"
+                      fontSize="11px"
+                      p={0}
+                      bg="yellow.400"
+                      color="blue.600"
+                      onClick={handleCopyGameDetails}
+                    >
+                      K
+                    </Button>
+                    <Button
+                      size="xs"
+                      height="22px"
+                      minW="22px"
+                      fontSize="11px"
+                      p={0}
+                      bg="yellow.400"
+                      color="blue.600"
+                      onClick={() => {
+                        window.open(
+                          buildKakaoMapSearchUrl(selectedGameData.location, selectedGameData.locationAddress),
+                          '_blank'
+                        );
+                      }}
+                    >
+                      맵
+                    </Button>
+                  </HStack>
                 </Flex>
 
                 {/* 참석자 정보 */}

@@ -10,6 +10,7 @@ import bodyParser from 'body-parser';
 import axios from 'axios';
 import jwt from 'jsonwebtoken';
 import { PrismaClient } from '@prisma/client';
+import nodemailer from 'nodemailer';
 import { securityHeaders, apiLimiter } from './middlewares/security';
 import { monitoring } from './utils/monitoring';
 
@@ -1124,6 +1125,95 @@ console.log('✅ 테스트 API 등록 완료: /api/test');
 
 console.log('✅ 회원 상태 자동 체크 스케줄러 설정 완료: 매일 오전 9시');
 
+async function sendAutoGameReminderEmails() {
+  const enabled = (process.env.AUTO_GAME_REMINDER_ENABLED ?? 'true') === 'true';
+  if (!enabled) return;
+
+  const gmailUser = process.env.GMAIL_USER;
+  const gmailPass = process.env.GMAIL_APP_PASSWORD || process.env.GMAIL_PASS;
+  if (!gmailUser || !gmailPass) {
+    console.log('ℹ️ 자동 경기 알림 스킵: Gmail 설정 누락');
+    return;
+  }
+
+  const nowKST = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
+  const currentHour = nowKST.getHours();
+  const targetOffsetDays = currentHour === 15 ? 1 : 0; // 15시=내일, 10시=오늘
+  const targetDate = new Date(nowKST);
+  targetDate.setDate(nowKST.getDate() + targetOffsetDays);
+  targetDate.setHours(0, 0, 0, 0);
+
+  const endDate = new Date(targetDate);
+  endDate.setHours(23, 59, 59, 999);
+
+  const games = await prisma.game.findMany({
+    where: {
+      date: { gte: targetDate, lte: endDate },
+      confirmed: true
+    },
+    orderBy: { date: 'asc' }
+  });
+
+  if (games.length === 0) {
+    console.log('ℹ️ 자동 경기 알림 대상 경기 없음:', targetDate.toISOString().split('T')[0]);
+    return;
+  }
+
+  const recipients = await prisma.user.findMany({
+    where: {
+      status: 'ACTIVE',
+      email: { not: '' }
+    },
+    select: { email: true, name: true }
+  });
+
+  if (recipients.length === 0) {
+    console.log('ℹ️ 자동 경기 알림 수신자 없음');
+    return;
+  }
+
+  const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: gmailUser,
+      pass: gmailPass
+    }
+  });
+
+  for (const game of games) {
+    const date = new Date(game.date);
+    const dayName = ['일', '월', '화', '수', '목', '금', '토'][date.getDay()];
+    const formattedDate = `${date.getMonth() + 1}월 ${date.getDate()}일(${dayName})`;
+    const subjectPrefix = targetOffsetDays === 1 ? '⚽ 내일 경기 알림' : '⚽ 오늘 경기 알림';
+    const subject = `${subjectPrefix} - ${formattedDate}`;
+    const text = [
+      `${subjectPrefix}`,
+      '',
+      `날짜: ${formattedDate}`,
+      `시간: ${game.time || '미정'}`,
+      `장소: ${game.location || '미정'}`,
+      `유형: ${game.eventType || '미정'}`
+    ].join('\n');
+
+    await Promise.all(
+      recipients.map((recipient) =>
+        transporter.sendMail({
+          from: gmailUser,
+          to: recipient.email || undefined,
+          subject,
+          text
+        })
+      )
+    );
+  }
+
+  console.log('✅ 자동 경기 알림 발송 완료:', {
+    games: games.length,
+    recipients: recipients.length,
+    mode: targetOffsetDays === 1 ? 'day-before' : 'day-of'
+  });
+}
+
 // 매주 월요일 00:01 자동 작업 함수 (재사용 가능)
 async function runWeeklyScheduler() {
   try {
@@ -1371,6 +1461,19 @@ cron.schedule('1 0 * * 1', async () => {
 });
 
 console.log('✅ 매주 월요일 00:01 자동 작업 스케줄러 설정 완료');
+
+// 경기 자동 알림 (한국시간 기준): 당일 10시, 전날 15시
+cron.schedule('0 10,15 * * *', async () => {
+  try {
+    await sendAutoGameReminderEmails();
+  } catch (error) {
+    console.error('❌ 자동 경기 알림 발송 오류:', error);
+  }
+}, {
+  timezone: 'Asia/Seoul'
+});
+
+console.log('✅ 자동 경기 알림 스케줄러 설정 완료 (10:00, 15:00 KST)');
 
 // 일회성 실행 코드 제거 - 월요일 00:01 cron 스케줄러만 사용
 
