@@ -72,6 +72,87 @@ const formatDateWithDay = (date: Date) => {
   return `${year}. ${month}. ${day}.(${dayName})`;
 };
 
+/** 활성/차주 세션 공통 직렬화 (votes 없음도 0표로 반환) */
+function buildProcessedVoteSession(filteredActiveSession: any): any | null {
+  if (!filteredActiveSession) {
+    return null;
+  }
+  const rawVotes = filteredActiveSession.votes || [];
+
+  const participants = rawVotes.map((vote: any) => {
+    const selectedDays = parseVoteDays(vote.selectedDays);
+    return {
+      userId: vote.userId,
+      userName: vote.user.name,
+      selectedDays: selectedDays,
+      votedAt: vote.createdAt
+    };
+  });
+
+  const results: any = {
+    MON: { count: 0, participants: [] },
+    TUE: { count: 0, participants: [] },
+    WED: { count: 0, participants: [] },
+    THU: { count: 0, participants: [] },
+    FRI: { count: 0, participants: [] },
+    불참: { count: 0, participants: [] }
+  };
+
+  participants.forEach((participant: any) => {
+    const selectedDaysArray = Array.isArray(participant.selectedDays)
+      ? participant.selectedDays
+      : parseVoteDays(participant.selectedDays);
+
+    selectedDaysArray.forEach((day: string) => {
+      if (day === '불참') {
+        results['불참'].count++;
+        results['불참'].participants.push({
+          userId: participant.userId,
+          userName: participant.userName,
+          votedAt: participant.votedAt
+        });
+      } else {
+        const dayKey = convertKoreanDateToDayCode(day);
+        if (dayKey && results[dayKey as keyof typeof results]) {
+          results[dayKey as keyof typeof results].count++;
+          results[dayKey as keyof typeof results].participants.push({
+            userId: participant.userId,
+            userName: participant.userName,
+            votedAt: participant.votedAt
+          });
+        }
+      }
+    });
+  });
+
+  let disabledDaysArray: Array<{ day: string; reason: string }> = [];
+  const withDisabled = filteredActiveSession as any;
+  if (withDisabled.disabledDays) {
+    try {
+      disabledDaysArray = JSON.parse(withDisabled.disabledDays);
+    } catch (e) {
+      console.warn('disabledDays 파싱 실패:', withDisabled.disabledDays);
+    }
+  }
+
+  return {
+    sessionId: filteredActiveSession.id,
+    weekStartDate: filteredActiveSession.weekStartDate,
+    startTime: filteredActiveSession.startTime,
+    endTime: filteredActiveSession.endTime,
+    isActive: filteredActiveSession.isActive,
+    isCompleted: filteredActiveSession.isCompleted,
+    participants,
+    results,
+    disabledDays: disabledDaysArray,
+    totalParticipants: participants.length,
+    totalVotes: participants.reduce((sum: number, p: any) => {
+      const days = Array.isArray(p.selectedDays) ? p.selectedDays : [];
+      return sum + days.length;
+    }, 0)
+  };
+}
+
 // Health check 엔드포인트
 router.get('/health', (req, res) => {
   res.status(200).json({ 
@@ -260,7 +341,7 @@ router.post('/login', authLimiter, async (req, res) => {
         name: user.name 
       },
       process.env.JWT_SECRET || 'fc-chalggyeo-secret',
-      { expiresIn: '24h' }
+      { expiresIn: '30d' }
     );
 
     res.json({
@@ -305,7 +386,7 @@ router.post('/refresh-token', authenticateToken, async (req, res) => {
         role: user.role
       },
       process.env.JWT_SECRET || 'fc-chalggyeo-secret',
-      { expiresIn: '24h' }
+      { expiresIn: '30d' }
     );
 
     console.log('✅ 토큰 갱신 성공:', {
@@ -2572,86 +2653,45 @@ router.get('/unified-vote-data', async (req, res) => {
       select: { id: true, name: true, status: true }
     });
 
-    // 활성 세션 데이터 가공
-    let processedActiveSession = null;
-    if (filteredActiveSession && filteredActiveSession.votes) {
-      const participants = filteredActiveSession.votes.map(vote => {
-        const selectedDays = parseVoteDays(vote.selectedDays);
-        return {
-          userId: vote.userId,
-          userName: vote.user.name,
-          selectedDays: selectedDays,
-          votedAt: vote.createdAt
-        };
-      });
+    const processedActiveSession = buildProcessedVoteSession(filteredActiveSession);
 
-      // 요일별 투표 결과 계산
-      const results: any = {
-        MON: { count: 0, participants: [] },
-        TUE: { count: 0, participants: [] },
-        WED: { count: 0, participants: [] },
-        THU: { count: 0, participants: [] },
-        FRI: { count: 0, participants: [] },
-        '불참': { count: 0, participants: [] }
-      };
+    // 다음주(한국 달력 기준 월요일) 투표 세션 — 마감(isActive:false) 후에도 실제 차주 집계 유지
+    const nextWeekStartNorm = new Date(
+      nextWeekMonday.getFullYear(),
+      nextWeekMonday.getMonth(),
+      nextWeekMonday.getDate()
+    );
+    nextWeekStartNorm.setHours(0, 0, 0, 0);
+    const nextWeekStartUpper = new Date(nextWeekStartNorm.getTime() + 24 * 60 * 60 * 1000);
 
-      participants.forEach(participant => {
-        const selectedDaysArray = Array.isArray(participant.selectedDays) 
-          ? participant.selectedDays 
-          : parseVoteDays(participant.selectedDays);
-        
-          selectedDaysArray.forEach(day => {
-            // '불참' 키 처리
-            if (day === '불참') {
-              results['불참'].count++;
-              results['불참'].participants.push({
-                userId: participant.userId,
-                userName: participant.userName,
-                votedAt: participant.votedAt
-              });
-            } else {
-              // 한국어 날짜 형식을 영어 요일로 변환
-              const dayKey = convertKoreanDateToDayCode(day);
-              
-              if (dayKey && results[dayKey as keyof typeof results]) {
-                results[dayKey as keyof typeof results].count++;
-                results[dayKey as keyof typeof results].participants.push({
-                  userId: participant.userId,
-                  userName: participant.userName,
-                  votedAt: participant.votedAt
-                });
+    let processedNextWeekVoteSession: any = null;
+    if (filteredActiveSession) {
+      const aw = new Date(filteredActiveSession.weekStartDate);
+      const activeNorm = new Date(aw.getFullYear(), aw.getMonth(), aw.getDate());
+      if (activeNorm.getTime() === nextWeekStartNorm.getTime()) {
+        processedNextWeekVoteSession = processedActiveSession;
+      }
+    }
+    if (!processedNextWeekVoteSession) {
+      const nextWeekRaw = await prisma.voteSession.findFirst({
+        where: {
+          weekStartDate: {
+            gte: nextWeekStartNorm,
+            lt: nextWeekStartUpper
+          }
+        },
+        include: {
+          votes: {
+            include: {
+              user: {
+                select: { id: true, name: true }
               }
             }
-          });
+          }
+        },
+        orderBy: { id: 'desc' }
       });
-
-      // disabledDays 파싱
-      let disabledDaysArray: Array<{ day: string; reason: string }> = [];
-      const filteredActiveSessionWithDisabledDays = filteredActiveSession as any;
-      if (filteredActiveSessionWithDisabledDays.disabledDays) {
-        try {
-          disabledDaysArray = JSON.parse(filteredActiveSessionWithDisabledDays.disabledDays);
-        } catch (e) {
-          console.warn('disabledDays 파싱 실패:', filteredActiveSessionWithDisabledDays.disabledDays);
-        }
-      }
-
-      processedActiveSession = {
-        sessionId: filteredActiveSession.id,
-        weekStartDate: filteredActiveSession.weekStartDate,
-        startTime: filteredActiveSession.startTime,
-        endTime: filteredActiveSession.endTime,
-        isActive: filteredActiveSession.isActive,
-        isCompleted: filteredActiveSession.isCompleted,
-        participants,
-        results,
-        disabledDays: disabledDaysArray,
-        totalParticipants: participants.length,
-        totalVotes: participants.reduce((sum, p) => {
-          const days = Array.isArray(p.selectedDays) ? p.selectedDays : [];
-          return sum + days.length;
-        }, 0)
-      };
+      processedNextWeekVoteSession = buildProcessedVoteSession(nextWeekRaw);
     }
 
     // 모든 세션 데이터 가공 (관리자 페이지용)
@@ -2795,6 +2835,7 @@ router.get('/unified-vote-data', async (req, res) => {
 
     const response = {
       activeSession: processedActiveSession,
+      nextWeekVoteSession: processedNextWeekVoteSession,
       lastWeekResults: lastWeekResults,
       allSessions: processedSessions,
       allMembers,
@@ -2804,6 +2845,7 @@ router.get('/unified-vote-data', async (req, res) => {
 
     console.log('통합 투표 데이터 조회 완료:', {
       activeSession: processedActiveSession ? '있음' : '없음',
+      nextWeekVoteSession: processedNextWeekVoteSession ? '있음' : '없음',
       totalSessions: allSessions.length,
       totalMembers: allMembers.length
     });
@@ -2931,8 +2973,14 @@ router.post('/admin/vote-sessions/create', authenticateToken, async (req, res) =
       return res.status(400).json({ error: 'weekStartDate는 필수입니다.' });
     }
 
-    const weekStart = new Date(weekStartDate);
+    let weekStart = new Date(weekStartDate);
     weekStart.setHours(0, 0, 0, 0);
+    const dow = weekStart.getDay();
+    if (dow !== 1) {
+      const delta = dow === 0 ? -6 : 1 - dow;
+      weekStart.setDate(weekStart.getDate() + delta);
+      console.log('📅 주 시작일을 해당 주 월요일로 정규화:', weekStart.toISOString().split('T')[0]);
+    }
 
     // 중복 체크
     const existingSession = await prisma.voteSession.findFirst({
