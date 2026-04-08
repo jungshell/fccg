@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import axios from 'axios';
 import fs from 'fs';
@@ -473,8 +473,7 @@ export const register = async (req: Request, res: Response) => {
     // JWT 토큰 생성
     const token = jwt.sign(
       { userId: user.id, email: user.email, role: user.role },
-      process.env.JWT_SECRET || 'your-secret-key',
-      { expiresIn: '7d' }
+      process.env.JWT_SECRET || 'your-secret-key'
     );
 
     res.status(201).json({
@@ -532,8 +531,7 @@ export const login = async (req: Request, res: Response) => {
     // JWT 토큰 생성
     const token = jwt.sign(
       { userId: user.id, email: user.email, role: user.role },
-      process.env.JWT_SECRET || 'fc-chalggyeo-secret',
-      { expiresIn: '7d' }
+      process.env.JWT_SECRET || 'fc-chalggyeo-secret'
     );
 
     console.log('✅ 로그인 성공!');

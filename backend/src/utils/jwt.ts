@@ -11,7 +11,7 @@ export interface JwtPayload {
  * JWT 토큰을 발급합니다.
  */
 export function signJwt(payload: JwtPayload): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
+  return jwt.sign(payload, JWT_SECRET);
 }
 
 /**

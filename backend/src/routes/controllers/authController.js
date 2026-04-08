@@ -156,7 +156,7 @@ const register = async (req, res) => {
             }
         });
         // JWT 토큰 생성
-        const token = jsonwebtoken_1.default.sign({ userId: user.id, email: user.email, role: user.role }, process.env.JWT_SECRET || 'your-secret-key', { expiresIn: '7d' });
+        const token = jsonwebtoken_1.default.sign({ userId: user.id, email: user.email, role: user.role }, process.env.JWT_SECRET || 'your-secret-key');
         res.status(201).json({
             message: '회원가입이 완료되었습니다.',
             token,
@@ -201,7 +201,7 @@ const login = async (req, res) => {
             return res.status(401).json({ error: '이메일 또는 비밀번호가 올바르지 않습니다.' });
         }
         // JWT 토큰 생성
-        const token = jsonwebtoken_1.default.sign({ userId: user.id, email: user.email, role: user.role }, process.env.JWT_SECRET || 'fc-chalggyeo-secret', { expiresIn: '7d' });
+        const token = jsonwebtoken_1.default.sign({ userId: user.id, email: user.email, role: user.role }, process.env.JWT_SECRET || 'fc-chalggyeo-secret');
         res.json({
             token,
             user: {

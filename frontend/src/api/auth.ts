@@ -1,6 +1,5 @@
 // 공통 API 클라이언트 (프론트 전역에서 사용)
-import { API_ENDPOINTS } from '../constants';
-import { getApiBaseUrl, getApiUrl } from '../config/api';
+import { getApiUrl } from '../config/api';
 
 // ===== 타입 =====
 export type Role = 'SUPER_ADMIN' | 'ADMIN' | 'MEMBER' | 'GUEST';
@@ -108,8 +107,7 @@ export const register = async (data: { name: string; email: string; password: st
   });
   
   try {
-    const url = await getApiUrl('/register');
-    console.log('🔍 register API URL:', url);
+    console.log('🔍 register API URL:', await getApiUrl('/register'));
     
     const result = await request<{ token?: string; user: any; message?: string }>('/register', { 
       method: 'POST', 

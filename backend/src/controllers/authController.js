@@ -28,7 +28,7 @@ const client_1 = require("@prisma/client");
 const prisma = new client_1.PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET || 'fc-chalggyeo-secret';
 function signToken(user) {
-    return jsonwebtoken_1.default.sign({ userId: user.id, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
+    return jsonwebtoken_1.default.sign({ userId: user.id, role: user.role }, JWT_SECRET);
 }
 // 유저 출석률(참여율) 계산 함수
 function getAttendanceRate(userId) {

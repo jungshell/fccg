@@ -3,7 +3,7 @@ import { authenticateToken } from '../middlewares/authMiddleware';
 import { PrismaClient } from '@prisma/client';
 import { v2 as cloudinary } from 'cloudinary';
 import { authLimiter } from '../middlewares/security';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { 
   getKoreaTime, 
@@ -17,7 +17,8 @@ import {
   deactivateExpiredSessions,
   ensureSingleActiveSession,
   getActiveSession,
-  validateAndFixSessionState
+  validateAndFixSessionState,
+  createNextWeekSession
 } from '../utils/voteSessionManager';
 
 const prisma = new PrismaClient();
@@ -340,8 +341,7 @@ router.post('/login', authLimiter, async (req, res) => {
         email: user.email,
         name: user.name 
       },
-      process.env.JWT_SECRET || 'fc-chalggyeo-secret',
-      { expiresIn: '30d' }
+      process.env.JWT_SECRET || 'fc-chalggyeo-secret'
     );
 
     res.json({
@@ -385,8 +385,7 @@ router.post('/refresh-token', authenticateToken, async (req, res) => {
         name: user.name,
         role: user.role
       },
-      process.env.JWT_SECRET || 'fc-chalggyeo-secret',
-      { expiresIn: '30d' }
+      process.env.JWT_SECRET || 'fc-chalggyeo-secret'
     );
 
     console.log('✅ 토큰 갱신 성공:', {
@@ -932,8 +931,7 @@ router.post('/register', authLimiter, async (req, res) => {
     // JWT 토큰 생성 (로그인과 동일하게)
     const token = jwt.sign(
       { userId: user.id, email: user.email, role: user.role },
-      process.env.JWT_SECRET || 'fc-chalggyeo-secret',
-      { expiresIn: '7d' }
+      process.env.JWT_SECRET || 'fc-chalggyeo-secret'
     );
 
     res.status(201).json({
@@ -2314,9 +2312,24 @@ router.post('/vote-sessions/:id/close', authenticateToken, async (req, res) => {
     }
 
     
+    // 현재 세션 마감 직후 다음 주차 세션을 즉시 준비
+    let nextSession: any = null;
+    try {
+      nextSession = await createNextWeekSession();
+      if (nextSession) {
+        console.log('✅ 마감 후 다음주 세션 준비 완료:', {
+          nextSessionId: nextSession.id,
+          weekStartDate: nextSession.weekStartDate
+        });
+      }
+    } catch (createNextError) {
+      console.error('⚠️ 마감 후 다음주 세션 생성 실패:', createNextError);
+    }
+
     res.status(200).json({ 
       message: '투표 세션이 성공적으로 마감되었습니다.',
-      sessionId: sessionId
+      sessionId: sessionId,
+      nextSessionId: nextSession?.id || null
     });
   } catch (error) {
     console.error('투표 세션 마감 오류:', error);
@@ -2621,6 +2634,11 @@ router.get('/unified-vote-data', async (req, res) => {
     
     // 활성 세션 조회 (안전한 조회)
     let activeSession = await getActiveSession(true);
+    if (!activeSession) {
+      // 활성 세션이 없으면 즉시 다음주 세션을 확보해 투표 불가 상태를 방지
+      await createNextWeekSession();
+      activeSession = await getActiveSession(true);
+    }
     
     // 활성 세션이 없으면 null 유지
     // 완료된 세션을 activeSession으로 승격하면

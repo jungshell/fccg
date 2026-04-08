@@ -15,12 +15,10 @@ import { usePWA } from '../hooks/usePWA';
 
 interface PWAInstallPromptProps {
   onClose?: () => void;
-  showNotification?: boolean;
 }
 
 export const PWAInstallPrompt: React.FC<PWAInstallPromptProps> = ({
   onClose,
-  showNotification = true,
 }) => {
   const {
     isInstallable,
@@ -30,11 +28,11 @@ export const PWAInstallPrompt: React.FC<PWAInstallPromptProps> = ({
     isPushSupported,
     installApp,
     requestNotificationPermission,
-    subscribeToPushNotifications,
     syncOfflineData,
   } = usePWA();
 
   const bgColor = useColorModeValue('white', 'gray.800');
+  const infoBgColor = useColorModeValue('gray.50', 'gray.700');
   const borderColor = useColorModeValue('gray.200', 'gray.700');
   const textColor = useColorModeValue('gray.800', 'white');
 
@@ -148,7 +146,7 @@ export const PWAInstallPrompt: React.FC<PWAInstallPromptProps> = ({
 
           {/* 추가 정보 */}
           <Box
-            bg={useColorModeValue('gray.50', 'gray.700')}
+            bg={infoBgColor}
             p={3}
             borderRadius="md"
             fontSize="xs"

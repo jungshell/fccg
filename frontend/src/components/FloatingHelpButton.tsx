@@ -14,7 +14,9 @@ export default function FloatingHelpButton({ onClick, storageKey, icon }: Props)
     try {
       const saved = localStorage.getItem(`help_pos_${storageKey}`);
       if (saved) return JSON.parse(saved);
-    } catch {}
+    } catch {
+      // ignore localStorage parse errors
+    }
     // 기본: 우하단 배치
     return { x: window.innerWidth - 72, y: window.innerHeight - 88 };
   });
@@ -26,8 +28,6 @@ export default function FloatingHelpButton({ onClick, storageKey, icon }: Props)
     let dragging = false;
     let offsetX = 0;
     let offsetY = 0;
-    let currentPos = pos;
-
     const clamp = (x: number, y: number) => {
       const maxX = window.innerWidth - 56;
       const maxY = window.innerHeight - 56;
@@ -37,8 +37,9 @@ export default function FloatingHelpButton({ onClick, storageKey, icon }: Props)
     const savePosition = (newPos: { x: number; y: number }) => {
       try { 
         localStorage.setItem(`help_pos_${storageKey}`, JSON.stringify(newPos)); 
-        currentPos = newPos;
-      } catch {}
+      } catch {
+        // ignore localStorage write errors
+      }
     };
 
     const onMouseDown = (e: MouseEvent) => {
@@ -149,7 +150,9 @@ export default function FloatingHelpButton({ onClick, storageKey, icon }: Props)
       const clamped = clamp(pos.x, pos.y);
       if (clamped.x !== pos.x || clamped.y !== pos.y) {
         setPos(clamped);
-        try { localStorage.setItem(`help_pos_${storageKey}`, JSON.stringify(clamped)); } catch {}
+        try { localStorage.setItem(`help_pos_${storageKey}`, JSON.stringify(clamped)); } catch {
+          // ignore localStorage write errors
+        }
       }
     };
     window.addEventListener('resize', onResize);

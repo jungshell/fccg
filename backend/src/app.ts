@@ -846,7 +846,7 @@ app.post('/api/auth/members', authenticateToken, async (req, res) => {
     }
     
     // 비밀번호 해시화
-    const bcrypt = require('bcrypt');
+    const bcrypt = require('bcryptjs');
     const hashedPassword = await bcrypt.hash(password || 'password123', 10);
     
     // 새 회원 생성
@@ -1214,12 +1214,50 @@ async function sendAutoGameReminderEmails() {
   });
 }
 
+// 매주 일요일 23:59 활성 세션 종료
+async function closeActiveVoteSessionsAtSunday2359() {
+  try {
+    const nowKST = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
+    const sessionsToClose = await prisma.voteSession.findMany({
+      where: {
+        isActive: true,
+        isCompleted: false
+      }
+    });
+
+    if (sessionsToClose.length === 0) {
+      console.log('ℹ️ 일요일 23:59 종료 대상 활성 세션 없음');
+      return { success: true, closedCount: 0 };
+    }
+
+    const ids = sessionsToClose.map((s) => s.id);
+    await prisma.voteSession.updateMany({
+      where: { id: { in: ids } },
+      data: {
+        isActive: false,
+        isCompleted: true,
+        endTime: nowKST
+      }
+    });
+
+    console.log('✅ 일요일 23:59 활성 세션 종료 완료:', {
+      closedCount: ids.length,
+      sessionIds: ids
+    });
+
+    return { success: true, closedCount: ids.length };
+  } catch (error) {
+    console.error('❌ 일요일 23:59 활성 세션 종료 오류:', error);
+    return { success: false, closedCount: 0, error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
 // 매주 월요일 00:01 자동 작업 함수 (재사용 가능)
 async function runWeeklyScheduler() {
   try {
     console.log('🔄 매주 월요일 00:01 자동 작업 시작...');
-    const { PrismaClient } = require('@prisma/client');
-    const prisma = new PrismaClient();
+    // 혹시 일요일 종료 작업이 누락된 경우를 대비해 선종료
+    await closeActiveVoteSessionsAtSunday2359();
     
     // 현재 시간 (한국시간 기준)
     const currentTime = new Date();
@@ -1274,17 +1312,6 @@ async function runWeeklyScheduler() {
     );
     nextWeekMondayDateOnly.setHours(0, 0, 0, 0);
     
-    // 기존 활성 세션이 있는지 확인 (다음주 세션이 이미 생성되어 있는지)
-    const existingActiveSession = await prisma.voteSession.findFirst({
-      where: {
-        isActive: true,
-        weekStartDate: {
-          gte: nextWeekMondayDateOnly,
-          lt: new Date(nextWeekMondayDateOnly.getTime() + 24 * 60 * 60 * 1000) // 다음날 00:00 이전
-        }
-      }
-    });
-    
     // 다음주 세션이 이미 존재하는지 확인 (활성/비활성 모두)
     const existingSession = await prisma.voteSession.findFirst({
       where: {
@@ -1297,7 +1324,8 @@ async function runWeeklyScheduler() {
     
     let newVoteSession = null;
     
-    // 다음주 세션이 없고, 오늘이 월요일 00:01 이후인 경우에만 생성
+    // 월요일 00:01에 다음주 세션을 생성/활성화
+    // (수동/자동 생성 여부와 무관하게 항상 동일 규칙 적용)
     if (!existingSession && dayOfWeek === 1) {
       // 월요일 00:01 이후인지 확인
       const currentHour = koreaTime.getHours();
@@ -1322,7 +1350,20 @@ async function runWeeklyScheduler() {
         });
       }
     } else if (existingSession) {
-      console.log('⚠️ 이미 해당 주간의 투표 세션이 존재합니다:', {
+      // 이미 만들어진 세션이 비활성이면 월요일 00:01에 재활성화
+      if (!existingSession.isActive || existingSession.isCompleted) {
+        await prisma.voteSession.update({
+          where: { id: existingSession.id },
+          data: {
+            isActive: true,
+            isCompleted: false,
+            startTime: thisWeekMonday,
+            endTime: nextWeekFriday
+          }
+        });
+      }
+
+      console.log('⚠️ 이미 해당 주간의 투표 세션이 존재하여 재사용/활성화합니다:', {
         기존세션ID: existingSession.id,
         기존세션투표기간: existingSession.weekStartDate.toLocaleDateString('ko-KR'),
         생성하려던세션투표기간: nextWeekMonday.toLocaleDateString('ko-KR')
@@ -1438,13 +1479,11 @@ async function runWeeklyScheduler() {
       gamesCreated: gamesCreatedCount
     };
     
-    await prisma.$disconnect();
     console.log('✅ 매주 월요일 00:01 자동 작업 완료');
     
     return result;
   } catch (error) {
     console.error('❌ 매주 월요일 자동 작업 오류:', error);
-    await prisma.$disconnect().catch(() => {});
     return {
       success: false,
       message: '자동 작업 중 오류가 발생했습니다.',
@@ -1452,6 +1491,15 @@ async function runWeeklyScheduler() {
     };
   }
 }
+
+// 매주 일요일 23:59 세션 종료 스케줄러
+cron.schedule('59 23 * * 0', async () => {
+  await closeActiveVoteSessionsAtSunday2359();
+}, {
+  timezone: 'Asia/Seoul'
+});
+
+console.log('✅ 매주 일요일 23:59 세션 종료 스케줄러 설정 완료');
 
 // 매주 월요일 00:01 자동 작업 스케줄러
 cron.schedule('1 0 * * 1', async () => {
