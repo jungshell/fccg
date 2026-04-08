@@ -55,7 +55,7 @@ import {
 } from '@chakra-ui/react';
 import { ViewIcon, CalendarIcon, SettingsIcon, InfoIcon, HamburgerIcon } from '@chakra-ui/icons';
 import { GameCardSkeleton, MemberListSkeleton } from '../components/common/SkeletonLoader';
-import { getValidToken, getMemberStats, type Game } from '../api/auth';
+import { getValidToken, getMemberStats, getParticipationKpi, getFeatureFlags, type Game } from '../api/auth';
 import MemberManagement from '../components/MemberManagement';
 import { API_ENDPOINTS } from '../constants';
 import GameManagement from '../components/GameManagement';
@@ -310,6 +310,17 @@ export default function AdminPageNew() {
     thisWeekGame?: number;
     nextWeekVote?: number;
   }>({});
+  const [participationKpi, setParticipationKpi] = useState<{
+    enabled: boolean;
+    summary?: {
+      eligibleMembers: number;
+      participants: number;
+      nonParticipants: number;
+      participationRate: number;
+      rateDelta: number;
+    };
+    nonParticipantMembers?: Array<{ id: number; name: string }>;
+  }>({ enabled: true });
   const [loading, setLoading] = useState(true);
   
   // 통합 API 데이터 상태
@@ -680,6 +691,23 @@ export default function AdminPageNew() {
       if (unifiedData) {
           // 통합 API 데이터를 사용하여 경기 데이터 업데이트
           await updateGamesFromVoteData(unifiedData);
+      }
+
+      // 5. 참여율 KPI 데이터 로드
+      try {
+        const flags = await getFeatureFlags().catch(() => ({ features: {} as Record<string, boolean> }));
+        if (flags?.features?.participationKpiDashboard === false) {
+          setParticipationKpi({ enabled: false });
+        } else {
+          const kpi = await getParticipationKpi();
+          setParticipationKpi({
+            enabled: kpi?.enabled !== false,
+            summary: kpi?.summary,
+            nonParticipantMembers: kpi?.nonParticipantMembers
+          });
+        }
+      } catch (error) {
+        console.error('참여율 KPI 데이터 로드 실패:', error);
       }
       
     } catch (error) {
@@ -3419,6 +3447,33 @@ export default function AdminPageNew() {
                          </VStack>
                        </CardBody>
                      </Card>
+
+                    <Card>
+                      <CardBody pt={1.5} pb={2} px={6}>
+                        <VStack align="stretch" spacing={-2}>
+                          <Text fontSize="lg" fontWeight="bold" color="#004ea8">📈 투표 참여율 KPI</Text>
+                          {participationKpi.enabled !== false && participationKpi.summary ? (
+                            <>
+                              {renderStatRows([
+                                { label: '참여율', value: `${participationKpi.summary.participationRate}%`, valueColor: '#2b6cb0' },
+                                { label: '참여자/대상', value: `${participationKpi.summary.participants}/${participationKpi.summary.eligibleMembers}명` },
+                                { label: '미참여자', value: `${participationKpi.summary.nonParticipants}명`, valueColor: '#dd6b20' }
+                              ])}
+                              <Text fontSize="xs" color={participationKpi.summary.rateDelta >= 0 ? 'green.600' : 'red.500'} pl={4} mt={1}>
+                                전 주 대비 {participationKpi.summary.rateDelta >= 0 ? '+' : ''}{participationKpi.summary.rateDelta}%p
+                              </Text>
+                              <Text fontSize="xs" color="gray.500" pl={4}>
+                                미참여자 샘플: {(participationKpi.nonParticipantMembers || []).slice(0, 5).map((m) => m.name).join(', ') || '없음'}
+                              </Text>
+                            </>
+                          ) : (
+                            <Text color="gray.600" fontSize="sm" pl={4} mt={2} lineHeight={1.2}>
+                              KPI 대시보드 기능이 비활성화되어 있습니다.
+                            </Text>
+                          )}
+                        </VStack>
+                      </CardBody>
+                    </Card>
 
                     <Card>
                       <CardBody pt={1.5} pb={2} px={6}>

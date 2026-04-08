@@ -30,7 +30,7 @@ import NewCalendarV2 from '../components/NewCalendarV2';
 import { ArrowUpIcon, SmallCloseIcon } from '@chakra-ui/icons';
 import { useAuthStore } from '../store/auth';
 import { WarningIcon } from '@chakra-ui/icons';
-import { getUnifiedVoteDataNew, deleteVote } from '../api/auth';
+import { getUnifiedVoteDataNew, deleteVote, getVoteQuickActions, getFeatureFlags } from '../api/auth';
 import { eventBus, EVENT_TYPES } from '../utils/eventBus';
 import { API_ENDPOINTS } from '../constants';
 import { getApiUrl } from '../config/api';
@@ -146,6 +146,17 @@ export default function SchedulePageV2() {
   
   // UI 상태 (데이터와 분리)
   const [selectedDays, setSelectedDays] = useState<string[]>([]);
+  const [voteQuickActions, setVoteQuickActions] = useState<{
+    enabled: boolean;
+    lastSelectedDays: string[];
+    recommendedDays: string[];
+    currentSessionSelectedDays: string[];
+  }>({
+    enabled: true,
+    lastSelectedDays: [],
+    recommendedDays: [],
+    currentSessionSelectedDays: []
+  });
   const [showVoteStatus, setShowVoteStatus] = useState(false);
   const [commentText, setCommentText] = useState('');
   const [comments, setComments] = useState<{ text: string; user: string; date: string }[]>([]);
@@ -195,6 +206,41 @@ export default function SchedulePageV2() {
       resizeObserver.disconnect();
     };
   }, []);
+
+  useEffect(() => {
+    const loadQuickActions = async () => {
+      try {
+        const flags = await getFeatureFlags().catch(() => ({ features: {} as Record<string, boolean> }));
+        if (flags?.features?.quickVoteActions === false) {
+          setVoteQuickActions((prev) => ({ ...prev, enabled: false }));
+          return;
+        }
+        const quickActions = await getVoteQuickActions();
+        setVoteQuickActions({
+          enabled: quickActions?.enabled !== false,
+          lastSelectedDays: quickActions?.lastSelectedDays || [],
+          recommendedDays: quickActions?.recommendedDays || [],
+          currentSessionSelectedDays: quickActions?.currentSessionSelectedDays || []
+        });
+      } catch (error) {
+        console.warn('원클릭 투표 데이터 로드 실패:', error);
+      }
+    };
+
+    if (user?.id) {
+      loadQuickActions();
+    }
+  }, [user?.id]);
+
+  const applyQuickSelection = (days: string[]) => {
+    const normalized = Array.from(new Set((days || []).filter(Boolean)));
+    if (normalized.length === 0) return;
+    if (normalized.includes('불참')) {
+      setSelectedDays(['불참']);
+      return;
+    }
+    setSelectedDays(normalized.filter((day) => day !== '불참'));
+  };
   
   // 공휴일 데이터 가져오기
   useEffect(() => {
@@ -3570,6 +3616,31 @@ export default function SchedulePageV2() {
 
                 {/* 버튼들 */}
                 <VStack spacing={{ base: 2, md: 3 }} align="stretch">
+                  {voteQuickActions.enabled && !isVoteClosed && (
+                    <Flex gap={2} wrap="wrap">
+                      {voteQuickActions.lastSelectedDays.length > 0 && (
+                        <Button
+                          size="xs"
+                          variant="outline"
+                          colorScheme="purple"
+                          onClick={() => applyQuickSelection(voteQuickActions.lastSelectedDays)}
+                        >
+                          지난주와 동일
+                        </Button>
+                      )}
+                      {voteQuickActions.recommendedDays.map((day) => (
+                        <Button
+                          key={`quick-${day}`}
+                          size="xs"
+                          variant="ghost"
+                          colorScheme="purple"
+                          onClick={() => applyQuickSelection([day])}
+                        >
+                          빠른 선택: {day}
+                        </Button>
+                      ))}
+                    </Flex>
+                  )}
                   {/* 투표마감, 투표현황, 투표하기를 한 줄에 배치 */}
                   <Flex gap={{ base: 1, md: 2 }} align="center" direction={{ base: 'column', sm: 'row' }} wrap="nowrap">
                     {/* 투표마감 시간 - 마감 시 숨김 */}

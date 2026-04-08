@@ -1214,6 +1214,85 @@ async function sendAutoGameReminderEmails() {
   });
 }
 
+const voteReminderSentCache = new Set<string>();
+
+async function sendAutoVoteReminderEmails() {
+  const enabled = (process.env.FEATURE_VOTE_REMINDER_AUTOMATION ?? 'true') === 'true';
+  if (!enabled) return;
+
+  const gmailUser = process.env.GMAIL_USER;
+  const gmailPass = process.env.GMAIL_APP_PASSWORD || process.env.GMAIL_PASS;
+  if (!gmailUser || !gmailPass) {
+    console.log('ℹ️ 자동 투표 리마인드 스킵: Gmail 설정 누락');
+    return;
+  }
+
+  const activeSession = await prisma.voteSession.findFirst({
+    where: { isActive: true, isCompleted: false },
+    include: { votes: { select: { userId: true } } },
+    orderBy: { createdAt: 'desc' }
+  });
+  if (!activeSession) return;
+
+  const nowKST = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
+  const deadline = new Date(activeSession.endTime);
+  const hoursToDeadline = (deadline.getTime() - nowKST.getTime()) / (1000 * 60 * 60);
+
+  let reminderType: '24h' | '3h' | null = null;
+  if (hoursToDeadline <= 24.5 && hoursToDeadline >= 23.5) reminderType = '24h';
+  if (hoursToDeadline <= 3.5 && hoursToDeadline >= 2.5) reminderType = '3h';
+  if (!reminderType) return;
+
+  const cacheKey = `${activeSession.id}:${reminderType}:${nowKST.toISOString().slice(0, 13)}`;
+  if (voteReminderSentCache.has(cacheKey)) return;
+
+  const eligibleMembers = await prisma.user.findMany({
+    where: {
+      role: { in: ['MEMBER', 'ADMIN', 'SUPER_ADMIN'] },
+      status: { in: ['ACTIVE', 'SUSPENDED'] },
+      email: { not: '' }
+    },
+    select: { id: true, name: true, email: true }
+  });
+
+  const votedUserIds = new Set(activeSession.votes.map((v) => v.userId));
+  const nonVoters = eligibleMembers.filter((m) => !votedUserIds.has(m.id));
+  if (nonVoters.length === 0) {
+    voteReminderSentCache.add(cacheKey);
+    return;
+  }
+
+  const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: { user: gmailUser, pass: gmailPass }
+  });
+
+  const prefix = reminderType === '24h' ? 'D-1 투표 리마인드' : 'D-day 투표 리마인드';
+  await Promise.all(
+    nonVoters.map((member) =>
+      transporter.sendMail({
+        from: gmailUser,
+        to: member.email || undefined,
+        subject: `⚽ ${prefix} - 다음주 일정투표 참여 부탁드립니다`,
+        text: [
+          `${member.name}님, 아직 다음주 일정투표를 완료하지 않았습니다.`,
+          `마감 시각: ${deadline.toLocaleString('ko-KR')}`,
+          '',
+          '홈페이지에 접속해 투표를 완료해주세요.',
+          'FC CHAL-GGYEO 운영 알림'
+        ].join('\n')
+      })
+    )
+  );
+
+  voteReminderSentCache.add(cacheKey);
+  console.log('✅ 자동 투표 리마인드 발송 완료:', {
+    sessionId: activeSession.id,
+    reminderType,
+    sentCount: nonVoters.length
+  });
+}
+
 // 매주 일요일 23:59 활성 세션 종료
 async function closeActiveVoteSessionsAtSunday2359() {
   try {
@@ -1522,6 +1601,19 @@ cron.schedule('0 10,15 * * *', async () => {
 });
 
 console.log('✅ 자동 경기 알림 스케줄러 설정 완료 (10:00, 15:00 KST)');
+
+// 투표 리마인드 자동 알림 (30분 간격): 마감 24시간 전 / 3시간 전
+cron.schedule('*/30 * * * *', async () => {
+  try {
+    await sendAutoVoteReminderEmails();
+  } catch (error) {
+    console.error('❌ 자동 투표 리마인드 발송 오류:', error);
+  }
+}, {
+  timezone: 'Asia/Seoul'
+});
+
+console.log('✅ 자동 투표 리마인드 스케줄러 설정 완료 (30분 간격)');
 
 // 일회성 실행 코드 제거 - 월요일 00:01 cron 스케줄러만 사용
 

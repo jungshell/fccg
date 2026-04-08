@@ -31,6 +31,37 @@ export interface StatsSummary {
   activeVotePeriod?: string;
 }
 
+export interface VoteQuickActions {
+  enabled: boolean;
+  lastSelectedDays: string[];
+  recommendedDays: string[];
+  currentSessionSelectedDays: string[];
+}
+
+export interface ParticipationKpiSummary {
+  activeSessionId: number | null;
+  eligibleMembers: number;
+  participants: number;
+  nonParticipants: number;
+  participationRate: number;
+  rateDelta: number;
+}
+
+export interface ParticipationKpiResponse {
+  enabled: boolean;
+  summary?: ParticipationKpiSummary;
+  trend?: Array<{
+    sessionId: number;
+    weekStartDate: string;
+    participants: number;
+    eligible: number;
+    participationRate: number;
+    isActive: boolean;
+    isCompleted: boolean;
+  }>;
+  nonParticipantMembers?: Array<{ id: number; name: string }>;
+}
+
 // ===== 토큰 유틸 =====
 export const getValidToken = (): string | null => {
   const s = typeof window !== 'undefined' ? window.sessionStorage.getItem('token') : null;
@@ -178,6 +209,9 @@ export const cleanupDuplicateSessions = () =>
   request('/cleanup-duplicate-sessions', { method: 'POST' });
 
 export const startWeeklyVote = () => request('/start-weekly-vote', { method: 'POST' });
+export const getVoteQuickActions = () => request<VoteQuickActions>('/votes/quick-actions');
+export const getParticipationKpi = () => request<ParticipationKpiResponse>('/admin/participation-kpi');
+export const getFeatureFlags = () => request<{ features: Record<string, boolean> }>('/feature-flags');
 
 // 사용자 투표 삭제 (재투표용)
 export const deleteVote = (userId: number) =>

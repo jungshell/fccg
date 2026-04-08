@@ -55,6 +55,12 @@ const handleError = (error: any, res: any, operation: string) => {
 
 const router = express.Router();
 
+const featureFlags = {
+  voteReminderAutomation: (process.env.FEATURE_VOTE_REMINDER_AUTOMATION ?? 'true') === 'true',
+  quickVoteActions: (process.env.FEATURE_QUICK_VOTE_ACTIONS ?? 'true') === 'true',
+  participationKpiDashboard: (process.env.FEATURE_PARTICIPATION_KPI_DASHBOARD ?? 'true') === 'true',
+};
+
 // Cloudinary 설정
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -515,6 +521,164 @@ router.post('/votes', async (req, res) => {
   } catch (error: any) {
     console.error('투표 생성 오류:', error);
     handleError(error, res, '투표 생성');
+  }
+});
+
+router.get('/feature-flags', (req, res) => {
+  res.json({ features: featureFlags });
+});
+
+router.get('/votes/quick-actions', authenticateToken, async (req, res) => {
+  try {
+    if (!featureFlags.quickVoteActions) {
+      return res.json({
+        enabled: false,
+        lastSelectedDays: [],
+        recommendedDays: [],
+        currentSessionSelectedDays: []
+      });
+    }
+
+    const userId = (req as any).user?.userId;
+    if (!userId) {
+      return res.status(401).json({ error: '인증이 필요합니다.' });
+    }
+
+    const recentVotes = await prisma.vote.findMany({
+      where: { userId },
+      include: {
+        voteSession: {
+          select: { id: true, weekStartDate: true, isActive: true, isCompleted: true }
+        }
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 12
+    });
+
+    const activeSession = await prisma.voteSession.findFirst({
+      where: { isActive: true, isCompleted: false },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    const currentSessionVote = activeSession
+      ? recentVotes.find((v) => v.voteSessionId === activeSession.id)
+      : null;
+
+    const currentSessionSelectedDays = currentSessionVote
+      ? parseVoteDays(currentSessionVote.selectedDays)
+      : [];
+
+    const latestPastVote = recentVotes.find((v) => {
+      if (!activeSession) return true;
+      return v.voteSessionId !== activeSession.id;
+    });
+    const lastSelectedDays = latestPastVote ? parseVoteDays(latestPastVote.selectedDays) : [];
+
+    const voteFrequency = new Map<string, number>();
+    recentVotes.forEach((vote) => {
+      const days = parseVoteDays(vote.selectedDays).filter((d) => d !== '불참');
+      days.forEach((day) => {
+        voteFrequency.set(day, (voteFrequency.get(day) || 0) + 1);
+      });
+    });
+
+    const recommendedDays = Array.from(voteFrequency.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([day]) => day);
+
+    res.json({
+      enabled: true,
+      lastSelectedDays,
+      recommendedDays,
+      currentSessionSelectedDays
+    });
+  } catch (error) {
+    console.error('원클릭 투표 데이터 조회 오류:', error);
+    res.status(500).json({ error: '원클릭 투표 데이터를 조회할 수 없습니다.' });
+  }
+});
+
+router.get('/admin/participation-kpi', authenticateToken, async (req, res) => {
+  try {
+    if (!featureFlags.participationKpiDashboard) {
+      return res.json({ enabled: false });
+    }
+
+    const userId = (req as any).user?.userId;
+    if (!userId) {
+      return res.status(401).json({ error: '인증이 필요합니다.' });
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+    if (!user || (user.role !== 'ADMIN' && user.role !== 'SUPER_ADMIN')) {
+      return res.status(403).json({ error: '관리자 권한이 필요합니다.' });
+    }
+
+    const eligibleMembers = await prisma.user.findMany({
+      where: {
+        role: { in: ['MEMBER', 'ADMIN', 'SUPER_ADMIN'] },
+        status: { in: ['ACTIVE', 'SUSPENDED'] }
+      },
+      select: { id: true, name: true }
+    });
+    const eligibleMemberIds = new Set(eligibleMembers.map((m) => m.id));
+
+    const activeSession = await prisma.voteSession.findFirst({
+      where: { isActive: true, isCompleted: false },
+      include: { votes: { select: { userId: true } } },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    const recentSessions = await prisma.voteSession.findMany({
+      include: { votes: { select: { userId: true } } },
+      orderBy: { weekStartDate: 'desc' },
+      take: 8
+    });
+
+    const trend = recentSessions.map((session) => {
+      const uniqueParticipantIds = new Set(
+        session.votes.map((v) => v.userId).filter((id) => eligibleMemberIds.has(id))
+      );
+      const eligible = eligibleMembers.length;
+      const participants = uniqueParticipantIds.size;
+      return {
+        sessionId: session.id,
+        weekStartDate: session.weekStartDate,
+        participants,
+        eligible,
+        participationRate: eligible > 0 ? Math.round((participants / eligible) * 100) : 0,
+        isActive: session.isActive,
+        isCompleted: session.isCompleted
+      };
+    }).reverse();
+
+    const currentParticipants = new Set<number>(
+      (activeSession?.votes || []).map((v) => v.userId).filter((id) => eligibleMemberIds.has(id))
+    );
+    const nonParticipants = eligibleMembers.filter((m) => !currentParticipants.has(m.id));
+
+    const latestRate = trend.length > 0 ? trend[trend.length - 1].participationRate : 0;
+    const previousRate = trend.length > 1 ? trend[trend.length - 2].participationRate : latestRate;
+
+    res.json({
+      enabled: true,
+      summary: {
+        activeSessionId: activeSession?.id || null,
+        eligibleMembers: eligibleMembers.length,
+        participants: currentParticipants.size,
+        nonParticipants: nonParticipants.length,
+        participationRate: eligibleMembers.length > 0
+          ? Math.round((currentParticipants.size / eligibleMembers.length) * 100)
+          : 0,
+        rateDelta: latestRate - previousRate
+      },
+      trend,
+      nonParticipantMembers: nonParticipants.slice(0, 20)
+    });
+  } catch (error) {
+    console.error('참여율 KPI 조회 오류:', error);
+    res.status(500).json({ error: '참여율 KPI를 조회할 수 없습니다.' });
   }
 });
 
