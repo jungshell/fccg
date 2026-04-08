@@ -2635,8 +2635,16 @@ router.get('/unified-vote-data', async (req, res) => {
     // 활성 세션 조회 (안전한 조회)
     let activeSession = await getActiveSession(true);
     if (!activeSession) {
-      // 활성 세션이 없으면 즉시 다음주 세션을 확보해 투표 불가 상태를 방지
-      await createNextWeekSession();
+      // 활성 세션이 없으면 즉시 다음주 세션 확보를 시도하되,
+      // 동시 요청으로 인한 중복 생성(P2002) 오류는 무시하고 재조회한다.
+      try {
+        await createNextWeekSession();
+      } catch (createErr: any) {
+        if (createErr?.code !== 'P2002') {
+          throw createErr;
+        }
+        console.warn('ℹ️ unified-vote-data: 동시 생성으로 인한 중복 세션 감지, 재조회 진행');
+      }
       activeSession = await getActiveSession(true);
     }
     
