@@ -312,6 +312,10 @@ export default function AdminPageNew() {
   }>({});
   const [participationKpi, setParticipationKpi] = useState<{
     enabled: boolean;
+    /** 서버에서 KPI 기능을 끈 경우(true). API 오류와 구분 */
+    disabledByServerFlag?: boolean;
+    /** KPI API 호출 실패(네트워크·401·403·500 등). 비활성화와 다른 경우 */
+    loadError?: boolean;
     summary?: {
       eligibleMembers: number;
       participants: number;
@@ -697,17 +701,32 @@ export default function AdminPageNew() {
       try {
         const flags = await getFeatureFlags().catch(() => ({ features: {} as Record<string, boolean> }));
         if (flags?.features?.participationKpiDashboard === false) {
-          setParticipationKpi({ enabled: false });
+          setParticipationKpi({ enabled: false, disabledByServerFlag: true, loadError: false });
         } else {
           const kpi = await getParticipationKpi();
-          setParticipationKpi({
-            enabled: kpi?.enabled !== false,
-            summary: kpi?.summary,
-            nonParticipantMembers: kpi?.nonParticipantMembers
-          });
+          if (kpi?.enabled === false) {
+            setParticipationKpi({
+              enabled: false,
+              disabledByServerFlag: true,
+              loadError: false
+            });
+          } else {
+            setParticipationKpi({
+              enabled: true,
+              disabledByServerFlag: false,
+              loadError: false,
+              summary: kpi?.summary,
+              nonParticipantMembers: kpi?.nonParticipantMembers
+            });
+          }
         }
       } catch (error) {
         console.error('참여율 KPI 데이터 로드 실패:', error);
+        setParticipationKpi({
+          enabled: true,
+          disabledByServerFlag: false,
+          loadError: true
+        });
       }
       
     } catch (error) {
@@ -3452,7 +3471,17 @@ export default function AdminPageNew() {
                       <CardBody pt={1.5} pb={2} px={6}>
                         <VStack align="stretch" spacing={-2}>
                           <Text fontSize="lg" fontWeight="bold" color="#004ea8">📈 투표 참여율 KPI</Text>
-                          {participationKpi.enabled !== false && participationKpi.summary ? (
+                          {participationKpi.loadError ? (
+                            <Text color="orange.700" fontSize="sm" pl={4} mt={2} lineHeight={1.4}>
+                              KPI 데이터를 불러오지 못했습니다. 로그인이 만료됐거나 관리자 권한이 없을 수 있습니다. 페이지를 새로고침하거나 다시 로그인해 보세요.
+                            </Text>
+                          ) : participationKpi.disabledByServerFlag || participationKpi.enabled === false ? (
+                            <Text color="gray.600" fontSize="sm" pl={4} mt={2} lineHeight={1.4}>
+                              서버에서 KPI 대시보드가 꺼져 있습니다. 배포 환경 변수{' '}
+                              <Text as="span" fontFamily="mono" fontSize="xs">FEATURE_PARTICIPATION_KPI_DASHBOARD</Text>를{' '}
+                              <Text as="span" fontWeight="semibold">true</Text>로 두면 표시됩니다.
+                            </Text>
+                          ) : participationKpi.summary ? (
                             <>
                               {renderStatRows([
                                 { label: '참여율', value: `${participationKpi.summary.participationRate}%`, valueColor: '#2b6cb0' },
@@ -3468,7 +3497,7 @@ export default function AdminPageNew() {
                             </>
                           ) : (
                             <Text color="gray.600" fontSize="sm" pl={4} mt={2} lineHeight={1.2}>
-                              KPI 대시보드 기능이 비활성화되어 있습니다.
+                              KPI 데이터를 준비하는 중입니다.
                             </Text>
                           )}
                         </VStack>
