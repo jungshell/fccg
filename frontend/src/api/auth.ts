@@ -31,13 +31,6 @@ export interface StatsSummary {
   activeVotePeriod?: string;
 }
 
-export interface VoteQuickActions {
-  enabled: boolean;
-  lastSelectedDays: string[];
-  recommendedDays: string[];
-  currentSessionSelectedDays: string[];
-}
-
 export interface ParticipationKpiSummary {
   activeSessionId: number | null;
   eligibleMembers: number;
@@ -209,7 +202,6 @@ export const cleanupDuplicateSessions = () =>
   request('/cleanup-duplicate-sessions', { method: 'POST' });
 
 export const startWeeklyVote = () => request('/start-weekly-vote', { method: 'POST' });
-export const getVoteQuickActions = () => request<VoteQuickActions>('/votes/quick-actions');
 export const getParticipationKpi = () => request<ParticipationKpiResponse>('/admin/participation-kpi');
 export const getFeatureFlags = () => request<{ features: Record<string, boolean> }>('/feature-flags');
 
