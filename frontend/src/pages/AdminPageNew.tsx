@@ -2124,12 +2124,13 @@ export default function AdminPageNew() {
       }
     }
     
-    // 매주 목요일 10시: 투표하지 않은 회원에게 투표 독려
+    // 매주 목요일 10시: 알림 대상 설정에 따라 투표 안내 메일
     if (currentDay === 4 && currentHour === 10) {
       const voteDeadline = getVoteDeadline();
-      const nonVoters = getNonVoters();
-      
-      if (nonVoters.length > 0) {
+      const audience = getVoteReminderAudience();
+      const recipientMembers = getVoteReminderRecipientMembers(audience);
+
+      if (recipientMembers.length > 0) {
         const existingNotification = notifications.find(n => 
           n.type === 'VOTE_REMINDER' && 
           n.metadata?.reminderTime === `${currentDay}-${currentHour}` &&
@@ -2139,14 +2140,15 @@ export default function AdminPageNew() {
         if (!existingNotification) {
           sendNotification({
             type: 'VOTE_REMINDER',
-            title: '🗳️ 투표 독려 알림',
-            message: createVoteReminderEmail(voteDeadline, nonVoters),
-            recipients: nonVoters.map(user => user.id),
+            title: audience === 'all' ? '🗳️ 다음주 일정 투표 안내' : '🗳️ 투표 독려 알림',
+            message: createVoteReminderEmail(voteDeadline, recipientMembers, audience),
+            recipients: recipientMembers.map((user) => user.id),
             deliveryMethods: ['email'],
             metadata: {
               reminderTime: `${currentDay}-${currentHour}`,
               weekStart: getWeekStart(now).toDateString(),
-              nonVoterCount: nonVoters.length
+              audience,
+              recipientCount: recipientMembers.length
             }
           });
         }
@@ -2188,6 +2190,18 @@ export default function AdminPageNew() {
     return allMembers.filter((member: any) => 
       member.status === 'ACTIVE' && !votedUserIds.has(member.id)
     );
+  };
+
+  /** 알림관리 > 투표 알림 > 알림 대상 (전체 회원 / 투표 미참여 회원) */
+  const getVoteReminderAudience = (): 'all' | 'nonVoters' =>
+    notificationSettings.voteReminder.targets?.[0] === 'nonVoters' ? 'nonVoters' : 'all';
+
+  const getVoteReminderRecipientMembers = (audience: 'all' | 'nonVoters'): ExtendedMember[] => {
+    if (audience === 'all') {
+      return userList.filter((u) => u.status === 'ACTIVE');
+    }
+    const nonVoterIds = new Set(getNonVoters().map((m: any) => Number(m.id)));
+    return userList.filter((u) => u.status === 'ACTIVE' && nonVoterIds.has(Number(u.id)));
   };
 
   // 주의 시작일 (월요일) 가져오기
@@ -2338,8 +2352,12 @@ export default function AdminPageNew() {
     `;
   };
 
-    // 투표 독려 이메일 생성 함수
-  const createVoteReminderEmail = (voteDeadline: any, nonVoters: any[]) => {
+    // 투표 안내·독려 이메일 (audience: 전체 활성 회원 / 미투표자만)
+  const createVoteReminderEmail = (
+    voteDeadline: any,
+    recipientMembers: any[],
+    audience: 'all' | 'nonVoters' = 'nonVoters'
+  ) => {
     const now = new Date();
     const deadline = new Date(voteDeadline.deadline);
     
@@ -2370,13 +2388,13 @@ export default function AdminPageNew() {
               <span style="font-size: 60px;">🗳️</span>
             </div>
             <div style="font-size: 18px; font-weight: bold; color: #ffd700;">
-              투표 독려!
+              ${audience === 'all' ? '투표 안내' : '투표 독려!'}
             </div>
           </div>
         </div>
         
         <div style="background: rgba(255, 255, 255, 0.1); padding: 30px; border-radius: 10px; margin-bottom: 30px;">
-          <h2 style="margin: 0 0 20px 0; font-size: 24px; text-align: center;">🗳️ 투표 독려 알림</h2>
+          <h2 style="margin: 0 0 20px 0; font-size: 24px; text-align: center;">${audience === 'all' ? '🗳️ 다음주 일정 투표 안내' : '🗳️ 투표 독려 알림'}</h2>
           
           <div style="background: rgba(255, 255, 255, 0.2); padding: 20px; border-radius: 8px; margin-bottom: 20px;">
             <h3 style="margin: 0 0 15px 0; font-size: 20px; text-align: center;">투표 마감까지 남은 시간</h3>
@@ -2480,13 +2498,20 @@ export default function AdminPageNew() {
           </div>
           
           <p style="margin: 0; font-size: 18px; line-height: 1.6; text-align: center;">
-            아직 투표하지 않으셨습니다!<br>
-            빠른 시일 내에 투표해주세요.
+            ${
+              audience === 'all'
+                ? '다음주 일정 투표가 진행 중입니다.<br>아직이시면 가능한 날에 투표해 주시고, 이미 투표하신 분도 일정이 바뀌면 재투표할 수 있습니다.'
+                : '아직 투표하지 않으셨습니다!<br>빠른 시일 내에 투표해주세요.'
+            }
           </p>
           
           <div style="text-align: center; margin-top: 20px;">
             <div style="display: inline-block; background: rgba(255, 255, 255, 0.3); padding: 15px 25px; border-radius: 25px;">
-              <span style="font-size: 16px; font-weight: bold;">투표하지 않은 회원: ${nonVoters.length}명</span>
+              <span style="font-size: 16px; font-weight: bold;">${
+                audience === 'all'
+                  ? `발송 대상(활성 회원): ${recipientMembers.length}명`
+                  : `투표하지 않은 회원: ${recipientMembers.length}명`
+              }</span>
             </div>
           </div>
         </div>
@@ -2679,32 +2704,48 @@ export default function AdminPageNew() {
 
   const sendVoteReminder = () => {
     const voteDeadline = getVoteDeadline();
-    
-    // 투표하지 않은 회원 목록 가져오기 (getNonVoters 함수 사용)
-    const nonVoters = getNonVoters();
-    
-    // 투표 독려 이메일 생성 (카운트다운 포함)
-    const emailMessage = createVoteReminderEmail(voteDeadline, nonVoters);
-    
+    const audience = getVoteReminderAudience();
+    const recipientMembers = getVoteReminderRecipientMembers(audience);
+
+    if (recipientMembers.length === 0) {
+      toast({
+        title: '발송 대상 없음',
+        description:
+          audience === 'all'
+            ? '활성 회원이 없습니다.'
+            : '미투표 회원이 없거나 투표 세션 정보를 불러오지 못했습니다.',
+        status: 'warning',
+        duration: 4000,
+        isClosable: true
+      });
+      return;
+    }
+
+    const emailMessage = createVoteReminderEmail(voteDeadline, recipientMembers, audience);
+
     sendNotification({
       type: 'VOTE_REMINDER',
-      title: '🗳️ 투표 독려 알림',
+      title: audience === 'all' ? '🗳️ 다음주 일정 투표 안내' : '🗳️ 투표 독려 알림',
       message: emailMessage,
-      recipients: nonVoters.map(user => user.id), // 투표하지 않은 회원에게만 발송
+      recipients: recipientMembers.map((user) => user.id),
       deliveryMethods: ['email'],
-      metadata: { 
+      metadata: {
         deadline: voteDeadline.deadline.toISOString(),
         isManual: true,
-        nonVoterCount: nonVoters.length
+        audience,
+        recipientCount: recipientMembers.length
       }
     });
 
     toast({
-      title: '투표 독려 알림 발송',
-      description: `투표하지 않은 ${nonVoters.length}명의 회원에게 투표 독려 알림이 발송되었습니다.`,
+      title: '투표 알림 발송',
+      description:
+        audience === 'all'
+          ? `활성 회원 ${recipientMembers.length}명에게 투표 안내 알림을 발송했습니다.`
+          : `투표하지 않은 ${recipientMembers.length}명에게 투표 독려 알림을 발송했습니다.`,
       status: 'success',
       duration: 3000,
-      isClosable: true,
+      isClosable: true
     });
   };
 
@@ -4682,6 +4723,13 @@ export default function AdminPageNew() {
           <ModalHeader>투표 알림 프리뷰</ModalHeader>
           <ModalCloseButton />
           <ModalBody>
+            <Text fontSize="sm" color="gray.600" mb={3}>
+              실제 발송 시 알림 대상:{' '}
+              <Text as="span" fontWeight="semibold" color="gray.800">
+                {getVoteReminderAudience() === 'all' ? '전체 활성 회원' : '투표 미참여 회원'}
+              </Text>
+              {' '}(위에서 선택한 값과 동일하게 적용됩니다.)
+            </Text>
             <Box 
               p={4} 
               border="1px solid" 
