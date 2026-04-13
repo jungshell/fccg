@@ -234,7 +234,8 @@ class CSRFProtection {
 // 세션 관리
 class SessionManager {
   private static instance: SessionManager;
-  private sessionTimeout: number = 30 * 60 * 1000; // 30분
+  /** 브라우저 활동 세션 경고용(JWT와 무관). 너무 짧으면 만료로 오해해 8시간으로 완화 */
+  private sessionTimeout: number = 8 * 60 * 60 * 1000;
   private lastActivity: number = Date.now();
 
   private constructor() {

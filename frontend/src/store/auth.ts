@@ -35,8 +35,11 @@ interface AuthState {
   setToken: (token: string | null) => void;
   logout: () => void;
   refreshUserData: () => Promise<void>;
+  refreshAccessToken: () => Promise<boolean>;
   reloadTokenFromStorage: () => void;
 }
+
+let refreshAccessTokenInFlight: Promise<boolean> | null = null;
 
 function loadAuthFromStorage() {
   // Safety check for SSR environments
@@ -172,5 +175,41 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       console.error('❌ 사용자 데이터 새로고침 실패:', error);
       throw error; // 에러를 다시 던져서 호출자가 처리할 수 있도록 함
     }
+  },
+  refreshAccessToken: async () => {
+    if (refreshAccessTokenInFlight) return refreshAccessTokenInFlight;
+    refreshAccessTokenInFlight = (async () => {
+      try {
+        const token =
+          get().token ||
+          (typeof window !== 'undefined'
+            ? localStorage.getItem('token') ||
+              localStorage.getItem('auth_token_backup') ||
+              sessionStorage.getItem('token')
+            : null);
+        if (!token) return false;
+        const { getApiUrl } = await import('../config/api');
+        const url = await getApiUrl('/refresh-token');
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        if (!res.ok) return false;
+        const data = await res.json();
+        if (!data?.token) return false;
+        get().setToken(data.token);
+        if (data.user) get().setUser(data.user);
+        return true;
+      } catch (e) {
+        console.warn('refreshAccessToken 실패:', e);
+        return false;
+      } finally {
+        refreshAccessTokenInFlight = null;
+      }
+    })();
+    return refreshAccessTokenInFlight;
   },
 })); 

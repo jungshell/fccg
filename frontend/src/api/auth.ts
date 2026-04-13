@@ -57,17 +57,27 @@ export interface ParticipationKpiResponse {
 
 // ===== 토큰 유틸 =====
 export const getValidToken = (): string | null => {
-  const s = typeof window !== 'undefined' ? window.sessionStorage.getItem('token') : null;
-  const l = typeof window !== 'undefined' ? window.localStorage.getItem('token') : null;
-  return s || l;
+  if (typeof window === 'undefined') return null;
+  return (
+    window.localStorage.getItem('token') ||
+    window.localStorage.getItem('auth_token_backup') ||
+    window.sessionStorage.getItem('token')
+  );
 };
+
+type RequestInitWithAuthRetry = RequestInit & { _authRetry?: boolean };
+
+function isPublicAuthPath(path: string): boolean {
+  const p = path.split('?')[0];
+  return p === '/login' || p === '/register' || p === '/refresh-token';
+}
 
 const authHeaders = () => {
   const token = getValidToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
 };
 
-const request = async <T = any>(path: string, init: RequestInit = {}): Promise<T> => {
+const request = async <T = any>(path: string, init: RequestInitWithAuthRetry = {}): Promise<T> => {
   const url = await getApiUrl(path);
   
   // 타임아웃 설정 (30초)
@@ -82,6 +92,19 @@ const request = async <T = any>(path: string, init: RequestInit = {}): Promise<T
     });
     
     clearTimeout(timeoutId);
+
+    if (
+      res.status === 401 &&
+      getValidToken() &&
+      !isPublicAuthPath(path) &&
+      !init._authRetry
+    ) {
+      const { useAuthStore } = await import('../store/auth');
+      const refreshed = await useAuthStore.getState().refreshAccessToken();
+      if (refreshed) {
+        return request(path, { ...init, _authRetry: true });
+      }
+    }
     
     if (!res.ok) {
       const errorText = await res.text();

@@ -27,6 +27,7 @@ import {
   NumberInputStepper,
   NumberIncrementStepper,
   NumberDecrementStepper,
+  Input,
   Badge,
   Modal,
   ModalOverlay,
@@ -463,6 +464,8 @@ export default function AdminPageNew() {
   // 알림 시스템 상태
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isNotificationSystemActive, setIsNotificationSystemActive] = useState(false);
+  const [sampleMailTo, setSampleMailTo] = useState('sti60val@gmail.com');
+  const [sendingSampleMails, setSendingSampleMails] = useState(false);
 
 
   // 사용자 정보가 변경될 때마다 권한 업데이트
@@ -2050,6 +2053,9 @@ export default function AdminPageNew() {
   // 경기 전 알림 체크 함수
   const checkGameReminders = (now: Date) => {
     games.forEach(game => {
+      // 서버 자동 경기 알림(sendAutoGameReminderEmails)과 동일: 확정(confirmed) 경기만
+      if (game.confirmed !== true) return;
+
       const gameDate = new Date(game.date);
       const gameDay = gameDate.getDate();
       const gameMonth = gameDate.getMonth();
@@ -2690,6 +2696,65 @@ export default function AdminPageNew() {
       duration: 3000,
       isClosable: true,
     });
+  };
+
+  /** 경기·투표 알림 HTML 샘플을 지정 이메일로 각 1통 (관리자 API) */
+  const sendTemplateSampleMails = async () => {
+    const email = sampleMailTo.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toast({
+        title: '이메일 형식 오류',
+        description: '올바른 이메일 주소를 입력해주세요.',
+        status: 'warning',
+        duration: 4000,
+        isClosable: true
+      });
+      return;
+    }
+    setSendingSampleMails(true);
+    try {
+      const { getApiUrl } = await import('../config/api');
+      const url = await getApiUrl('/admin/send-mail-template-tests');
+      const token = localStorage.getItem('token') || localStorage.getItem('auth_token_backup');
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ toEmail: email })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast({
+          title: '발송 실패',
+          description: data.error || res.statusText,
+          status: 'error',
+          duration: 5000,
+          isClosable: true
+        });
+        return;
+      }
+      const gOk = data.game?.success;
+      const vOk = data.vote?.success;
+      toast({
+        title: '샘플 메일 발송 결과',
+        description: `경기: ${gOk ? '성공' : data.game?.reason || '실패'} · 투표: ${vOk ? '성공' : data.vote?.reason || '실패'} (${email})`,
+        status: gOk && vOk ? 'success' : 'warning',
+        duration: 7000,
+        isClosable: true
+      });
+    } catch (e: any) {
+      toast({
+        title: '오류',
+        description: e?.message || '요청에 실패했습니다.',
+        status: 'error',
+        duration: 5000,
+        isClosable: true
+      });
+    } finally {
+      setSendingSampleMails(false);
+    }
   };
 
   // 경기 알림 프리뷰 보기
@@ -3938,6 +4003,40 @@ export default function AdminPageNew() {
                           <Text fontSize="sm" color="gray.600">
                             {isNotificationSystemActive ? '자동 알림이 활성화되어 있습니다' : '자동 알림이 비활성화되어 있습니다'}
                           </Text>
+                        </HStack>
+                      </VStack>
+                    </CardBody>
+                  </Card>
+
+                  <Card w="100%">
+                    <CardBody py={3} px={4}>
+                      <VStack align="stretch" spacing={3}>
+                        <Text fontSize="md" fontWeight="bold" color="#004ea8">
+                          샘플 메일 테스트 (경기·투표 템플릿)
+                        </Text>
+                        <Text fontSize="sm" color="gray.600">
+                          서버에서 Gmail로 경기 알림·투표 안내 HTML 샘플을 각 1통 보냅니다. 운영 자동 발송과 동일하게 SMTP 설정(GMAIL_USER, GMAIL_APP_PASSWORD 또는 GMAIL_PASS)이 필요합니다.
+                        </Text>
+                        <HStack spacing={3} flexWrap="wrap">
+                          <Input
+                            type="email"
+                            maxW="320px"
+                            value={sampleMailTo}
+                            onChange={(e) => setSampleMailTo(e.target.value)}
+                            placeholder="수신 이메일"
+                            size="sm"
+                          />
+                          <Button
+                            size="sm"
+                            colorScheme="blue"
+                            bg="#004ea8"
+                            _hover={{ bg: '#003d7a' }}
+                            onClick={sendTemplateSampleMails}
+                            isLoading={sendingSampleMails}
+                            loadingText="발송 중"
+                          >
+                            샘플 2통 발송
+                          </Button>
                         </HStack>
                       </VStack>
                     </CardBody>

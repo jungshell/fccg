@@ -4,7 +4,7 @@ import { PrismaClient } from '@prisma/client';
 import { v2 as cloudinary } from 'cloudinary';
 import { authLimiter } from '../middlewares/security';
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
+import jwt, { type SignOptions } from 'jsonwebtoken';
 import { 
   getKoreaTime, 
   getThisWeekMonday, 
@@ -22,6 +22,28 @@ import {
 } from '../utils/voteSessionManager';
 
 const prisma = new PrismaClient();
+
+const JWT_SECRET = process.env.JWT_SECRET || 'fc-chalggyeo-secret';
+/** 액세스 토큰 만료. Render 등에 JWT_EXPIRES_IN 설정 가능 (예: 30d, 90d, 12h). */
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '30d';
+
+function signUserAccessToken(user: {
+  id: number;
+  email: string;
+  name?: string | null;
+  role: string;
+}): string {
+  return jwt.sign(
+    {
+      userId: user.id,
+      email: user.email,
+      ...(user.name != null && String(user.name).trim() !== '' ? { name: user.name } : {}),
+      role: user.role
+    },
+    JWT_SECRET,
+    { expiresIn: JWT_EXPIRES_IN } as SignOptions
+  );
+}
 
 // 공통 에러 핸들링 함수
 const handleError = (error: any, res: any, operation: string) => {
@@ -338,16 +360,12 @@ router.post('/login', authLimiter, async (req, res) => {
       console.warn('⚠️ 로그인 기록 업데이트 실패:', e);
     }
 
-    // JWT 토큰 생성 (간단한 예시)
-    const jwt = require('jsonwebtoken');
-    const token = jwt.sign(
-      { 
-        userId: user.id, 
-        email: user.email,
-        name: user.name 
-      },
-      process.env.JWT_SECRET || 'fc-chalggyeo-secret'
-    );
+    const token = signUserAccessToken({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role
+    });
 
     res.json({
       message: '로그인 성공',
@@ -381,17 +399,12 @@ router.post('/refresh-token', authenticateToken, async (req, res) => {
       });
     }
 
-    // 새 JWT 토큰 생성
-    const jwt = require('jsonwebtoken');
-    const newToken = jwt.sign(
-      { 
-        userId: user.id, 
-        email: user.email,
-        name: user.name,
-        role: user.role
-      },
-      process.env.JWT_SECRET || 'fc-chalggyeo-secret'
-    );
+    const newToken = signUserAccessToken({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role
+    });
 
     console.log('✅ 토큰 갱신 성공:', {
       userId: user.id,
@@ -1020,11 +1033,12 @@ router.post('/register', authLimiter, async (req, res) => {
       }
     });
 
-    // JWT 토큰 생성 (로그인과 동일하게)
-    const token = jwt.sign(
-      { userId: user.id, email: user.email, role: user.role },
-      process.env.JWT_SECRET || 'fc-chalggyeo-secret'
-    );
+    const token = signUserAccessToken({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role
+    });
 
     res.status(201).json({
       message: '회원가입 성공',
@@ -4585,11 +4599,76 @@ router.post('/send-test-notification', authenticateToken, async (req, res) => {
   }
 });
 
+/** 관리자: 경기·투표 알림 HTML 샘플을 지정 주소로 각 1통 발송 (실제 자동 발송 템플릿 미리보기용) */
+router.post('/admin/send-mail-template-tests', authenticateToken, async (req, res) => {
+  try {
+    const role = (req as any).user?.role;
+    if (role !== 'ADMIN' && role !== 'SUPER_ADMIN') {
+      return res.status(403).json({ error: '관리자만 사용할 수 있습니다.' });
+    }
+    const toEmail = String(req.body?.toEmail || '').trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(toEmail)) {
+      return res.status(400).json({ error: '유효한 toEmail이 필요합니다.' });
+    }
+
+    const sampleGameHtml = `
+      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); padding: 40px; border-radius: 15px; color: white;">
+        <div style="text-align: center; margin-bottom: 24px;">
+          <h1 style="margin: 0; font-size: 26px; font-weight: 300;">⚽ FC CHAL GGYEO</h1>
+          <p style="margin: 8px 0 0 0; opacity: 0.9; font-size: 14px;">[샘플] 오늘 경기 알림 — 실제 발송은 확정 경기만 대상</p>
+        </div>
+        <div style="background: rgba(255,255,255,0.12); padding: 24px; border-radius: 10px;">
+          <h2 style="margin: 0 0 16px 0; font-size: 22px; text-align: center;">⚽ 오늘 경기 알림</h2>
+          <p style="margin: 0; font-size: 16px; line-height: 1.6; text-align: center;">날짜·시간·장소는 서버 일정과 동일하게 채워집니다.<br>이 메일은 미리보기용입니다.</p>
+        </div>
+        <p style="text-align: center; font-size: 12px; opacity: 0.75; margin-top: 20px;">FC CHAL GGYEO 관리 시스템</p>
+      </div>`;
+
+    const sampleVoteHtml = `
+      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%); padding: 40px; border-radius: 15px; color: white;">
+        <div style="text-align: center; margin-bottom: 24px;">
+          <h1 style="margin: 0; font-size: 26px; font-weight: 300;">⚽ FC CHAL GGYEO</h1>
+          <p style="margin: 8px 0 0 0; opacity: 0.9; font-size: 14px;">[샘플] 투표 안내 — 실제 발송은 설정·대상에 따름</p>
+        </div>
+        <div style="background: rgba(255,255,255,0.12); padding: 24px; border-radius: 10px;">
+          <h2 style="margin: 0 0 16px 0; font-size: 22px; text-align: center;">🗳️ 투표 안내 (샘플)</h2>
+          <p style="margin: 0; font-size: 16px; line-height: 1.6; text-align: center;">마감 시간·대상 회원은 운영 데이터와 알림 설정을 반영합니다.<br>이 메일은 미리보기용입니다.</p>
+        </div>
+        <p style="text-align: center; font-size: 12px; opacity: 0.75; margin-top: 20px;">FC CHAL GGYEO 관리 시스템</p>
+      </div>`;
+
+    const recipient = [{ email: toEmail, name: '테스트' }];
+    const gameResult = await sendTestEmailNotification(
+      recipient,
+      '⚽ [샘플] 오늘 경기 알림',
+      sampleGameHtml,
+      true
+    );
+    const voteResult = await sendTestEmailNotification(
+      recipient,
+      '🗳️ [샘플] 투표 안내',
+      sampleVoteHtml,
+      true
+    );
+
+    res.json({
+      message: '샘플 메일 발송을 시도했습니다.',
+      toEmail,
+      game: gameResult,
+      vote: voteResult
+    });
+  } catch (error: any) {
+    console.error('샘플 템플릿 메일 오류:', error);
+    res.status(500).json({ error: '샘플 메일 발송 중 오류가 발생했습니다.' });
+  }
+});
+
 // 테스트 이메일 발송 함수
 async function sendTestEmailNotification(recipients, title, message, useRaw = false) {
   try {
+    const gmailPass = process.env.GMAIL_APP_PASSWORD || process.env.GMAIL_PASS;
     // Gmail 환경변수 확인
-    if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
+    if (!process.env.GMAIL_USER || !gmailPass) {
       console.log('⚠️ Gmail 환경변수가 설정되지 않음 - 이메일 발송 건너뜀');
       console.log('📧 테스트 알림 내용 (콘솔 출력):');
       console.log('='.repeat(50));
@@ -4607,7 +4686,7 @@ async function sendTestEmailNotification(recipients, title, message, useRaw = fa
       service: 'gmail',
       auth: {
         user: process.env.GMAIL_USER,
-        pass: process.env.GMAIL_APP_PASSWORD
+        pass: gmailPass
       }
     });
 
